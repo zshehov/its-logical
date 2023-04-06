@@ -46,61 +46,76 @@ impl eframe::App for ItsLogicalApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let Self { label, value } = self;
 
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
+        egui::SidePanel::left("terms_panel").show(ctx, |ui| {
+            ui.heading("Terms");
+            ui.separator();
 
-        #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        _frame.close();
-                    }
-                });
-            });
+            let scroll_area = egui::ScrollArea::vertical().auto_shrink([false; 2]);
+            scroll_area.show(ui, |ui| {
+                // TODO: Add actual terms from the DB
+                for item in 1..=50 {
+                    ui.label(format!("this is item: {}", item));
+                }
+            })
         });
-
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
-
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(label);
-            });
-
-            ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                *value += 1.0;
-            }
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.label("powered by ");
-                    ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                    ui.label(" and ");
-                    ui.hyperlink_to(
-                        "eframe",
-                        "https://github.com/emilk/egui/tree/master/crates/eframe",
-                    );
-                    ui.label(".");
-                });
-            });
-        });
-
         egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
+            ui.heading("Mother");
+            ui.separator();
 
-            ui.heading("It's Logical");
-            ui.hyperlink("https://github.com/emilk/eframe_template");
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
-            egui::warn_if_debug_build(ui);
+            egui::ScrollArea::vertical()
+                .id_source("description_scroll_area")
+                .show(ui, |ui| {
+                    ui.with_layout(
+                        egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+                        |ui| {
+                            ui.label(
+                                egui::RichText::new("A mother is a parent that is female")
+                                    .italics()
+                                    .small(),
+                            )
+                        },
+                    )
+                });
+            ui.separator();
+            // Rules:
+            egui::ScrollArea::vertical()
+                .id_source("rules_scroll_area")
+                .show(ui, |ui| {
+                    ui.with_layout(
+                        egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+                        |ui| {
+                            ui.label("mother(X,Y) if parent(X,Y) and female(X)");
+                            ui.label("mother(_,_) if _________________________ +");
+                        },
+                    )
+                });
+            ui.separator();
+            // Facts:
+            egui::ScrollArea::vertical()
+                .id_source("facts_scroll_area")
+                .show(ui, |ui| {
+                    ui.with_layout(
+                        egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+                        |ui| {
+                            ui.label("mother(amy,steve)");
+                            ui.label("mother(kunka,mitko)");
+                            ui.label("mother(_,_) +");
+                        },
+                    )
+                });
+            ui.separator();
+            // Reffered by:
+            egui::ScrollArea::vertical()
+                .id_source("referred_by_scroll_area")
+                .show(ui, |ui| {
+                    ui.with_layout(
+                        egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+                        |ui| {
+                            ui.label("Referred by:");
+                            ui.label("grandmother");
+                        },
+                    )
+                });
         });
 
         if false {
