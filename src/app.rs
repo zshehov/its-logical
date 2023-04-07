@@ -6,7 +6,7 @@ pub struct ItsLogicalApp {
 }
 
 struct Term {
-    name: String
+    name: String,
 }
 
 struct AskTab {}
@@ -41,9 +41,7 @@ impl Tab for TermTab {
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
                         ui.label(
-                            egui::RichText::new("A mother is a parent that is female")
-                                .italics()
-                                .small(),
+                            egui::RichText::new("A mother is a parent that is female").italics(),
                         )
                     },
                 )
@@ -57,7 +55,16 @@ impl Tab for TermTab {
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
                         ui.label("mother(X,Y) if parent(X,Y) and female(X)");
-                        ui.label("mother(_,_) if _________________________ +");
+                        let mut first_param = String::new();
+                        let mut second_param = String::new();
+                        ui.horizontal(|ui| {
+                            create_rule_placeholder(
+                                ui,
+                                "mother",
+                                &mut [&mut first_param, &mut second_param],
+                            );
+                            ui.small_button("+");
+                        });
                     },
                 )
             });
@@ -71,7 +78,16 @@ impl Tab for TermTab {
                     |ui| {
                         ui.label("mother(amy,steve)");
                         ui.label("mother(kunka,mitko)");
-                        ui.label("mother(_,_) +");
+                        let mut first_param = String::new();
+                        let mut second_param = String::new();
+                        ui.horizontal(|ui| {
+                            create_placeholder(
+                                ui,
+                                "mother",
+                                &mut [&mut first_param, &mut second_param],
+                            );
+                            ui.small_button("+");
+                        });
                     },
                 )
             });
@@ -108,7 +124,14 @@ impl Default for ItsLogicalApp {
             ask_tab: AskTab {},
             term_tabs: vec![],
             current_tab: TabKind::Ask,
-            terms: vec![Term{name: "mother".to_owned()}, Term{name: "father".to_owned()}],
+            terms: vec![
+                Term {
+                    name: "mother".to_owned(),
+                },
+                Term {
+                    name: "father".to_owned(),
+                },
+            ],
         };
     }
 }
@@ -126,13 +149,6 @@ impl eframe::App for ItsLogicalApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self {
-            ask_tab,
-            term_tabs,
-            current_tab,
-            terms,
-        } = self;
-
         egui::SidePanel::left("terms_panel").show(ctx, |ui| {
             ui.heading("Terms");
             ui.separator();
@@ -141,7 +157,9 @@ impl eframe::App for ItsLogicalApp {
             scroll_area.show(ui, |ui| {
                 for term in &self.terms {
                     if ui.small_button(&term.name).clicked() {
-                        self.term_tabs.push(TermTab { name: term.name.to_owned() })
+                        self.term_tabs.push(TermTab {
+                            name: term.name.to_owned(),
+                        })
                     }
                 }
             })
@@ -165,9 +183,7 @@ impl eframe::App for ItsLogicalApp {
                 TabKind::Term(idx) => {
                     self.term_tabs.get(idx).unwrap().show(ui);
                 }
-                TabKind::Ask => {
-                    self.ask_tab.show(ui)
-                }
+                TabKind::Ask => self.ask_tab.show(ui),
             }
         });
 
@@ -180,4 +196,29 @@ impl eframe::App for ItsLogicalApp {
             });
         }
     }
+}
+
+// expects to be called in a horizontal layout
+fn create_placeholder(ui: &mut egui::Ui, term_name: &str, parameters: &mut [&mut String]) {
+    ui.label(egui::RichText::new(format!("{}(", term_name)).weak());
+
+    let mut added_once = false;
+    for param in parameters {
+        if added_once {
+            ui.label(egui::RichText::new(",").weak());
+        }
+        ui.add(egui::TextEdit::singleline(*param).hint_text("X"));
+        added_once = true
+    }
+    ui.label(egui::RichText::new(")").weak());
+}
+
+// expects to be called in a horizontal layout
+fn create_rule_placeholder(ui: &mut egui::Ui, term_name: &str, parameters: &mut [&mut String]) {
+    create_placeholder(ui, term_name, parameters);
+    ui.label(egui::RichText::new(" if ").weak());
+
+    // TODO: pass this from the outside
+    let mut rule_string = "";
+    ui.add(egui::TextEdit::singleline(&mut rule_string).hint_text("ruuuule"));
 }
