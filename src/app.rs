@@ -7,10 +7,22 @@ pub struct ItsLogicalApp {
 
 struct Term {
     name: String,
+    description: String,
+    arguments: Vec<String>,
+}
+
+impl Term {
+    fn new(name: &str, description: &str, arguments: &[&str]) -> Self {
+        Self {
+            name: name.to_owned(),
+            description: description.to_owned(),
+            arguments: arguments.iter().map(|&s| s.to_owned()).collect(),
+        }
+    }
 }
 
 struct AskTab {}
-impl Tab for AskTab {
+impl AskTab {
     fn name(&self) -> String {
         "Ask".to_owned()
     }
@@ -25,12 +37,12 @@ struct TermTab {
     name: String,
 }
 
-impl Tab for TermTab {
+impl TermTab {
     fn name(&self) -> String {
         self.name.clone()
     }
 
-    fn show(&self, ui: &mut egui::Ui) {
+    fn show(&self, ui: &mut egui::Ui, term: &Term) {
         ui.horizontal(|ui| {
             ui.heading(&self.name);
             ui.small_button("edit");
@@ -43,9 +55,7 @@ impl Tab for TermTab {
                 ui.with_layout(
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
-                        ui.label(
-                            egui::RichText::new("A mother is a parent that is female").italics(),
-                        );
+                        ui.label(egui::RichText::new(&term.description).italics());
                     },
                 );
                 ui.small_button("edit");
@@ -59,13 +69,13 @@ impl Tab for TermTab {
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
                         ui.label("mother(X,Y) if parent(X,Y) and female(X)");
-                        let mut first_param = String::new();
-                        let mut second_param = String::new();
                         ui.horizontal(|ui| {
+                            let mut first_param = String::new();
+                            let mut second_param = String::new();
                             create_rule_placeholder(
                                 ui,
-                                "mother",
-                                &mut [&mut first_param, &mut second_param],
+                                &self.name,
+                                &mut [&mut first_param, &mut second_param].into_iter(),
                             );
                             ui.small_button("+");
                         });
@@ -87,8 +97,8 @@ impl Tab for TermTab {
                         ui.horizontal(|ui| {
                             create_placeholder(
                                 ui,
-                                "mother",
-                                &mut [&mut first_param, &mut second_param],
+                                &self.name,
+                                &mut [&mut first_param, &mut second_param].into_iter(),
                             );
                             ui.small_button("+");
                         });
@@ -117,11 +127,6 @@ enum TabKind {
     Term(usize),
 }
 
-trait Tab {
-    fn name(&self) -> String;
-    fn show(&self, ui: &mut egui::Ui);
-}
-
 impl Default for ItsLogicalApp {
     fn default() -> Self {
         return Self {
@@ -129,12 +134,16 @@ impl Default for ItsLogicalApp {
             term_tabs: vec![],
             current_tab: TabKind::Ask,
             terms: vec![
-                Term {
-                    name: "mother".to_owned(),
-                },
-                Term {
-                    name: "father".to_owned(),
-                },
+                Term::new(
+                    "mother",
+                    "a mother is a parent that's female",
+                    &["MotherName", "ChildName"],
+                ),
+                Term::new(
+                    "father",
+                    "a father is a parent that's male",
+                    &["FatherName", "ChildName"],
+                ),
             ],
         };
     }
@@ -185,7 +194,10 @@ impl eframe::App for ItsLogicalApp {
 
             match self.current_tab {
                 TabKind::Term(idx) => {
-                    self.term_tabs.get(idx).unwrap().show(ui);
+                    self.term_tabs
+                        .get(idx)
+                        .unwrap()
+                        .show(ui, self.terms.get(idx).unwrap());
                 }
                 TabKind::Ask => self.ask_tab.show(ui),
             }
@@ -203,7 +215,11 @@ impl eframe::App for ItsLogicalApp {
 }
 
 // expects to be called in a horizontal layout
-fn create_placeholder(ui: &mut egui::Ui, term_name: &str, parameters: &mut [&mut String]) {
+fn create_placeholder<'a>(
+    ui: &mut egui::Ui,
+    term_name: &str,
+    parameters: impl Iterator<Item = &'a mut String>,
+) {
     ui.label(egui::RichText::new(format!("{}(", term_name)).weak());
 
     let mut added_once = false;
@@ -211,14 +227,18 @@ fn create_placeholder(ui: &mut egui::Ui, term_name: &str, parameters: &mut [&mut
         if added_once {
             ui.label(egui::RichText::new(",").weak());
         }
-        ui.add(egui::TextEdit::singleline(*param).hint_text("X"));
+        ui.add(egui::TextEdit::singleline(param).hint_text("X"));
         added_once = true
     }
     ui.label(egui::RichText::new(")").weak());
 }
 
 // expects to be called in a horizontal layout
-fn create_rule_placeholder(ui: &mut egui::Ui, term_name: &str, parameters: &mut [&mut String]) {
+fn create_rule_placeholder<'a>(
+    ui: &mut egui::Ui,
+    term_name: &str,
+    parameters: impl Iterator<Item = &'a mut String>,
+) {
     create_placeholder(ui, term_name, parameters);
     ui.label(egui::RichText::new(" if ").weak());
 
