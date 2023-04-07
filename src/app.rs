@@ -9,14 +9,25 @@ struct Term {
     name: String,
     description: String,
     arguments: Vec<String>,
+    // gives values to the arguments Vec
+    facts: Vec<Vec<Option<String>>>,
+    rules: Vec<(Vec<Option<String>>, String)>,
 }
 
 impl Term {
-    fn new(name: &str, description: &str, arguments: &[&str]) -> Self {
+    fn new(
+        name: &str,
+        description: &str,
+        arguments: &[&str],
+        facts: Vec<Vec<Option<String>>>,
+        rules: Vec<(Vec<Option<String>>, String)>,
+    ) -> Self {
         Self {
             name: name.to_owned(),
             description: description.to_owned(),
             arguments: arguments.iter().map(|&s| s.to_owned()).collect(),
+            facts,
+            rules,
         }
     }
 }
@@ -68,7 +79,15 @@ impl TermTab {
                 ui.with_layout(
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
-                        ui.label("mother(X,Y) if parent(X,Y) and female(X)");
+                        for (args, rule) in &term.rules {
+                            let arguments_string: String = args
+                                .iter()
+                                .flatten()
+                                .cloned()
+                                .collect::<Vec<String>>()
+                                .join(",");
+                            ui.label(format!("{}({}) if {}", &self.name, arguments_string, rule));
+                        }
                         ui.horizontal(|ui| {
                             let mut first_param = String::new();
                             let mut second_param = String::new();
@@ -90,8 +109,15 @@ impl TermTab {
                 ui.with_layout(
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
-                        ui.label("mother(amy,steve)");
-                        ui.label("mother(kunka,mitko)");
+                        for fact in &term.facts {
+                            let arguments_string: String = fact
+                                .iter()
+                                .flatten()
+                                .cloned()
+                                .collect::<Vec<String>>()
+                                .join(",");
+                            ui.label(format!("{}({})", &self.name, arguments_string));
+                        }
                         let mut first_param = String::new();
                         let mut second_param = String::new();
                         ui.horizontal(|ui| {
@@ -138,11 +164,27 @@ impl Default for ItsLogicalApp {
                     "mother",
                     "a mother is a parent that's female",
                     &["MotherName", "ChildName"],
+                    vec![
+                        vec![Some("Siika".to_owned()), Some("Mircho".to_owned())],
+                        vec![Some("Stefka".to_owned()), Some("Petko".to_owned())],
+                    ],
+                    vec![(
+                        vec![Some("X".to_owned()), Some("Y".to_owned())],
+                        "parent(X, Y) and female(X)".to_owned(),
+                    )],
                 ),
                 Term::new(
                     "father",
                     "a father is a parent that's male",
                     &["FatherName", "ChildName"],
+                    vec![
+                        vec![Some("Krustio".to_owned()), Some("Mircho".to_owned())],
+                        vec![Some("Stefcho".to_owned()), Some("Mitko".to_owned())],
+                    ],
+                    vec![(
+                        vec![Some("X".to_owned()), Some("Y".to_owned())],
+                        "parent(X, Y) and male(X)".to_owned(),
+                    )],
                 ),
             ],
         };
