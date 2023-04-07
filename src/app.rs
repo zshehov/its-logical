@@ -31,7 +31,10 @@ impl Tab for TermTab {
     }
 
     fn show(&self, ui: &mut egui::Ui) {
-        ui.heading(&self.name);
+        ui.horizontal(|ui| {
+            ui.heading(&self.name);
+            ui.small_button("edit");
+        });
         ui.separator();
 
         egui::ScrollArea::vertical()
@@ -42,9 +45,10 @@ impl Tab for TermTab {
                     |ui| {
                         ui.label(
                             egui::RichText::new("A mother is a parent that is female").italics(),
-                        )
+                        );
                     },
-                )
+                );
+                ui.small_button("edit");
             });
         ui.separator();
         // Rules:
