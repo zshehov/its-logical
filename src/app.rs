@@ -55,7 +55,7 @@ impl TermTab {
 
     fn show(&self, ui: &mut egui::Ui, term: &Term) {
         ui.horizontal(|ui| {
-            ui.heading(&self.name);
+            ui.heading(egui::RichText::new(&self.name).strong());
             ui.small_button("edit");
         });
         ui.separator();
@@ -80,6 +80,7 @@ impl TermTab {
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
                         for (args, rule) in &term.rules {
+                            // TODO: it might be worth to cache this string
                             let arguments_string: String = args
                                 .iter()
                                 .flatten()
@@ -89,12 +90,12 @@ impl TermTab {
                             ui.label(format!("{}({}) if {}", &self.name, arguments_string, rule));
                         }
                         ui.horizontal(|ui| {
-                            let mut first_param = String::new();
-                            let mut second_param = String::new();
+                            let mut params = vec![String::new(); term.arguments.len()];
+
                             create_rule_placeholder(
                                 ui,
                                 &self.name,
-                                &mut [&mut first_param, &mut second_param].into_iter(),
+                                params.iter_mut(),
                             );
                             ui.small_button("+");
                         });
@@ -110,6 +111,7 @@ impl TermTab {
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
                         for fact in &term.facts {
+                            // TODO: it might be worth to cache this string
                             let arguments_string: String = fact
                                 .iter()
                                 .flatten()
@@ -118,13 +120,12 @@ impl TermTab {
                                 .join(",");
                             ui.label(format!("{}({})", &self.name, arguments_string));
                         }
-                        let mut first_param = String::new();
-                        let mut second_param = String::new();
+                        let mut params = vec![String::new(); term.arguments.len()];
                         ui.horizontal(|ui| {
                             create_placeholder(
                                 ui,
                                 &self.name,
-                                &mut [&mut first_param, &mut second_param].into_iter(),
+                                params.iter_mut(),
                             );
                             ui.small_button("+");
                         });
@@ -186,6 +187,21 @@ impl Default for ItsLogicalApp {
                         "parent(X, Y) and male(X)".to_owned(),
                     )],
                 ),
+                Term::new(
+                    "male",
+                    "male is one of the 2 genders",
+                    &["PersonName"],
+                    vec![
+                        vec![Some("Krustio".to_owned())],
+                        vec![Some("Mircho".to_owned())],
+                        vec![Some("Stefcho".to_owned())],
+                        vec![Some("Mitko".to_owned())],
+                    ],
+                    vec![(
+                        vec![Some("PersonName".to_owned())],
+                        "chromosomes(PersonName, Chromosomes) and Chromosomes == [X,Y]".to_owned(),
+                    )],
+                ),
             ],
         };
     }
@@ -210,6 +226,7 @@ impl eframe::App for ItsLogicalApp {
 
             let scroll_area = egui::ScrollArea::vertical().auto_shrink([false; 2]);
             scroll_area.show(ui, |ui| {
+                ui.button(egui::RichText::new("Add term").underline().strong());
                 for term in &self.terms {
                     if ui.small_button(&term.name).clicked() {
                         self.term_tabs.push(TermTab {
