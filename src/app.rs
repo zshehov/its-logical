@@ -86,8 +86,8 @@ impl TermTab {
                                 .flatten()
                                 .cloned()
                                 .collect::<Vec<String>>()
-                                .join(",");
-                            ui.label(format!("{}({}) if {}", &self.name, arguments_string, rule));
+                                .join(", ");
+                            ui.label(format!("{} ( {} ) if {}", &self.name, arguments_string, rule));
                         }
                         ui.horizontal(|ui| {
                             let mut params = vec![String::new(); term.arguments.len()];
@@ -117,8 +117,8 @@ impl TermTab {
                                 .flatten()
                                 .cloned()
                                 .collect::<Vec<String>>()
-                                .join(",");
-                            ui.label(format!("{}({})", &self.name, arguments_string));
+                                .join(", ");
+                            ui.label(format!("{} ( {} )", &self.name, arguments_string));
                         }
                         let mut params = vec![String::new(); term.arguments.len()];
                         ui.horizontal(|ui| {
@@ -273,23 +273,25 @@ impl eframe::App for ItsLogicalApp {
     }
 }
 
+const SINGLE_WIDTH: f32 = 15.0;
+
 // expects to be called in a horizontal layout
 fn create_placeholder<'a>(
     ui: &mut egui::Ui,
     term_name: &str,
     parameters: impl Iterator<Item = &'a mut String>,
 ) {
-    ui.label(egui::RichText::new(format!("{}(", term_name)).weak());
+    ui.label(egui::RichText::new(format!("{} ( ", term_name)).weak());
 
     let mut added_once = false;
     for param in parameters {
         if added_once {
-            ui.label(egui::RichText::new(",").weak());
+            ui.label(egui::RichText::new(", ").weak());
         }
-        ui.add(egui::TextEdit::singleline(param).hint_text("X"));
+        ui.add(egui::TextEdit::singleline(param).desired_width(SINGLE_WIDTH).hint_text("X"));
         added_once = true
     }
-    ui.label(egui::RichText::new(")").weak());
+    ui.label(egui::RichText::new(" )").weak());
 }
 
 // expects to be called in a horizontal layout
@@ -303,5 +305,5 @@ fn create_rule_placeholder<'a>(
 
     // TODO: pass this from the outside
     let mut rule_string = "";
-    ui.add(egui::TextEdit::singleline(&mut rule_string).hint_text("ruuuule"));
+    ui.add(egui::TextEdit::singleline(&mut rule_string).desired_width(SINGLE_WIDTH).hint_text("ruuuule"));
 }
