@@ -7,7 +7,7 @@ pub(crate) struct Tab {
 #[derive(PartialEq,Clone)]
 pub enum TabKind {
     Ask,
-    Term(usize),
+    Term,
 }
 
 pub(crate) fn show(
