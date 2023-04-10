@@ -80,10 +80,10 @@ impl App {
                 })
             }
         });
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             widgets::tabs::show(ui, &mut self.current_tab, self.term_tabs.iter().cloned());
-            ui.separator();
-
+        });
+        egui::CentralPanel::default().show(ctx, |ui| {
             match self.current_tab.kind {
                 widgets::tabs::TabKind::Ask => widgets::ask::show(ui),
                 widgets::tabs::TabKind::Term(idx) => {
