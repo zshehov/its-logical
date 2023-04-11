@@ -10,6 +10,11 @@ pub enum TabKind {
     Term,
 }
 
+const ASK_TAB_NAME: &str = "Ask";
+pub(crate) fn ask_tab() -> Tab {
+    Tab { name: ASK_TAB_NAME.to_owned(), kind: TabKind::Ask }
+}
+
 pub(crate) fn show(
     ui: &mut egui::Ui,
     current_tab: &mut Tab,
@@ -18,11 +23,8 @@ pub(crate) fn show(
     ui.horizontal(|ui| {
         ui.selectable_value(
             current_tab,
-            Tab {
-                name: "Ask".to_owned(),
-                kind: TabKind::Ask,
-            },
-            egui::RichText::new("Ask").strong(),
+            ask_tab(),
+            egui::RichText::new(ASK_TAB_NAME).strong(),
         );
         ui.separator();
 

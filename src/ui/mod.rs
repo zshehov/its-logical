@@ -18,10 +18,7 @@ impl App {
     ) -> Self {
         Self {
             term_tabs: TermTabs::default(),
-            current_tab: widgets::tabs::Tab{
-                name: "Ask".to_owned(),
-                kind: widgets::tabs::TabKind::Ask,
-            },
+            current_tab: widgets::tabs::ask_tab(),
             terms,
         }
     }
