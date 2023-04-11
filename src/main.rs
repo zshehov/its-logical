@@ -12,7 +12,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "It's Logical",
         native_options,
-        Box::new(|cc| Box::new(ItsLogicalApp::new(cc))),
+        Box::new(|_| Box::new(ItsLogicalApp::new())),
     )
 }
 
@@ -32,7 +32,7 @@ fn main() {
         eframe::start_web(
             "the_canvas_id", // hardcode it
             web_options,
-            Box::new(|cc| Box::new(ItsLogicalApp::new(cc))),
+            Box::new(|_| Box::new(ItsLogicalApp::new())),
         )
         .await
         .expect("failed to start eframe");

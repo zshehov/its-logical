@@ -12,66 +12,20 @@ pub struct App {
     terms: HashMap<String, Term>,
 }
 
-impl Default for App {
-    fn default() -> Self {
-
+impl App {
+    pub fn new(
+        terms: HashMap<String, Term>,
+    ) -> Self {
         Self {
-            term_tabs: TermTabs {
-                tabs_vec: vec![],
-                tabs_set: HashSet::new(),
-            },
-            current_tab: widgets::tabs::Tab {
+            term_tabs: TermTabs::default(),
+            current_tab: widgets::tabs::Tab{
                 name: "Ask".to_owned(),
                 kind: widgets::tabs::TabKind::Ask,
             },
-            terms: HashMap::from([
-                (String::from("mother"), Term::new(
-                    "mother",
-                    "a mother is a parent that's female",
-                    &["MotherName", "ChildName"],
-                    vec![
-                        vec![Some("Siika".to_owned()), Some("Mircho".to_owned())],
-                        vec![Some("Stefka".to_owned()), Some("Petko".to_owned())],
-                    ],
-                    vec![(
-                        vec![Some("X".to_owned()), Some("Y".to_owned())],
-                        "parent(X, Y) and female(X)".to_owned(),
-                    )],
-                )),
-                (String::from("father"), Term::new(
-                    "father",
-                    "a father is a parent that's male",
-                    &["FatherName", "ChildName"],
-                    vec![
-                        vec![Some("Krustio".to_owned()), Some("Mircho".to_owned())],
-                        vec![Some("Stefcho".to_owned()), Some("Mitko".to_owned())],
-                    ],
-                    vec![(
-                        vec![Some("X".to_owned()), Some("Y".to_owned())],
-                        "parent(X, Y) and male(X)".to_owned(),
-                    )],
-                )),
-                (String::from("male"), Term::new(
-                    "male",
-                    "male is one of the 2 genders",
-                    &["PersonName"],
-                    vec![
-                        vec![Some("Krustio".to_owned())],
-                        vec![Some("Mircho".to_owned())],
-                        vec![Some("Stefcho".to_owned())],
-                        vec![Some("Mitko".to_owned())],
-                    ],
-                    vec![(
-                        vec![Some("PersonName".to_owned())],
-                        "chromosomes(PersonName, Chromosomes) and Chromosomes == [X,Y]".to_owned(),
-                    )],
-                )),
-            ]),
+            terms,
         }
     }
-}
 
-impl App {
     pub fn show(&mut self, ctx: &Context) {
         egui::SidePanel::left("terms_panel").show(ctx, |ui| {
             ui.heading("Terms");
@@ -106,6 +60,7 @@ impl App {
     }
 }
 
+#[derive(Default)]
 struct TermTabs {
     tabs_vec: Vec<widgets::tabs::Tab>,
     tabs_set: HashSet<String>,
@@ -118,4 +73,3 @@ impl TermTabs {
         }
     }
 }
-

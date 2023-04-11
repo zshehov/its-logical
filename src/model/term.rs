@@ -1,4 +1,4 @@
-pub(crate) struct Term {
+pub struct Term {
     pub(crate) name: String,
     pub(crate) description: String,
     pub(crate) arguments: Vec<String>,
