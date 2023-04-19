@@ -13,9 +13,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(
-        terms: HashMap<String, Term>,
-    ) -> Self {
+    pub fn new(terms: HashMap<String, Term>) -> Self {
         Self {
             term_tabs: TermTabs::default(),
             current_tab: widgets::tabs::ask_tab(),
