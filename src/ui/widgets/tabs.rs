@@ -18,7 +18,11 @@ pub(crate) fn ask_tab() -> Tab {
     }
 }
 
-pub(crate) fn show(ui: &mut egui::Ui, current_tab: &mut Tab, term_tabs: impl Iterator<Item = Tab>) {
+pub(crate) fn show(
+    ui: &mut egui::Ui,
+    current_tab: &mut Tab,
+    term_tabs: impl Iterator<Item = Tab>,
+) -> bool {
     ui.horizontal(|ui| {
         ui.selectable_value(
             current_tab,
@@ -27,9 +31,12 @@ pub(crate) fn show(ui: &mut egui::Ui, current_tab: &mut Tab, term_tabs: impl Ite
         );
         ui.separator();
 
+        let mut changed = false;
         for tab in term_tabs {
             let tab_name = tab.name.clone();
-            ui.selectable_value(current_tab, tab, tab_name);
+            changed |= ui.selectable_value(current_tab, tab, tab_name).changed();
         }
-    });
+        changed
+    })
+    .inner
 }

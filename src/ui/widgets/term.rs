@@ -1,6 +1,18 @@
 use crate::model::fat_term::FatTerm;
 
-pub(crate) fn show(ui: &mut egui::Ui, term: &FatTerm) {
+pub(crate) enum Change {
+    None,
+    NewFact,
+    NewRule,
+}
+
+pub(crate) fn show(
+    ui: &mut egui::Ui,
+    term: &FatTerm,
+    fact_placeholder_state: &mut Vec<String>,
+    rule_placeholder_state: &mut Vec<String>,
+) -> Change {
+    let mut change = Change::None;
     ui.horizontal(|ui| {
         ui.heading(egui::RichText::new(term.meta.term.name.clone()).strong());
         ui.small_button("edit");
@@ -70,8 +82,15 @@ pub(crate) fn show(ui: &mut egui::Ui, term: &FatTerm) {
                     ui.horizontal(|ui| {
                         let mut params = vec![String::new(); term.meta.args.len()];
 
-                        create_rule_placeholder(ui, &term.meta.term.name, params.iter_mut());
-                        ui.small_button("+");
+                        show_rule_placeholder(
+                            ui,
+                            &term.meta.term.name,
+                            params.iter_mut(),
+                            rule_placeholder_state.iter_mut(),
+                        );
+                        if ui.small_button("+").clicked() {
+                            change = Change::NewRule;
+                        }
                     });
                 },
             )
@@ -98,10 +117,15 @@ pub(crate) fn show(ui: &mut egui::Ui, term: &FatTerm) {
                         let arguments_string: String = arg_strings.join(", ");
                         ui.label(format!("{} ( {} )", &term.meta.term.name, arguments_string));
                     }
-                    let mut params = vec![String::new(); term.meta.args.len()];
                     ui.horizontal(|ui| {
-                        create_placeholder(ui, &term.meta.term.name, params.iter_mut());
-                        ui.small_button("+");
+                        show_placeholder(
+                            ui,
+                            &term.meta.term.name,
+                            fact_placeholder_state.iter_mut(),
+                        );
+                        if ui.small_button("+").clicked() {
+                            change = Change::NewFact;
+                        }
                     });
                 },
             )
@@ -119,17 +143,18 @@ pub(crate) fn show(ui: &mut egui::Ui, term: &FatTerm) {
                 },
             )
         });
+    change
 }
 
-const SINGLE_WIDTH: f32 = 15.0;
-
+// TODO: get this from the framework if possible
+const SINGLE_CHAR_WIDTH: f32 = 15.0;
 // expects to be called in a horizontal layout
-fn create_placeholder<'a>(
+fn show_placeholder<'a>(
     ui: &mut egui::Ui,
     term_name: &str,
     parameters: impl Iterator<Item = &'a mut String>,
 ) {
-    ui.label(egui::RichText::new(format!("{} ( ", term_name)).weak());
+    ui.label(egui::RichText::new(format!("{} (", term_name)).weak());
 
     let mut added_once = false;
     for param in parameters {
@@ -138,28 +163,33 @@ fn create_placeholder<'a>(
         }
         ui.add(
             egui::TextEdit::singleline(param)
-                .desired_width(SINGLE_WIDTH)
+                .clip_text(false)
+                .desired_width(SINGLE_CHAR_WIDTH)
                 .hint_text("X"),
         );
         added_once = true
     }
-    ui.label(egui::RichText::new(" )").weak());
+    ui.label(egui::RichText::new(")").weak());
 }
 
 // expects to be called in a horizontal layout
-fn create_rule_placeholder<'a>(
+fn show_rule_placeholder<'a>(
     ui: &mut egui::Ui,
     term_name: &str,
     parameters: impl Iterator<Item = &'a mut String>,
+    body_terms: impl Iterator<Item = &'a mut String>,
 ) {
-    create_placeholder(ui, term_name, parameters);
-    ui.label(egui::RichText::new(" if ").weak());
+    show_placeholder(ui, term_name, parameters);
+    ui.label(egui::RichText::new("if").weak());
 
-    // TODO: pass this from the outside
-    let mut rule_string = "";
-    ui.add(
-        egui::TextEdit::singleline(&mut rule_string)
-            .desired_width(SINGLE_WIDTH)
-            .hint_text("ruuuule"),
-    );
+    ui.vertical(|ui| {
+        for t in body_terms {
+            ui.add(
+                egui::TextEdit::singleline(t)
+                    .clip_text(false)
+                    .desired_width(0.0)
+                    .hint_text("ruuuule"),
+            );
+        }
+    });
 }
