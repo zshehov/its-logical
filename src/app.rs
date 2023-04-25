@@ -29,10 +29,19 @@ father(Father,Child):-parent(Father,Child),male(Father)
 ",
         )
         .unwrap();
+        let (_, male) = parse_fat_term(
+            r"%! male is one of the genders that has XY chromosomes
+% @arg Name the name of the person
+male(stefan).
+male(petko).
+",
+        )
+        .unwrap();
         Self {
             ui: crate::ui::App::new(HashMap::from([
                 ("mother".to_string(), mother),
                 ("father".to_string(), father),
+                ("male".to_string(), male),
             ])),
         }
     }

@@ -6,19 +6,33 @@ use crate::model::fat_term::FatTerm;
 
 mod widgets;
 
+pub(crate) struct RulePlaceholderState {
+    head: Vec<String>,
+    body: Vec<(String, Vec<String>)>,
+}
+
+impl RulePlaceholderState {
+    fn new() -> Self {
+        Self {
+            head: vec![],
+            body: vec![("".to_string(), vec![]); 1],
+        }
+    }
+}
+
 pub struct App {
     term_tabs: TermTabs,
     current_tab: widgets::tabs::Tab,
     terms: HashMap<String, FatTerm>,
     fact_placeholder_state: Vec<String>,
-    rule_placeholder_state: Vec<String>,
+    rule_placeholder_state: RulePlaceholderState,
 }
 
 impl App {
     pub fn new(terms: HashMap<String, FatTerm>) -> Self {
         Self {
             fact_placeholder_state: vec![],
-            rule_placeholder_state: vec![],
+            rule_placeholder_state: RulePlaceholderState::new(),
             term_tabs: TermTabs::default(),
             current_tab: widgets::tabs::ask_tab(),
             terms,
@@ -57,7 +71,7 @@ impl App {
                 // reset the placeholder
                 let selected_term = self.terms.get(&self.current_tab.name).unwrap();
                 self.fact_placeholder_state = vec!["".to_string(); selected_term.meta.args.len()];
-                self.rule_placeholder_state = vec!["".to_string(); 3];
+                self.rule_placeholder_state = RulePlaceholderState::new();
             }
         });
         egui::CentralPanel::default().show(ctx, |ui| match self.current_tab.kind {
@@ -94,6 +108,13 @@ impl App {
                         tab_change_occurred = true;
                     }
                     widgets::term::Change::NewRule => todo!(),
+                    widgets::term::Change::RuleBodyLostFocus(term_idx, term_name) => {
+                        // TODO: handle this error
+                        if let Some(t) = self.terms.get(&term_name) {
+                            self.rule_placeholder_state.body[term_idx] =
+                                (term_name, vec!["".to_string(); t.meta.args.len()])
+                        }
+                    }
                 }
             }
         });

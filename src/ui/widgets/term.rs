@@ -1,16 +1,17 @@
-use crate::model::fat_term::FatTerm;
+use crate::{model::fat_term::FatTerm, ui::RulePlaceholderState};
 
 pub(crate) enum Change {
     None,
     NewFact,
     NewRule,
+    RuleBodyLostFocus(usize, String),
 }
 
 pub(crate) fn show(
     ui: &mut egui::Ui,
     term: &FatTerm,
     fact_placeholder_state: &mut Vec<String>,
-    rule_placeholder_state: &mut Vec<String>,
+    rule_placeholder_state: &mut RulePlaceholderState,
 ) -> Change {
     let mut change = Change::None;
     ui.horizontal(|ui| {
@@ -82,12 +83,14 @@ pub(crate) fn show(
                     ui.horizontal(|ui| {
                         let mut params = vec![String::new(); term.meta.args.len()];
 
-                        show_rule_placeholder(
+                        if let Some((idx, term_that_lost_focus)) = show_rule_placeholder(
                             ui,
                             &term.meta.term.name,
                             params.iter_mut(),
-                            rule_placeholder_state.iter_mut(),
-                        );
+                            rule_placeholder_state.body.iter_mut(),
+                        ) {
+                            change = Change::RuleBodyLostFocus(idx, term_that_lost_focus);
+                        }
                         if ui.small_button("+").clicked() {
                             change = Change::NewRule;
                         }
@@ -177,19 +180,44 @@ fn show_rule_placeholder<'a>(
     ui: &mut egui::Ui,
     term_name: &str,
     parameters: impl Iterator<Item = &'a mut String>,
-    body_terms: impl Iterator<Item = &'a mut String>,
-) {
+    body_terms: impl Iterator<Item = &'a mut (String, Vec<String>)>,
+) -> Option<(usize, String)> {
     show_placeholder(ui, term_name, parameters);
     ui.label(egui::RichText::new("if").weak());
 
+    let mut term_that_lost_focus: Option<(usize, String)> = None;
+
     ui.vertical(|ui| {
-        for t in body_terms {
-            ui.add(
-                egui::TextEdit::singleline(t)
-                    .clip_text(false)
-                    .desired_width(0.0)
-                    .hint_text("ruuuule"),
-            );
+        for (idx, (name, parameters)) in body_terms.enumerate() {
+            ui.horizontal(|ui| {
+                if ui
+                    .add(
+                        egui::TextEdit::singleline(name)
+                            .clip_text(false)
+                            .desired_width(0.0)
+                            .hint_text("ruuuule"),
+                    )
+                    .lost_focus()
+                {
+                    term_that_lost_focus = Some((idx, name.clone()));
+                }
+                let mut added_once = false;
+                ui.label(egui::RichText::new("(").weak());
+                for param in parameters {
+                    if added_once {
+                        ui.label(egui::RichText::new(", ").weak());
+                    }
+                    ui.add(
+                        egui::TextEdit::singleline(param)
+                            .clip_text(false)
+                            .desired_width(SINGLE_CHAR_WIDTH)
+                            .hint_text("X"),
+                    );
+                    added_once = true
+                }
+                ui.label(egui::RichText::new(")").weak());
+            });
         }
     });
+    term_that_lost_focus
 }
