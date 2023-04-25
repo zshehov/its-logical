@@ -14,6 +14,8 @@ eframe = { version = "0.21.0", default-features = false, features = [
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
     "persistence",   # Enable restoring app state when restarting the app.
 ] }
+thiserror = "1.0.40"
+nom = "7.1.3"
 
 serde = { version = "1", features = ["derive"] }
 

@@ -2,18 +2,18 @@ use std::collections::{HashMap, HashSet};
 
 use egui::Context;
 
-use crate::model::term::Term;
+use crate::model::fat_term::FatTerm;
 
 mod widgets;
 
 pub struct App {
     term_tabs: TermTabs,
     current_tab: widgets::tabs::Tab,
-    terms: HashMap<String, Term>,
+    terms: HashMap<String, FatTerm>,
 }
 
 impl App {
-    pub fn new(terms: HashMap<String, Term>) -> Self {
+    pub fn new(terms: HashMap<String, FatTerm>) -> Self {
         Self {
             term_tabs: TermTabs::default(),
             current_tab: widgets::tabs::ask_tab(),

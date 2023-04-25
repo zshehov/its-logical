@@ -1,8 +1,8 @@
-use crate::model::term::Term;
+use crate::model::fat_term::FatTerm;
 
-pub(crate) fn show(ui: &mut egui::Ui, term: &Term) {
+pub(crate) fn show(ui: &mut egui::Ui, term: &FatTerm) {
     ui.horizontal(|ui| {
-        ui.heading(egui::RichText::new(term.name.clone()).strong());
+        ui.heading(egui::RichText::new(term.meta.term.name.clone()).strong());
         ui.small_button("edit");
     });
     ui.separator();
@@ -13,7 +13,7 @@ pub(crate) fn show(ui: &mut egui::Ui, term: &Term) {
             ui.with_layout(
                 egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                 |ui| {
-                    ui.label(egui::RichText::new(&term.description).italics());
+                    ui.label(egui::RichText::new(&term.meta.term.desc).italics());
                 },
             );
             ui.small_button("edit");
@@ -26,23 +26,51 @@ pub(crate) fn show(ui: &mut egui::Ui, term: &Term) {
             ui.with_layout(
                 egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                 |ui| {
-                    for (args, rule) in &term.rules {
+                    for rule in &term.term.rules {
                         // TODO: it might be worth to cache this string
-                        let arguments_string: String = args
+                        let arg_strings: Vec<&str> = rule
+                            .arg_bindings
+                            .binding
                             .iter()
-                            .flatten()
-                            .cloned()
-                            .collect::<Vec<String>>()
-                            .join(", ");
+                            .map(|a| match a {
+                                Some(v) => v,
+                                None => "_",
+                            })
+                            .collect();
+
+                        let arguments_string: String = arg_strings.join(", ");
+
+                        let body_strings: Vec<String> = rule
+                            .body
+                            .iter()
+                            .map(|c| {
+                                let arg_strings: Vec<&str> = c
+                                    .arg_bindings
+                                    .binding
+                                    .iter()
+                                    .map(|a| match a {
+                                        Some(v) => v,
+                                        None => "_",
+                                    })
+                                    .collect();
+
+                                let arguments_string: String = arg_strings.join(", ");
+
+                                return format!("{} ( {} )", c.name, arguments_string);
+                            })
+                            .collect();
+
                         ui.label(format!(
                             "{} ( {} ) if {}",
-                            &term.name, arguments_string, rule
+                            &term.meta.term.name,
+                            arguments_string,
+                            body_strings.join(", ")
                         ));
                     }
                     ui.horizontal(|ui| {
-                        let mut params = vec![String::new(); term.arguments.len()];
+                        let mut params = vec![String::new(); term.meta.args.len()];
 
-                        create_rule_placeholder(ui, &term.name, params.iter_mut());
+                        create_rule_placeholder(ui, &term.meta.term.name, params.iter_mut());
                         ui.small_button("+");
                     });
                 },
@@ -56,19 +84,23 @@ pub(crate) fn show(ui: &mut egui::Ui, term: &Term) {
             ui.with_layout(
                 egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                 |ui| {
-                    for fact in &term.facts {
+                    for fact in &term.term.facts {
                         // TODO: it might be worth to cache this string
-                        let arguments_string: String = fact
+                        let arg_strings: Vec<&str> = fact
+                            .binding
                             .iter()
-                            .flatten()
-                            .cloned()
-                            .collect::<Vec<String>>()
-                            .join(", ");
-                        ui.label(format!("{} ( {} )", &term.name, arguments_string));
+                            .map(|a| match a {
+                                Some(v) => v,
+                                None => "_",
+                            })
+                            .collect();
+
+                        let arguments_string: String = arg_strings.join(", ");
+                        ui.label(format!("{} ( {} )", &term.meta.term.name, arguments_string));
                     }
-                    let mut params = vec![String::new(); term.arguments.len()];
+                    let mut params = vec![String::new(); term.meta.args.len()];
                     ui.horizontal(|ui| {
-                        create_placeholder(ui, &term.name, params.iter_mut());
+                        create_placeholder(ui, &term.meta.term.name, params.iter_mut());
                         ui.small_button("+");
                     });
                 },
