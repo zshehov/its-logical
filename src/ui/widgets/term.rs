@@ -81,12 +81,11 @@ pub(crate) fn show(
                         ));
                     }
                     ui.horizontal(|ui| {
-                        let mut params = vec![String::new(); term.meta.args.len()];
 
                         if let Some((idx, term_that_lost_focus)) = show_rule_placeholder(
                             ui,
                             &term.meta.term.name,
-                            params.iter_mut(),
+                            rule_placeholder_state.head.iter_mut(),
                             rule_placeholder_state.body.iter_mut(),
                         ) {
                             change = Change::RuleBodyLostFocus(idx, term_that_lost_focus);
@@ -195,7 +194,6 @@ fn show_rule_placeholder<'a>(
                         egui::TextEdit::singleline(name)
                             .clip_text(false)
                             .desired_width(0.0)
-                            .hint_text("ruuuule"),
                     )
                     .lost_focus()
                 {

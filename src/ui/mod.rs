@@ -2,7 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use egui::Context;
 
-use crate::model::fat_term::FatTerm;
+use crate::model::{
+    comment::name_description::NameDescription,
+    fat_term::FatTerm,
+    term::{bound_term::BoundTerm, rule::Rule},
+};
 
 mod widgets;
 
@@ -12,9 +16,9 @@ pub(crate) struct RulePlaceholderState {
 }
 
 impl RulePlaceholderState {
-    fn new() -> Self {
+    fn new(args_count: usize) -> Self {
         Self {
-            head: vec![],
+            head: vec!["".to_string(); args_count],
             body: vec![("".to_string(), vec![]); 1],
         }
     }
@@ -32,7 +36,7 @@ impl App {
     pub fn new(terms: HashMap<String, FatTerm>) -> Self {
         Self {
             fact_placeholder_state: vec![],
-            rule_placeholder_state: RulePlaceholderState::new(),
+            rule_placeholder_state: RulePlaceholderState::new(0),
             term_tabs: TermTabs::default(),
             current_tab: widgets::tabs::ask_tab(),
             terms,
@@ -71,7 +75,8 @@ impl App {
                 // reset the placeholder
                 let selected_term = self.terms.get(&self.current_tab.name).unwrap();
                 self.fact_placeholder_state = vec!["".to_string(); selected_term.meta.args.len()];
-                self.rule_placeholder_state = RulePlaceholderState::new();
+                self.rule_placeholder_state =
+                    RulePlaceholderState::new(selected_term.meta.args.len());
             }
         });
         egui::CentralPanel::default().show(ctx, |ui| match self.current_tab.kind {
@@ -107,7 +112,59 @@ impl App {
                         // App itself
                         tab_change_occurred = true;
                     }
-                    widgets::term::Change::NewRule => todo!(),
+                    widgets::term::Change::NewRule => {
+                        self.terms
+                            .entry(self.current_tab.name.to_string())
+                            .and_modify(|t| {
+                                let head_binding = self
+                                    .rule_placeholder_state
+                                    .head
+                                    .iter()
+                                    .map(|a| {
+                                        if a == "" {
+                                            return None;
+                                        }
+                                        Some(a.to_string())
+                                    })
+                                    .collect();
+
+                                let body_bindings = self
+                                    .rule_placeholder_state
+                                    .body
+                                    .iter()
+                                    .map(|(name, args)| {
+                                        // TODO: maybe do the check that name is not existing here
+
+                                        let bound_args = args
+                                            .iter()
+                                            .map(|a| {
+                                                if a == "" {
+                                                    return None;
+                                                }
+                                                Some(a.to_string())
+                                            })
+                                            .collect();
+
+                                        BoundTerm {
+                                            name: name.to_owned(),
+                                            arg_bindings:
+                                                crate::model::term::args_binding::ArgsBinding {
+                                                    binding: bound_args,
+                                                },
+                                        }
+                                    })
+                                    .collect();
+
+                                let new_rule = Rule {
+                                    arg_bindings: crate::model::term::args_binding::ArgsBinding {
+                                        binding: head_binding,
+                                    },
+                                    body: body_bindings,
+                                };
+
+                                t.term.rules.push(new_rule);
+                            });
+                    }
                     widgets::term::Change::RuleBodyLostFocus(term_idx, term_name) => {
                         // TODO: handle this error
                         if let Some(t) = self.terms.get(&term_name) {
