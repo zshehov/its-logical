@@ -94,16 +94,8 @@ impl App {
                         self.terms
                             .entry(self.current_tab.name.to_string())
                             .and_modify(|t| {
-                                let binding = self
-                                    .fact_placeholder_state
-                                    .iter()
-                                    .map(|a| {
-                                        if a == "" {
-                                            return None;
-                                        }
-                                        Some(a.to_string())
-                                    })
-                                    .collect();
+                                let binding =
+                                    normalize_input_args(self.fact_placeholder_state.iter());
                                 t.term
                                     .facts
                                     .push(crate::model::term::args_binding::ArgsBinding { binding })
@@ -116,42 +108,28 @@ impl App {
                         self.terms
                             .entry(self.current_tab.name.to_string())
                             .and_modify(|t| {
-                                let head_binding = self
-                                    .rule_placeholder_state
-                                    .head
-                                    .iter()
-                                    .map(|a| {
-                                        if a == "" {
-                                            return None;
-                                        }
-                                        Some(a.to_string())
-                                    })
-                                    .collect();
+                                let head_binding =
+                                    normalize_input_args(self.rule_placeholder_state.head.iter());
 
                                 let body_bindings = self
                                     .rule_placeholder_state
                                     .body
                                     .iter()
-                                    .map(|(name, args)| {
+                                    .filter_map(|(name, args)| {
                                         // TODO: maybe do the check that name is not existing here
+                                        if name == "" {
+                                            return None;
+                                        }
 
-                                        let bound_args = args
-                                            .iter()
-                                            .map(|a| {
-                                                if a == "" {
-                                                    return None;
-                                                }
-                                                Some(a.to_string())
-                                            })
-                                            .collect();
+                                        let bound_args = normalize_input_args(args.iter());
 
-                                        BoundTerm {
+                                        Some(BoundTerm {
                                             name: name.to_owned(),
                                             arg_bindings:
                                                 crate::model::term::args_binding::ArgsBinding {
                                                     binding: bound_args,
                                                 },
-                                        }
+                                        })
                                     })
                                     .collect();
 
@@ -169,7 +147,10 @@ impl App {
                         // TODO: handle this error
                         if let Some(t) = self.terms.get(&term_name) {
                             self.rule_placeholder_state.body[term_idx] =
-                                (term_name, vec!["".to_string(); t.meta.args.len()])
+                                (term_name, vec!["".to_string(); t.meta.args.len()]);
+                            self.rule_placeholder_state
+                                .body
+                                .push(("".to_string(), vec![]));
                         }
                     }
                 }
@@ -190,4 +171,15 @@ impl TermTabs {
             self.tabs_vec.push(tab);
         }
     }
+}
+
+fn normalize_input_args<'a>(input: impl Iterator<Item = &'a String>) -> Vec<Option<String>> {
+    input
+        .map(|a| {
+            if a == "" {
+                return None;
+            }
+            Some(a.to_string())
+        })
+        .collect()
 }
