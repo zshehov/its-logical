@@ -8,7 +8,7 @@ use super::{
     bound_term::{parse_bound_term, BoundTerm},
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) struct Rule {
     pub(crate) arg_bindings: ArgsBinding,
     pub(crate) body: Vec<BoundTerm>,

@@ -8,6 +8,7 @@ use nom::{
 
 use super::name_description::{parse_name_description, NameDescription};
 
+#[derive(Clone)]
 pub(crate) struct Comment {
     pub(crate) term: NameDescription,
     pub(crate) args: Vec<NameDescription>,

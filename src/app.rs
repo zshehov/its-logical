@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
-use crate::model::fat_term::parse_fat_term;
+use crate::{
+    model::fat_term::{parse_fat_term, FatTerm},
+    term_knowledge_base::{InMemoryTerms, TermsKnowledgeBase},
+};
 
-pub struct ItsLogicalApp {
-    ui: crate::ui::App,
+pub struct ItsLogicalApp<T: TermsKnowledgeBase> {
+    ui: crate::ui::App<T>,
 }
 
-impl ItsLogicalApp {
+impl ItsLogicalApp<InMemoryTerms> {
     pub fn new() -> Self {
         let (_, mother) = parse_fat_term(
             r"%! mother a mother is a parent that's female
@@ -38,16 +41,16 @@ male(petko).
         )
         .unwrap();
         Self {
-            ui: crate::ui::App::new(HashMap::from([
+            ui: crate::ui::App::new(InMemoryTerms::new(HashMap::from([
                 ("mother".to_string(), mother),
                 ("father".to_string(), father),
                 ("male".to_string(), male),
-            ])),
+            ]))),
         }
     }
 }
 
-impl eframe::App for ItsLogicalApp {
+impl eframe::App for ItsLogicalApp<InMemoryTerms> {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {

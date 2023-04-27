@@ -9,7 +9,7 @@ use super::{
     rule::{parse_rule, Rule},
 };
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub(crate) struct Term {
     pub(crate) facts: Vec<ArgsBinding>,
     pub(crate) rules: Vec<Rule>,

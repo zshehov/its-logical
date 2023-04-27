@@ -5,6 +5,7 @@ use super::{
     term::term::{parse_term, Term},
 };
 
+#[derive(Clone)]
 pub struct FatTerm {
     pub(crate) meta: Comment,
     pub(crate) term: Term,

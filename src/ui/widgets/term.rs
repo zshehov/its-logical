@@ -81,7 +81,6 @@ pub(crate) fn show(
                         ));
                     }
                     ui.horizontal(|ui| {
-
                         if let Some((idx, term_that_lost_focus)) = show_rule_placeholder(
                             ui,
                             &term.meta.term.name,
@@ -193,7 +192,7 @@ fn show_rule_placeholder<'a>(
                     .add(
                         egui::TextEdit::singleline(name)
                             .clip_text(false)
-                            .desired_width(0.0)
+                            .desired_width(0.0),
                     )
                     .lost_focus()
                 {
