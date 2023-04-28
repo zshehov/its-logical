@@ -17,18 +17,30 @@ pub(crate) fn ask_tab() -> Tab {
         kind: TabKind::Ask,
     }
 }
+pub(crate) enum TabChange {
+    None,
+    ToAskTab,
+    ToTermTab,
+}
 
 pub(crate) fn show(
     ui: &mut egui::Ui,
     current_tab: &mut Tab,
     term_tabs: impl Iterator<Item = Tab>,
-) -> bool {
+) -> TabChange {
     ui.horizontal(|ui| {
-        ui.selectable_value(
-            current_tab,
-            ask_tab(),
-            egui::RichText::new(ASK_TAB_NAME).strong(),
-        );
+        let mut tab_change = TabChange::None;
+
+        if ui
+            .selectable_value(
+                current_tab,
+                ask_tab(),
+                egui::RichText::new(ASK_TAB_NAME).strong(),
+            )
+            .changed()
+        {
+            tab_change = TabChange::ToAskTab;
+        };
         ui.separator();
 
         let mut changed = false;
@@ -36,7 +48,10 @@ pub(crate) fn show(
             let tab_name = tab.name.clone();
             changed |= ui.selectable_value(current_tab, tab, tab_name).changed();
         }
-        changed
+        if changed {
+            tab_change = TabChange::ToTermTab;
+        }
+        tab_change
     })
     .inner
 }

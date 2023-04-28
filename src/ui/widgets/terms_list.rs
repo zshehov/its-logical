@@ -6,7 +6,6 @@ pub(crate) fn show<'a>(
 
     scroll_area
         .show(ui, |ui| {
-            ui.button(egui::RichText::new("Add term").underline().strong());
             for term_name in terms {
                 if ui.small_button(term_name).clicked() {
                     return Some(term_name.to_owned());
