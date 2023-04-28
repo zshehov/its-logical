@@ -54,6 +54,27 @@ impl TermScreen {
                     .interactive(self.edit_mode)
                     .font(TextStyle::Heading),
             );
+            ui.label("(");
+            let mut added_one_arg = false;
+            for arg in &mut self.term.meta.args {
+                if added_one_arg {
+                    ui.label(",");
+                }
+                ui.add(
+                    egui::TextEdit::singleline(&mut arg.name)
+                        .clip_text(false)
+                        .desired_width(0.0)
+                        .hint_text("Enter arg name")
+                        .frame(self.edit_mode)
+                        .interactive(self.edit_mode)
+                        .font(TextStyle::Body),
+                )
+                .on_hover_ui(|ui| {
+                    ui.label(&arg.desc);
+                });
+                added_one_arg = true
+            }
+            ui.label(")");
             let toggle_value_text = if self.edit_mode { "save" } else { "edit" };
             if ui
                 .toggle_value(&mut self.edit_mode, toggle_value_text)
