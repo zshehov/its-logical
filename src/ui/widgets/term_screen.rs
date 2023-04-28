@@ -1,3 +1,5 @@
+use egui::TextStyle;
+
 use crate::{
     model::{
         fat_term::FatTerm,
@@ -15,6 +17,7 @@ pub(crate) struct TermScreen {
     term: FatTerm,
     fact_placeholder: Vec<String>,
     rule_placeholder: RulePlaceholder,
+    edit_mode: bool,
 }
 
 impl TermScreen {
@@ -23,6 +26,15 @@ impl TermScreen {
             term: term.to_owned(),
             fact_placeholder: vec![],
             rule_placeholder: RulePlaceholder::new(term.meta.args.len()),
+            edit_mode: false,
+        }
+    }
+    pub(crate) fn with_new_term() -> Self {
+        Self {
+            term: FatTerm::default(),
+            fact_placeholder: vec![],
+            rule_placeholder: RulePlaceholder::new(0),
+            edit_mode: true,
         }
     }
 
@@ -33,8 +45,23 @@ impl TermScreen {
     ) -> Change {
         let mut change = Change::None;
         ui.horizontal(|ui| {
-            ui.heading(egui::RichText::new(self.term.meta.term.name.clone()).strong());
-            ui.small_button("edit");
+            ui.add(
+                egui::TextEdit::singleline(&mut self.term.meta.term.name)
+                    .clip_text(false)
+                    .desired_width(0.0)
+                    .hint_text("Enter term name")
+                    .frame(self.edit_mode)
+                    .interactive(self.edit_mode)
+                    .font(TextStyle::Heading),
+            );
+            let toggle_value_text = if self.edit_mode { "save" } else { "edit" };
+            if ui
+                .toggle_value(&mut self.edit_mode, toggle_value_text)
+                .clicked()
+                && !self.edit_mode
+            {
+                change = Change::TermChange(self.term.clone());
+            }
         });
         ui.separator();
 
@@ -44,7 +71,16 @@ impl TermScreen {
                 ui.with_layout(
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
-                        ui.label(egui::RichText::new(&self.term.meta.term.desc).italics());
+                        ui.add(
+                            egui::TextEdit::multiline(&mut self.term.meta.term.desc)
+                                .clip_text(false)
+                                .desired_width(0.0)
+                                .desired_rows(1)
+                                .hint_text("Enter description")
+                                .frame(self.edit_mode)
+                                .interactive(self.edit_mode)
+                                .font(TextStyle::Body),
+                        );
                     },
                 );
             });

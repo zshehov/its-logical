@@ -1,14 +1,17 @@
-use bincode::{config, decode_from_std_read, encode_into_std_write, encode_into_writer, Encode};
+use bincode::{config, decode_from_std_read, encode_into_std_write, Encode};
 use bincode_derive::Decode;
 
 use std::{
     collections::HashMap,
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::{BufReader, BufWriter},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
-use crate::model::fat_term::{parse_fat_term, FatTerm};
+use crate::model::{
+    fat_term::{parse_fat_term, FatTerm},
+    term,
+};
 
 pub enum KnowledgeBaseError {
     NotFound,
@@ -196,8 +199,8 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
     }
 
     fn edit(&mut self, term_name: &str, updated: &FatTerm) -> Result<(), KnowledgeBaseError> {
-        let offset = self.index.get(term_name).unwrap();
-        let entry = &mut self.descriptor[*offset];
+        let offset = self.index.get(term_name).unwrap().to_owned();
+        let entry = &mut self.descriptor[offset];
         let original_len = entry.len;
         let updated_encoded = &updated.encode();
 
@@ -208,12 +211,17 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
 
         entry.len = updated_encoded.len();
 
-        for desriptor_entry in self.descriptor[*offset + 1..].iter_mut() {
+        self.descriptor[offset].name = updated.meta.term.name.to_owned();
+        for desriptor_entry in self.descriptor[offset + 1..].iter_mut() {
             let mut adjusted_offset = desriptor_entry.offset as i64;
             adjusted_offset += len_diff;
 
             desriptor_entry.offset = adjusted_offset as usize;
         }
+        self.index.remove(term_name);
+        self.index
+            .insert(updated.meta.term.name.to_string(), offset);
+        self.keys[offset] = updated.meta.term.name.to_string();
 
         Ok(())
     }
@@ -227,11 +235,15 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
             new_entry_offset = entry.offset + entry.len;
         }
 
+        self.index
+            .insert(term_name.to_string(), self.descriptor.len());
         self.descriptor.push(DescriptorEntry {
             name: term_name.to_string(),
             offset: new_entry_offset,
             len: new_entry_len,
         });
+
+        self.keys.push(term_name.to_string());
 
         self.buffer.push_str(&encoded_term);
         Ok(())

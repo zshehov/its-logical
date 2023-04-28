@@ -1,16 +1,10 @@
 use std::collections::HashSet;
 
-use egui::{CentralPanel, Context};
+use egui::Context;
 
-use crate::{
-    model::{
-        fat_term::FatTerm,
-        term::{bound_term::BoundTerm, rule::Rule},
-    },
-    term_knowledge_base::TermsKnowledgeBase,
-};
+use crate::term_knowledge_base::TermsKnowledgeBase;
 
-use self::widgets::term_screen::TermScreen;
+use self::widgets::{tabs::Tab, term_screen::TermScreen};
 
 mod widgets;
 
@@ -26,6 +20,8 @@ pub struct App<T: TermsKnowledgeBase> {
     terms: T,
     central_panel: CentralPanelContent,
 }
+
+const NEW_TAB_NAME: &str = "New term";
 
 impl<T> App<T>
 where
@@ -45,7 +41,18 @@ where
             ui.heading("Terms");
             ui.separator();
 
-            ui.button(egui::RichText::new("Add term").underline().strong());
+            if ui
+                .button(egui::RichText::new("Add term").underline().strong())
+                .clicked()
+            {
+                self.central_panel = CentralPanelContent::TermScreen(TermScreen::with_new_term());
+                let new_term_tab = Tab {
+                    name: NEW_TAB_NAME.to_string(),
+                    kind: widgets::tabs::TabKind::Term,
+                };
+                self.current_tab = new_term_tab.clone();
+                self.term_tabs.add(new_term_tab);
+            };
             let term_list_selection = widgets::terms_list::show(ui, self.terms.keys().iter());
 
             if let Some(term_name) = term_list_selection {
@@ -92,7 +99,13 @@ where
                 match change {
                     widgets::term_screen::Change::None => {}
                     widgets::term_screen::Change::TermChange(updated_term) => {
-                        self.terms.edit(&self.current_tab.name, &updated_term);
+                        if self.current_tab.name == NEW_TAB_NAME {
+                            self.terms
+                                .put(&updated_term.meta.term.name, updated_term.clone());
+                            self.current_tab.name = updated_term.meta.term.name;
+                        } else {
+                            self.terms.edit(&self.current_tab.name, &updated_term);
+                        }
                     }
                 }
             }

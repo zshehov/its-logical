@@ -9,8 +9,6 @@ use super::{
     },
     term::{
         args_binding::ArgsBinding,
-        bound_term::BoundTerm,
-        rule::Rule,
         term::{parse_term, Term},
     },
 };
@@ -31,6 +29,18 @@ impl FatTerm {
         encoded.push_str(&self.meta.encode());
         encoded.push_str(&self.term.encode(&self.meta.term.name));
         encoded
+    }
+}
+
+impl Default for FatTerm {
+    fn default() -> Self {
+        FatTerm::new(
+            Comment::new(
+                NameDescription::new("", ""),
+                vec![],
+            ),
+            Term::new(vec![ArgsBinding{ binding: vec![] }], vec![]),
+        )
     }
 }
 
