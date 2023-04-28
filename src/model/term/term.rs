@@ -15,9 +15,38 @@ pub(crate) struct Term {
     pub(crate) rules: Vec<Rule>,
 }
 
+const NEWLINE: &str = r"
+";
+const END_OF_FACT: &str = r").
+";
+const END_OF_RULE_HEAD: &str = r"):-";
+
 impl Term {
     pub(crate) fn new(facts: Vec<ArgsBinding>, rules: Vec<Rule>) -> Self {
         Self { facts, rules }
+    }
+
+    pub(crate) fn encode(&self, term_name: &str) -> String {
+        let mut encoded = String::new();
+        let term_name_prefix = term_name.to_owned() + "(";
+
+        for arg_binding in &self.facts {
+            encoded.push_str(&term_name_prefix);
+            encoded.push_str(&arg_binding.encode());
+            encoded.push_str(END_OF_FACT);
+        }
+
+        for rule in &self.rules {
+            encoded.push_str(&term_name_prefix);
+
+            encoded.push_str(&rule.arg_bindings.encode());
+            encoded.push_str(END_OF_RULE_HEAD);
+
+            let body_entries: Vec<String> = rule.body.iter().map(|b| b.encode()).collect();
+            encoded.push_str(&body_entries.join(","));
+            encoded.push_str(NEWLINE);
+        }
+        encoded
     }
 }
 
@@ -63,7 +92,8 @@ fn test_parse_term() {
         parse_term(
             r"parent(john,mary).
 parent(bill,hilly).
-parent(X,Y):-strong_match_in_dna(X,Y),older(X,Y)"
+parent(X,Y):-strong_match_in_dna(X,Y),older(X,Y)
+"
         ),
         Ok((
             "",
@@ -97,5 +127,46 @@ parent(X,Y):-strong_match_in_dna(X,Y),older(X,Y)"
                 }],
             }
         ))
+    );
+}
+
+#[test]
+fn test_encode_term() {
+    let term = Term {
+        facts: vec![
+            ArgsBinding {
+                binding: vec![Some("john".to_string()), Some("mary".to_string())],
+            },
+            ArgsBinding {
+                binding: vec![Some("bill".to_string()), Some("hilly".to_string())],
+            },
+        ],
+        rules: vec![Rule {
+            arg_bindings: ArgsBinding {
+                binding: vec![Some("X".to_string()), Some("Y".to_string())],
+            },
+            body: vec![
+                BoundTerm {
+                    name: "strong_match_in_dna".to_string(),
+                    arg_bindings: ArgsBinding {
+                        binding: vec![Some("X".to_string()), Some("Y".to_string())],
+                    },
+                },
+                BoundTerm {
+                    name: "older".to_string(),
+                    arg_bindings: ArgsBinding {
+                        binding: vec![Some("X".to_string()), Some("Y".to_string())],
+                    },
+                },
+            ],
+        }],
+    };
+
+    assert_eq!(
+        term.encode("parent"),
+        r"parent(john,mary).
+parent(bill,hilly).
+parent(X,Y):-strong_match_in_dna(X,Y),older(X,Y)
+"
     );
 }

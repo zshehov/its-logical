@@ -1,6 +1,14 @@
-use std::collections::HashMap;
+use bincode::{config, decode_from_std_read, encode_into_std_write, encode_into_writer, Encode};
+use bincode_derive::Decode;
 
-use crate::model::fat_term::FatTerm;
+use std::{
+    collections::HashMap,
+    fs::{self, File, OpenOptions},
+    io::{BufReader, BufWriter},
+    path::{Path, PathBuf},
+};
+
+use crate::model::fat_term::{parse_fat_term, FatTerm};
 
 pub enum KnowledgeBaseError {
     NotFound,
@@ -9,7 +17,7 @@ pub enum KnowledgeBaseError {
 }
 
 pub trait TermsKnowledgeBase {
-    fn get(&self, term_name: &str) -> Option<&FatTerm>;
+    fn get(&self, term_name: &str) -> Option<FatTerm>;
     fn edit(&mut self, term_name: &str, updated: &FatTerm) -> Result<(), KnowledgeBaseError>;
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError>;
     fn keys(&self) -> &Vec<String>;
@@ -29,8 +37,8 @@ impl InMemoryTerms {
 }
 
 impl TermsKnowledgeBase for InMemoryTerms {
-    fn get(&self, term_name: &str) -> Option<&FatTerm> {
-        self.map.get(term_name)
+    fn get(&self, term_name: &str) -> Option<FatTerm> {
+        self.map.get(term_name).cloned()
     }
 
     fn edit(&mut self, term_name: &str, updated: &FatTerm) -> Result<(), KnowledgeBaseError> {
@@ -65,5 +73,175 @@ impl TermsKnowledgeBase for InMemoryTerms {
 
     fn keys(&self) -> &Vec<String> {
         return &self.vec;
+    }
+}
+
+const PAGE_NAME: &str = "page.pl";
+const DESCRIPTOR_NAME: &str = "descriptor";
+
+#[derive(Decode, Encode)]
+struct DescriptorEntry {
+    name: String,
+    offset: usize,
+    len: usize,
+}
+
+pub struct PersistentMemoryTerms {
+    // TODO: change this index to a DB - lmdb is probably best
+    index: HashMap<String, usize>,
+    descriptor: Vec<DescriptorEntry>,
+    // TODO: this is temorary, as you can get the same from the descriptor
+    keys: Vec<String>,
+    base_path: PathBuf,
+    buffer: String,
+}
+impl Drop for PersistentMemoryTerms {
+    fn drop(&mut self) {
+        self.persist()
+    }
+}
+
+impl PersistentMemoryTerms {
+    fn persist(&self) {
+        let descriptor = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(self.base_path.join(DESCRIPTOR_NAME))
+            .unwrap();
+        let mut buf_writer = BufWriter::new(descriptor);
+
+        encode_into_std_write(&self.descriptor, &mut buf_writer, config::standard()).unwrap();
+
+        fs::write(self.base_path.join(PAGE_NAME), &self.buffer).unwrap();
+    }
+
+    pub fn new(base_path: &PathBuf) -> Self {
+        let descriptor_path = base_path.join(DESCRIPTOR_NAME);
+        if !descriptor_path.exists() {
+            let descriptor_file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(descriptor_path)
+                .unwrap();
+
+            let mut buf_writer = BufWriter::new(descriptor_file);
+
+            encode_into_std_write(
+                vec![
+                    DescriptorEntry {
+                        name: "mother".to_string(),
+                        offset: 0,
+                        len: 250,
+                    },
+                    DescriptorEntry {
+                        name: "father".to_string(),
+                        offset: 250,
+                        len: 226,
+                    },
+                    DescriptorEntry {
+                        name: "male".to_string(),
+                        offset: 476,
+                        len: 116,
+                    },
+                ],
+                &mut buf_writer,
+                config::standard(),
+            )
+            .unwrap();
+        }
+
+        let descriptor = OpenOptions::new()
+            .read(true)
+            .open(base_path.join(DESCRIPTOR_NAME))
+            .unwrap();
+
+        let mut descriptor = BufReader::new(descriptor);
+        let descriptor_vec: Vec<DescriptorEntry> =
+            decode_from_std_read(&mut descriptor, config::standard()).unwrap();
+
+        let mut index = HashMap::new();
+        for (entry_idx, entry) in descriptor_vec.iter().enumerate() {
+            index.insert(entry.name.clone(), entry_idx);
+        }
+        let mut keys = Vec::with_capacity(descriptor_vec.len());
+
+        for entry in &descriptor_vec {
+            keys.push(entry.name.clone());
+        }
+
+        let page_content = fs::read_to_string(base_path.join(PAGE_NAME)).unwrap();
+
+        Self {
+            index,
+            descriptor: descriptor_vec,
+            base_path: base_path.to_owned(),
+            buffer: page_content,
+            keys,
+        }
+    }
+}
+
+impl TermsKnowledgeBase for PersistentMemoryTerms {
+    fn get(&self, term_name: &str) -> Option<FatTerm> {
+        match self.index.get(term_name) {
+            Some(offset) => {
+                let entry = &self.descriptor[*offset];
+                let raw_term = &self.buffer[entry.offset..entry.offset + entry.len];
+
+                let (_, fat_term) = parse_fat_term(raw_term).unwrap();
+                Some(fat_term)
+            }
+            None => None,
+        }
+    }
+
+    fn edit(&mut self, term_name: &str, updated: &FatTerm) -> Result<(), KnowledgeBaseError> {
+        let offset = self.index.get(term_name).unwrap();
+        let entry = &mut self.descriptor[*offset];
+        let original_len = entry.len;
+        let updated_encoded = &updated.encode();
+
+        let len_diff: i64 = updated_encoded.len() as i64 - original_len as i64;
+
+        self.buffer
+            .replace_range(entry.offset..entry.offset + entry.len, updated_encoded);
+
+        entry.len = updated_encoded.len();
+
+        for desriptor_entry in self.descriptor[*offset + 1..].iter_mut() {
+            let mut adjusted_offset = desriptor_entry.offset as i64;
+            adjusted_offset += len_diff;
+
+            desriptor_entry.offset = adjusted_offset as usize;
+        }
+
+        Ok(())
+    }
+
+    fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError> {
+        let encoded_term = term.encode();
+
+        let mut new_entry_offset = 0;
+        let new_entry_len = encoded_term.len();
+        if let Some(entry) = self.descriptor.last() {
+            new_entry_offset = entry.offset + entry.len;
+        }
+
+        self.descriptor.push(DescriptorEntry {
+            name: term_name.to_string(),
+            offset: new_entry_offset,
+            len: new_entry_len,
+        });
+
+        self.buffer.push_str(&encoded_term);
+        Ok(())
+    }
+
+    fn keys(&self) -> &Vec<String> {
+        return &self.keys;
+    }
+
+    fn delete(&mut self, term_name: &str) {
+        todo!()
     }
 }

@@ -3,7 +3,6 @@ use std::io;
 use thiserror::Error;
 
 use nom::bytes::complete::tag;
-use nom::IResult;
 
 #[derive(Error, Debug)]
 pub enum Error {

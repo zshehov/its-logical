@@ -4,7 +4,7 @@
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
-    use its_logical::ItsLogicalApp;
+    use its_logical::{term_knowledge_base::PersistentMemoryTerms, ItsLogicalApp};
 
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt::init();
@@ -12,7 +12,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "It's Logical",
         native_options,
-        Box::new(|_| Box::new(ItsLogicalApp::new())),
+        Box::new(|_| Box::new(ItsLogicalApp::<PersistentMemoryTerms>::new())),
     )
 }
 

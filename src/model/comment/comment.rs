@@ -8,13 +8,31 @@ use nom::{
 
 use super::name_description::{parse_name_description, NameDescription};
 
-#[derive(Clone)]
+#[derive(Clone,Debug,PartialEq)]
 pub(crate) struct Comment {
     pub(crate) term: NameDescription,
     pub(crate) args: Vec<NameDescription>,
 }
 
+const NEWLINE: &str = r"
+";
+
 impl Comment {
+    pub(crate) fn encode(&self) -> String {
+        let term_encoded = self.term.encode();
+        let mut encoded = String::with_capacity(term_encoded.len() + "%! ".len() + 1);
+        encoded.push_str("%! ");
+        encoded.push_str(&term_encoded);
+        encoded.push_str(NEWLINE);
+
+        for arg in &self.args {
+            encoded.push_str("% @arg ");
+            encoded.push_str(&arg.encode());
+            encoded.push_str(NEWLINE);
+        }
+        encoded
+    }
+
     pub(crate) fn new(term: NameDescription, args: Vec<NameDescription>) -> Self {
         Self { term, args }
     }

@@ -1,8 +1,11 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     model::fat_term::{parse_fat_term, FatTerm},
-    term_knowledge_base::{InMemoryTerms, TermsKnowledgeBase},
+    term_knowledge_base::{InMemoryTerms, PersistentMemoryTerms, TermsKnowledgeBase},
 };
 
 pub struct ItsLogicalApp<T: TermsKnowledgeBase> {
@@ -50,7 +53,24 @@ male(petko).
     }
 }
 
+impl ItsLogicalApp<PersistentMemoryTerms> {
+    pub fn new() -> Self {
+        Self {
+            ui: crate::ui::App::new(PersistentMemoryTerms::new(&PathBuf::from(
+                "/Users/zdravko/knowledge",
+            ))),
+        }
+    }
+}
+
 impl eframe::App for ItsLogicalApp<InMemoryTerms> {
+    /// Called each time the UI needs repainting, which may be many times per second.
+    /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.ui.show(ctx)
+    }
+}
+impl eframe::App for ItsLogicalApp<PersistentMemoryTerms> {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
