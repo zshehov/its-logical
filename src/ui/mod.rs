@@ -103,6 +103,8 @@ where
                             self.terms
                                 .put(&updated_term.meta.term.name, updated_term.clone());
                             self.current_tab.name = updated_term.meta.term.name;
+                            self.term_tabs.pop();
+                            self.term_tabs.add(self.current_tab.clone());
                         } else {
                             self.terms.edit(&self.current_tab.name, &updated_term);
                         }
@@ -124,5 +126,11 @@ impl TermTabs {
         if self.tabs_set.insert(tab.name.to_owned()) {
             self.tabs_vec.push(tab);
         }
+    }
+    fn pop(&mut self) {
+        // TODO: this pop is only needed in the New term scenario -- this leaks abstraction at this
+        // point. rethink that
+        let popped = self.tabs_vec.pop().unwrap();
+        self.tabs_set.remove(&popped.name);
     }
 }
