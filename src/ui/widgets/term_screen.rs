@@ -8,6 +8,8 @@ use crate::{
     term_knowledge_base::TermsKnowledgeBase,
 };
 
+use super::drag_and_drop::DragAndDrop;
+
 pub(crate) enum Change {
     None,
     TermChange(FatTerm),
@@ -18,6 +20,7 @@ pub(crate) struct TermScreen {
     fact_placeholder: Vec<String>,
     rule_placeholder: RulePlaceholder,
     edit_mode: bool,
+    drag_and_drop_test: DragAndDrop,
 }
 
 impl TermScreen {
@@ -27,6 +30,7 @@ impl TermScreen {
             fact_placeholder: vec![],
             rule_placeholder: RulePlaceholder::new(term.meta.args.len()),
             edit_mode: false,
+            drag_and_drop_test: DragAndDrop::new(vec!["woah".to_string(), "second".to_string(), "asdf".to_string(), "rmrrm".to_string()]),
         }
     }
     pub(crate) fn with_new_term() -> Self {
@@ -35,6 +39,7 @@ impl TermScreen {
             fact_placeholder: vec![],
             rule_placeholder: RulePlaceholder::new(0),
             edit_mode: true,
+            drag_and_drop_test: DragAndDrop::new(vec!["woah".to_string(), "second".to_string()]),
         }
     }
 
@@ -54,27 +59,9 @@ impl TermScreen {
                     .interactive(self.edit_mode)
                     .font(TextStyle::Heading),
             );
-            ui.label("(");
-            let mut added_one_arg = false;
-            for arg in &mut self.term.meta.args {
-                if added_one_arg {
-                    ui.label(",");
-                }
-                ui.add(
-                    egui::TextEdit::singleline(&mut arg.name)
-                        .clip_text(false)
-                        .desired_width(0.0)
-                        .hint_text("Enter arg name")
-                        .frame(self.edit_mode)
-                        .interactive(self.edit_mode)
-                        .font(TextStyle::Body),
-                )
-                .on_hover_ui(|ui| {
-                    ui.label(&arg.desc);
-                });
-                added_one_arg = true
-            }
-            ui.label(")");
+
+            self.drag_and_drop_test.show(ui);
+
             let toggle_value_text = if self.edit_mode { "save" } else { "edit" };
             if ui
                 .toggle_value(&mut self.edit_mode, toggle_value_text)
