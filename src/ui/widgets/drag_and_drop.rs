@@ -3,14 +3,14 @@ use std::cmp::min;
 use eframe::epaint::RectShape;
 use egui::{CursorIcon, Id, LayerId, Order, Rect, Sense, Shape, Ui, Vec2};
 
-enum Centers {
+enum Bottoms {
     Unknown(Vec<f32>),
     Known(Vec<f32>),
 }
 
 pub(crate) struct DragAndDrop {
     pub(crate) items: Vec<String>,
-    centers: Centers,
+    bottoms: Bottoms,
 }
 
 impl DragAndDrop {
@@ -18,7 +18,7 @@ impl DragAndDrop {
         let items_len = items.len();
         Self {
             items,
-            centers: Centers::Unknown(vec![0.0; items_len]),
+            bottoms: Bottoms::Unknown(vec![0.0; items_len]),
         }
     }
 
@@ -33,17 +33,17 @@ impl DragAndDrop {
         let mut content_ui = ui.child_ui(inner_rect, *ui.layout());
 
         content_ui.vertical(|ui| {
-            match &mut self.centers {
-                Centers::Unknown(centers) => {
-                    // first iteration is only to get familiar with the centers
+            match &mut self.bottoms {
+                Bottoms::Unknown(bottoms) => {
+                    // first iteration is only to get familiar with the bottoms
                     // TODO: this would probably break if windows size is changed
                     for (idx, item) in self.items.iter().enumerate() {
                         let response = ui.scope(|ui| ui.label(item)).response;
-                        centers[idx] = response.rect.center().y;
+                        bottoms[idx] = response.rect.bottom();
                     }
-                    self.centers = Centers::Known(centers.to_owned());
+                    self.bottoms = Bottoms::Known(bottoms.to_owned());
                 }
-                Centers::Known(centers) => {
+                Bottoms::Known(bottoms) => {
                     let mut dragged_item: Option<(usize, String)> = None;
                     for (idx, item) in self.items.iter().enumerate() {
                         let item_id = Id::new(id_source).with(item.to_owned());
@@ -54,7 +54,7 @@ impl DragAndDrop {
 
                     if let Some((current_dragged_ix, dragged_item)) = dragged_item {
                         if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-                            match centers
+                            match bottoms
                                 .binary_search_by(|x| x.partial_cmp(&pointer_pos.y).unwrap())
                             {
                                 Ok(dragged_new_idx) => {
