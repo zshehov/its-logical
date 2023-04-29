@@ -36,7 +36,6 @@ impl DragAndDrop {
             match &mut self.bottoms {
                 Bottoms::Unknown(bottoms) => {
                     // first iteration is only to get familiar with the bottoms
-                    // TODO: this would probably break if windows size is changed
                     for (idx, item) in self.items.iter().enumerate() {
                         let response = ui.scope(|ui| ui.label(item)).response;
                         bottoms[idx] = response.rect.bottom();
@@ -76,13 +75,14 @@ impl DragAndDrop {
                             }
                         }
                     }
-                    for item in &self.items {
+                    for (item, bottom) in self.items.iter().zip(bottoms.iter_mut()) {
                         let item_id = Id::new(id_source).with(item.to_owned());
 
                         let is_being_dragged = ui.memory(|mem| mem.is_being_dragged(item_id));
 
                         if !is_being_dragged {
                             let response = ui.scope(|ui| ui.label(item)).response;
+                            *bottom = response.rect.bottom();
 
                             // Check for drags:
                             let response = ui.interact(response.rect, item_id, Sense::drag());
@@ -94,14 +94,10 @@ impl DragAndDrop {
 
                             // Paint the body to a new layer:
                             let layer_id = LayerId::new(Order::Tooltip, item_id);
-                            let response = ui.with_layer_id(layer_id, |ui| ui.label(item)).response;
-
-                            // Now we move the visuals of the body to where the mouse is.
-                            // Normally you need to decide a location for a widget first,
-                            // because otherwise that widget cannot interact with the mouse.
-                            // However, a dragged component cannot be interacted with anyway
-                            // (anything with `Order::Tooltip` always gets an empty [`Response`])
-                            // So this is fine!
+                            let response = ui
+                                .with_layer_id(layer_id, |ui| ui.label(item))
+                                .response;
+                            *bottom = response.rect.bottom();
 
                             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                                 let delta = pointer_pos - response.rect.center();
