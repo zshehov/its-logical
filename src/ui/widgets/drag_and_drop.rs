@@ -7,23 +7,26 @@ pub(crate) trait ListUniqueID {
     fn id(&self) -> String;
 }
 
-pub(crate) struct DragAndDrop<T: Default + ListUniqueID + Clone> {
+pub(crate) struct DragAndDrop<T: ListUniqueID + Clone> {
     active: bool,
     items: Vec<T>,
+    create_item: Box<dyn Fn() -> T>,
     bottoms: Vec<f32>,
     default_value_id: Id,
 }
 const ID_SOURCE: &str = "drag_and_drop";
 
-impl<T: Default + ListUniqueID + Clone> DragAndDrop<T> {
+impl<T: ListUniqueID + Clone> DragAndDrop<T> {
     // transfering ownership of the Vec to the DragAndDrop
-    pub(crate) fn new(items: Vec<T>) -> Self {
+    pub(crate) fn new(items: Vec<T>, create_item: Box<dyn Fn() -> T>) -> Self {
         let items_len = items.len();
+        let prototype = create_item();
         Self {
             active: false,
             items,
+            create_item,
             bottoms: vec![0.0; items_len],
-            default_value_id: Id::new(ID_SOURCE).with(T::default().id()),
+            default_value_id: Id::new(ID_SOURCE).with(prototype.id()),
         }
     }
     pub(crate) fn set_active(&mut self, active: bool) {
@@ -150,7 +153,7 @@ impl<T: Default + ListUniqueID + Clone> DragAndDrop<T> {
                     ui.vertical_centered(|ui| {
                         if !default_item_present {
                             if ui.button("+").clicked() {
-                                self.items.push(T::default());
+                                self.items.push((self.create_item)());
                                 self.bottoms.push(0.0);
                             }
                         }

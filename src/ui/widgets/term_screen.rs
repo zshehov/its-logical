@@ -34,6 +34,15 @@ impl ListUniqueID for DragAndDropString {
     }
 }
 
+/*
+struct TermRepresentation {
+    name: String,
+    args_definitions: DragAndDrop,
+    facts: DragAndDrop,
+    rules: DragAndDrop,
+}
+*/
+
 pub(crate) struct TermScreen {
     term: FatTerm,
     fact_placeholder: Vec<String>,
@@ -49,12 +58,15 @@ impl TermScreen {
             fact_placeholder: vec![],
             rule_placeholder: RulePlaceholder::new(term.meta.args.len()),
             edit_mode: false,
-            drag_and_drop_test: DragAndDrop::new(vec![
-                DragAndDropString("woah".to_string()),
-                DragAndDropString("second".to_string()),
-                DragAndDropString("asdf".to_string()),
-                DragAndDropString("rmrrm".to_string()),
-            ]),
+            drag_and_drop_test: DragAndDrop::new(
+                vec![
+                    DragAndDropString("woah".to_string()),
+                    DragAndDropString("second".to_string()),
+                    DragAndDropString("asdf".to_string()),
+                    DragAndDropString("rmrrm".to_string()),
+                ],
+                Box::new(|| DragAndDropString("NEW STRING".to_string())),
+            ),
         }
     }
     pub(crate) fn with_new_term() -> Self {
@@ -63,10 +75,13 @@ impl TermScreen {
             fact_placeholder: vec![],
             rule_placeholder: RulePlaceholder::new(0),
             edit_mode: true,
-            drag_and_drop_test: DragAndDrop::new(vec![
-                DragAndDropString("woah".to_string()),
-                DragAndDropString("second".to_string()),
-            ]),
+            drag_and_drop_test: DragAndDrop::new(
+                vec![
+                    DragAndDropString("woah".to_string()),
+                    DragAndDropString("second".to_string()),
+                ],
+                Box::new(|| DragAndDropString("NEW STRING".to_string())),
+            ),
         }
     }
 
@@ -88,14 +103,15 @@ impl TermScreen {
             );
 
             self.drag_and_drop_test.show(ui, |s, ui| {
-
-                ui.add(egui::TextEdit::singleline(&mut s.0)
-                    .clip_text(false)
-                    .desired_width(0.0)
-                    .hint_text("Enter term name")
-                    .frame(self.edit_mode)
-                    .interactive(self.edit_mode)
-                    .font(TextStyle::Body));
+                ui.add(
+                    egui::TextEdit::singleline(&mut s.0)
+                        .clip_text(false)
+                        .desired_width(0.0)
+                        .hint_text("Enter term name")
+                        .frame(self.edit_mode)
+                        .interactive(self.edit_mode)
+                        .font(TextStyle::Body),
+                );
             });
 
             let toggle_value_text = if self.edit_mode { "save" } else { "edit" };
