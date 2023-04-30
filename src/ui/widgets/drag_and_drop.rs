@@ -79,7 +79,13 @@ impl<T: Default + ListUniqueID + Clone> DragAndDrop<T> {
                     }
                 }
                 let mut default_item_present = false;
-                for (item, bottom) in self.items.iter_mut().zip(self.bottoms.iter_mut()) {
+                let mut item_for_deletion_idx = None;
+                for (idx, (item, bottom)) in self
+                    .items
+                    .iter_mut()
+                    .zip(self.bottoms.iter_mut())
+                    .enumerate()
+                {
                     if !self.active {
                         show_item(item, ui);
                         continue;
@@ -100,8 +106,9 @@ impl<T: Default + ListUniqueID + Clone> DragAndDrop<T> {
                                     })
                                     .response;
                                 show_item(item, ui);
-                                // TODO:
-                                ui.small_button("x");
+                                if ui.small_button("-").clicked() {
+                                    item_for_deletion_idx = Some(idx);
+                                }
                                 scoped_handle
                             })
                             .inner;
@@ -132,6 +139,10 @@ impl<T: Default + ListUniqueID + Clone> DragAndDrop<T> {
                             ui.ctx().translate_layer(layer_id, delta);
                         }
                     }
+                }
+                if let Some(item_for_deletion_idx) = item_for_deletion_idx {
+                    self.items.remove(item_for_deletion_idx);
+                    self.bottoms.pop();
                 }
                 if self.active {
                     ui.shrink_width_to_current();
