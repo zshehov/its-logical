@@ -16,15 +16,6 @@ pub(crate) enum Change {
     TermChange(FatTerm),
 }
 
-/*
-struct TermRepresentation {
-    name: String,
-    args_definitions: DragAndDrop,
-    facts: DragAndDrop,
-    rules: DragAndDrop,
-}
-*/
-
 pub(crate) struct TermScreen {
     term: FatTerm,
     fact_placeholder: Vec<String>,
@@ -43,22 +34,19 @@ impl TermScreen {
             fact_placeholder: vec![],
             rule_placeholder: RulePlaceholder::new(args.len()),
             edit_mode: false,
-            term_arguments: DragAndDrop::new(
-                args,
-                Box::new(|| NameDescription::new("Enter_arg_name", "Enter description")),
-            ),
+            term_arguments: DragAndDrop::new(args, Box::new(|| NameDescription::new("", ""))),
         }
     }
     pub(crate) fn with_new_term() -> Self {
+        let mut term_arguments =
+            DragAndDrop::new(vec![], Box::new(|| NameDescription::new("", "")));
+        term_arguments.unlock();
         Self {
             term: FatTerm::default(),
             fact_placeholder: vec![],
             rule_placeholder: RulePlaceholder::new(0),
             edit_mode: true,
-            term_arguments: DragAndDrop::new(
-                vec![NameDescription::new("Enter_arg_name", "Enter description")],
-                Box::new(|| NameDescription::new("Enter_arg_name", "Enter description")),
-            ),
+            term_arguments,
         }
     }
 
@@ -84,6 +72,7 @@ impl TermScreen {
                     ui.add(
                         egui::TextEdit::singleline(&mut s.name)
                             .clip_text(false)
+                            .hint_text("Enter term name")
                             .desired_width(0.0)
                             .frame(self.edit_mode)
                             .interactive(self.edit_mode)
@@ -106,7 +95,13 @@ impl TermScreen {
                 .clicked()
             {
                 if !self.edit_mode {
-                    self.term_arguments.lock();
+                    let argument_changes = self.term_arguments.lock();
+                    self.rule_placeholder = RulePlaceholder::new(self.term_arguments.len());
+                    self.fact_placeholder = vec!["".to_string(); self.term_arguments.len()];
+                    self.term.meta.args = self.term_arguments.iter().cloned().collect();
+                    // TODO: apply argument changes to Rules
+                    // TODO: apply argument changes to Facts
+                    // TODO: apply argument changes Related
                     change = Change::TermChange(self.term.clone());
                 } else {
                     self.term_arguments.unlock();

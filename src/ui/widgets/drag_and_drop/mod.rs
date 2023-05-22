@@ -3,7 +3,8 @@ use std::{cmp::min, hash::Hash};
 use eframe::epaint::RectShape;
 use egui::{CursorIcon, Id, LayerId, Order, Rect, Sense, Shape, Ui, Vec2};
 
-use self::change_tracking_list::{Change, ChangeTrackingVec};
+pub(crate) use self::change_tracking_list::Change;
+use self::change_tracking_list::ChangeTrackingVec;
 
 mod change_tracking_list;
 
@@ -35,6 +36,14 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
     pub(crate) fn lock(&mut self) -> Vec<Change<T>> {
         self.active = false;
         return self.items.get_current_changes();
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    pub(crate) fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.items.iter()
     }
 
     pub(crate) fn show(&mut self, ui: &mut Ui, show_item: impl Fn(&mut T, &mut Ui)) {

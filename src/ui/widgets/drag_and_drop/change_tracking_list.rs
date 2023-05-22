@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum Change<T> {

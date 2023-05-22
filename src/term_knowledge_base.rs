@@ -3,7 +3,7 @@ use bincode_derive::Decode;
 
 use std::{
     collections::HashMap,
-    fs::{self, OpenOptions},
+    fs::{self, File, OpenOptions},
     io::{BufReader, BufWriter},
     path::PathBuf,
 };
@@ -120,47 +120,18 @@ impl PersistentMemoryTerms {
 
     pub fn new(base_path: &PathBuf) -> Self {
         let descriptor_path = base_path.join(DESCRIPTOR_NAME);
-        if !descriptor_path.exists() {
-            let descriptor_file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .open(descriptor_path)
-                .unwrap();
 
-            let mut buf_writer = BufWriter::new(descriptor_file);
+        let descriptor_vec = if !descriptor_path.exists() {
+            File::create(&descriptor_path).unwrap();
+            vec![]
+        } else {
+            let descriptor = OpenOptions::new().read(true).open(descriptor_path).unwrap();
 
-            encode_into_std_write(
-                vec![
-                    DescriptorEntry {
-                        name: "mother".to_string(),
-                        offset: 0,
-                        len: 250,
-                    },
-                    DescriptorEntry {
-                        name: "father".to_string(),
-                        offset: 250,
-                        len: 226,
-                    },
-                    DescriptorEntry {
-                        name: "male".to_string(),
-                        offset: 476,
-                        len: 116,
-                    },
-                ],
-                &mut buf_writer,
-                config::standard(),
-            )
-            .unwrap();
-        }
-
-        let descriptor = OpenOptions::new()
-            .read(true)
-            .open(base_path.join(DESCRIPTOR_NAME))
-            .unwrap();
-
-        let mut descriptor = BufReader::new(descriptor);
-        let descriptor_vec: Vec<DescriptorEntry> =
-            decode_from_std_read(&mut descriptor, config::standard()).unwrap();
+            let mut descriptor = BufReader::new(descriptor);
+            let descriptor_vec: Vec<DescriptorEntry> =
+                decode_from_std_read(&mut descriptor, config::standard()).unwrap();
+            descriptor_vec
+        };
 
         let mut index = HashMap::new();
         for (entry_idx, entry) in descriptor_vec.iter().enumerate() {
