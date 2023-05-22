@@ -5,7 +5,7 @@ use nom::error::VerboseError;
 use nom::sequence::{separated_pair, terminated};
 use nom::IResult;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub(crate) struct NameDescription {
     pub name: String,
     pub desc: String,

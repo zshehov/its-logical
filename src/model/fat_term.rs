@@ -35,11 +35,8 @@ impl FatTerm {
 impl Default for FatTerm {
     fn default() -> Self {
         FatTerm::new(
-            Comment::new(
-                NameDescription::new("", ""),
-                vec![],
-            ),
-            Term::new(vec![ArgsBinding{ binding: vec![] }], vec![]),
+            Comment::new(NameDescription::new("", ""), vec![]),
+            Term::new(vec![ArgsBinding { binding: vec![] }], vec![]),
         )
     }
 }
@@ -53,6 +50,9 @@ pub(crate) fn parse_fat_term<'a>(i: &'a str) -> IResult<&'a str, FatTerm, Verbos
 
 #[test]
 fn test_parse_encode() {
+    use crate::model::term::bound_term::BoundTerm;
+    use crate::model::term::rule::Rule;
+
     let input = r"%! father a father is a parent that's male
 % @arg FatherName the name of the father
 % @arg ChildName the name of the child

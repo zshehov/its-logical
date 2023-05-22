@@ -2,7 +2,6 @@ use std::{collections::HashMap, hash::Hash};
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum Change<T> {
-    None,
     Pushed(),
     Moved(Vec<usize>),
     Removed(usize, T),

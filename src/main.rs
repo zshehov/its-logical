@@ -8,6 +8,7 @@ fn main() -> eframe::Result<()> {
 
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt::init();
+    // what if we wnt to 
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "It's Logical",

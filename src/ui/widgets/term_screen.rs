@@ -1,37 +1,19 @@
-use std::ops::Deref;
-
-use egui::{TextStyle, Ui};
+use egui::TextStyle;
 
 use crate::{
     model::{
+        comment::name_description::NameDescription,
         fat_term::FatTerm,
         term::{bound_term::BoundTerm, rule::Rule},
     },
     term_knowledge_base::TermsKnowledgeBase,
 };
 
-use super::drag_and_drop::{DragAndDrop, ListUniqueID};
+use super::drag_and_drop::DragAndDrop;
 
 pub(crate) enum Change {
     None,
     TermChange(FatTerm),
-}
-
-#[derive(Default, Clone)]
-struct DragAndDropString(String);
-
-impl Deref for DragAndDropString {
-    type Target = String;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl ListUniqueID for DragAndDropString {
-    fn id(&self) -> String {
-        self.0.to_owned()
-    }
 }
 
 /*
@@ -48,24 +30,22 @@ pub(crate) struct TermScreen {
     fact_placeholder: Vec<String>,
     rule_placeholder: RulePlaceholder,
     edit_mode: bool,
-    drag_and_drop_test: DragAndDrop<DragAndDropString>,
+    term_arguments: DragAndDrop<NameDescription>,
 }
 
 impl TermScreen {
     pub(crate) fn new(term: &FatTerm) -> Self {
+        let mut term = term.to_owned();
+        let args = term.meta.args.to_owned();
+
         Self {
-            term: term.to_owned(),
+            term,
             fact_placeholder: vec![],
-            rule_placeholder: RulePlaceholder::new(term.meta.args.len()),
+            rule_placeholder: RulePlaceholder::new(args.len()),
             edit_mode: false,
-            drag_and_drop_test: DragAndDrop::new(
-                vec![
-                    DragAndDropString("woah".to_string()),
-                    DragAndDropString("second".to_string()),
-                    DragAndDropString("asdf".to_string()),
-                    DragAndDropString("rmrrm".to_string()),
-                ],
-                Box::new(|| DragAndDropString("NEW STRING".to_string())),
+            term_arguments: DragAndDrop::new(
+                args,
+                Box::new(|| NameDescription::new("Enter_arg_name", "Enter description")),
             ),
         }
     }
@@ -75,12 +55,9 @@ impl TermScreen {
             fact_placeholder: vec![],
             rule_placeholder: RulePlaceholder::new(0),
             edit_mode: true,
-            drag_and_drop_test: DragAndDrop::new(
-                vec![
-                    DragAndDropString("woah".to_string()),
-                    DragAndDropString("second".to_string()),
-                ],
-                Box::new(|| DragAndDropString("NEW STRING".to_string())),
+            term_arguments: DragAndDrop::new(
+                vec![NameDescription::new("Enter_arg_name", "Enter description")],
+                Box::new(|| NameDescription::new("Enter_arg_name", "Enter description")),
             ),
         }
     }
@@ -102,16 +79,25 @@ impl TermScreen {
                     .font(TextStyle::Heading),
             );
 
-            self.drag_and_drop_test.show(ui, |s, ui| {
-                ui.add(
-                    egui::TextEdit::singleline(&mut s.0)
-                        .clip_text(false)
-                        .desired_width(0.0)
-                        .hint_text("Enter term name")
-                        .frame(self.edit_mode)
-                        .interactive(self.edit_mode)
-                        .font(TextStyle::Body),
-                );
+            self.term_arguments.show(ui, |s, ui| {
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::TextEdit::singleline(&mut s.name)
+                            .clip_text(false)
+                            .desired_width(0.0)
+                            .frame(self.edit_mode)
+                            .interactive(self.edit_mode)
+                            .font(TextStyle::Body),
+                    );
+                    ui.add(
+                        egui::TextEdit::singleline(&mut s.desc)
+                            .clip_text(false)
+                            .desired_width(0.0)
+                            .frame(self.edit_mode)
+                            .interactive(self.edit_mode)
+                            .font(TextStyle::Small),
+                    );
+                });
             });
 
             let toggle_value_text = if self.edit_mode { "save" } else { "edit" };
@@ -119,9 +105,11 @@ impl TermScreen {
                 .toggle_value(&mut self.edit_mode, toggle_value_text)
                 .clicked()
             {
-                self.drag_and_drop_test.set_active(self.edit_mode);
                 if !self.edit_mode {
+                    self.term_arguments.lock();
                     change = Change::TermChange(self.term.clone());
+                } else {
+                    self.term_arguments.unlock();
                 }
             }
         });
@@ -195,28 +183,32 @@ impl TermScreen {
                                 body_strings.join(", ")
                             ));
                         }
-                        ui.horizontal(|ui| {
-                            if let Some((idx, term_that_lost_focus)) = show_rule_placeholder(
-                                ui,
-                                &self.term.meta.term.name,
-                                self.rule_placeholder.head.iter_mut(),
-                                self.rule_placeholder.body.iter_mut(),
-                            ) {
-                                // TODO: handle the None here
-                                let t = terms_knowledge_base.get(&term_that_lost_focus).unwrap();
-                                self.rule_placeholder.body[idx] = (
-                                    term_that_lost_focus,
-                                    vec!["".to_string(); t.meta.args.len()],
-                                );
-                                self.rule_placeholder.body.push(("".to_string(), vec![]));
-                            }
-                            if ui.small_button("+").clicked() {
-                                let new_rule = placeholder_rule_to_rule(&self.rule_placeholder);
-                                self.term.term.rules.push(new_rule);
 
-                                change = Change::TermChange(self.term.clone());
-                            }
-                        });
+                        if self.edit_mode {
+                            ui.horizontal(|ui| {
+                                if let Some((idx, term_that_lost_focus)) = show_rule_placeholder(
+                                    ui,
+                                    &self.term.meta.term.name,
+                                    self.rule_placeholder.head.iter_mut(),
+                                    self.rule_placeholder.body.iter_mut(),
+                                ) {
+                                    // TODO: handle the None here
+                                    let t =
+                                        terms_knowledge_base.get(&term_that_lost_focus).unwrap();
+                                    self.rule_placeholder.body[idx] = (
+                                        term_that_lost_focus,
+                                        vec!["".to_string(); t.meta.args.len()],
+                                    );
+                                    self.rule_placeholder.body.push(("".to_string(), vec![]));
+                                }
+                                if ui.small_button("+").clicked() {
+                                    let new_rule = placeholder_rule_to_rule(&self.rule_placeholder);
+                                    self.term.term.rules.push(new_rule);
+
+                                    change = Change::TermChange(self.term.clone());
+                                }
+                            });
+                        }
                     },
                 )
             });
@@ -245,21 +237,25 @@ impl TermScreen {
                                 &self.term.meta.term.name, arguments_string
                             ));
                         }
-                        ui.horizontal(|ui| {
-                            show_placeholder(
-                                ui,
-                                &self.term.meta.term.name,
-                                self.fact_placeholder.iter_mut(),
-                            );
-                            if ui.small_button("+").clicked() {
-                                let binding = normalize_input_args(self.fact_placeholder.iter());
-                                self.term.term.facts.push(
-                                    crate::model::term::args_binding::ArgsBinding { binding },
-                                );
 
-                                change = Change::TermChange(self.term.clone());
-                            }
-                        });
+                        if self.edit_mode {
+                            ui.horizontal(|ui| {
+                                show_placeholder(
+                                    ui,
+                                    &self.term.meta.term.name,
+                                    self.fact_placeholder.iter_mut(),
+                                );
+                                if ui.small_button("+").clicked() {
+                                    let binding =
+                                        normalize_input_args(self.fact_placeholder.iter());
+                                    self.term.term.facts.push(
+                                        crate::model::term::args_binding::ArgsBinding { binding },
+                                    );
+
+                                    change = Change::TermChange(self.term.clone());
+                                }
+                            });
+                        }
                     },
                 )
             });
