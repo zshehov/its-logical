@@ -1,19 +1,24 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
-
 use crate::{
-    model::fat_term::{parse_fat_term, FatTerm},
+    model::fat_term::parse_fat_term,
     term_knowledge_base::{InMemoryTerms, PersistentMemoryTerms, TermsKnowledgeBase},
 };
+use std::{collections::HashMap, path::PathBuf};
 
 pub struct ItsLogicalApp<T: TermsKnowledgeBase> {
     ui: crate::ui::App<T>,
 }
 
+const SCALE_FACTOR: f32 = 1.2;
+
 impl ItsLogicalApp<InMemoryTerms> {
-    pub fn new() -> Self {
+    pub fn new(c: &eframe::CreationContext<'_>) -> Self {
+        let mut style = (*c.egui_ctx.style()).clone();
+
+        for (_, font) in style.text_styles.iter_mut() {
+            font.size *= SCALE_FACTOR;
+        }
+        c.egui_ctx.set_style(style);
+
         let (_, mother) = parse_fat_term(
             r"%! mother a mother is a parent that's female
 % @arg MotherName the name of the mother
@@ -54,7 +59,14 @@ male(petko).
 }
 
 impl ItsLogicalApp<PersistentMemoryTerms> {
-    pub fn new() -> Self {
+    pub fn new(c: &eframe::CreationContext<'_>) -> Self {
+        let mut style = (*c.egui_ctx.style()).clone();
+
+        for (_, font) in style.text_styles.iter_mut() {
+            font.size *= SCALE_FACTOR;
+        }
+        c.egui_ctx.set_style(style);
+
         Self {
             ui: crate::ui::App::new(PersistentMemoryTerms::new(&PathBuf::from(
                 "/Users/zdravko/knowledge",

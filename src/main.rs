@@ -16,7 +16,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "It's Logical",
         native_options,
-        Box::new(|_| Box::new(ItsLogicalApp::<PersistentMemoryTerms>::new())),
+        Box::new(|cc| Box::new(ItsLogicalApp::<PersistentMemoryTerms>::new(cc))),
     )
 }
 
