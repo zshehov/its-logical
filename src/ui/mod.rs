@@ -102,12 +102,12 @@ where
                         if self.current_tab.name == NEW_TAB_NAME {
                             self.terms
                                 .put(&updated_term.meta.term.name, updated_term.clone());
-                            self.current_tab.name = updated_term.meta.term.name;
-                            self.term_tabs.pop();
-                            self.term_tabs.add(self.current_tab.clone());
                         } else {
                             self.terms.edit(&self.current_tab.name, &updated_term);
                         }
+                        self.term_tabs
+                            .rename(&self.current_tab.name, &updated_term.meta.term.name);
+                        self.current_tab.name = updated_term.meta.term.name;
                     }
                 }
             }
@@ -127,10 +127,11 @@ impl TermTabs {
             self.tabs_vec.push(tab);
         }
     }
-    fn pop(&mut self) {
-        // TODO: this pop is only needed in the New term scenario -- this leaks abstraction at this
-        // point. rethink that
-        let popped = self.tabs_vec.pop().unwrap();
-        self.tabs_set.remove(&popped.name);
+    fn rename(&mut self, from: &str, to: &str) {
+        if let Some(item) = self.tabs_vec.iter_mut().find(|x| x.name == from) {
+            item.name = to.to_owned();
+        }
+        self.tabs_set.remove(from);
+        self.tabs_set.insert(to.to_owned());
     }
 }
