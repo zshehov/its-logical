@@ -42,17 +42,8 @@ impl<T: Clone + Eq + Hash> ChangeTrackingVec<T> {
     pub(crate) fn move_item(&mut self, from: usize, to: usize) {
         let item = self.items.remove(from);
         self.items.insert(to, item);
-        if from > to {
-            self.order_changes[to] = from;
-            for order_idx in &mut self.order_changes[to + 1..=from] {
-                *order_idx -= 1;
-            }
-        } else {
-            self.order_changes[to] = from;
-            for order_idx in &mut self.order_changes[from..to] {
-                *order_idx += 1;
-            }
-        }
+        let order_idx = self.order_changes.remove(from);
+        self.order_changes.insert(to, order_idx);
         self.order_has_changed = true;
     }
 
@@ -153,7 +144,6 @@ fn test_flush_order_changes() {
     let order_changes = v.flush_order_changes().unwrap();
     assert_eq!(order_changes, vec![1, 2, 0]);
     assert_eq!(v.order_has_changed, false);
-    assert_eq!(v.order_changes.len(), 3);
 }
 
 #[test]
@@ -182,6 +172,36 @@ fn test_remove_after_move() {
     assert_eq!(current_changes.len(), 2);
     assert_eq!(current_changes[0], Change::Moved(vec![1, 2, 0]));
     assert_eq!(current_changes[1], Change::Removed(1, 3));
+}
+
+#[test]
+fn test_move_after_move_when_from_is_after_to() {
+    let mut v = ChangeTrackingVec::new(vec![1, 2]);
+    v.move_item(1, 0);
+    assert_eq!(v.items, vec![2, 1]);
+    v.move_item(1, 0);
+    assert_eq!(v.items, vec![1, 2]);
+    assert_eq!(v.order_changes.len(), 2);
+    let current_changes = v.get_current_changes();
+    // order changes are not included in the changes until another type of change is made
+    assert_eq!(current_changes.len(), 0);
+    let order_changes = v.flush_order_changes().unwrap();
+    assert_eq!(order_changes, vec![0, 1]);
+}
+
+#[test]
+fn test_move_after_move_when_to_is_after_from() {
+    let mut v = ChangeTrackingVec::new(vec![1, 2]);
+    v.move_item(0, 1);
+    assert_eq!(v.items, vec![2, 1]);
+    v.move_item(0, 1);
+    assert_eq!(v.items, vec![1, 2]);
+    assert_eq!(v.order_changes.len(), 2);
+    let current_changes = v.get_current_changes();
+    // order changes are not included in the changes until another type of change is made
+    assert_eq!(current_changes.len(), 0);
+    let order_changes = v.flush_order_changes().unwrap();
+    assert_eq!(order_changes, vec![0, 1]);
 }
 
 #[test]
