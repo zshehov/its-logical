@@ -79,7 +79,7 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                                     let scoped_handle = ui
                                         .scope(|ui| {
                                             ui.label(
-                                                egui::RichText::new("::").heading().monospace(),
+                                                egui::RichText::new("∷").heading().monospace(),
                                             )
                                         })
                                         .response;

@@ -72,36 +72,12 @@ impl TermScreen {
                         .font(TextStyle::Heading),
                 )
                 .changed();
-
-            self.term_arguments.show(ui, |s, ui| {
-                ui.horizontal(|ui| {
-                    self.changed |= ui
-                        .add(
-                            egui::TextEdit::singleline(&mut s.name)
-                                .clip_text(false)
-                                .hint_text("Enter term name")
-                                .desired_width(0.0)
-                                .frame(self.edit_mode)
-                                .interactive(self.edit_mode)
-                                .font(TextStyle::Body),
-                        )
-                        .changed();
-                    self.changed |= ui
-                        .add(
-                            egui::TextEdit::singleline(&mut s.desc)
-                                .clip_text(false)
-                                .desired_width(0.0)
-                                .frame(self.edit_mode)
-                                .interactive(self.edit_mode)
-                                .font(TextStyle::Small),
-                        )
-                        .changed();
-                });
-            });
-
-            let toggle_value_text = if self.edit_mode { "save" } else { "edit" };
+            let toggle_value_text = if self.edit_mode { "💾" } else { "📝" };
             if ui
-                .toggle_value(&mut self.edit_mode, toggle_value_text)
+                .toggle_value(
+                    &mut self.edit_mode,
+                    egui::RichText::new(toggle_value_text).heading().monospace(),
+                )
                 .clicked()
             {
                 if !self.edit_mode {
@@ -120,6 +96,33 @@ impl TermScreen {
                     self.term_arguments.unlock();
                 }
             }
+            ui.separator();
+
+            self.term_arguments.show(ui, |s, ui| {
+                ui.horizontal(|ui| {
+                    self.changed |= ui
+                        .add(
+                            egui::TextEdit::singleline(&mut s.name)
+                                .clip_text(false)
+                                .hint_text("Enter arg name")
+                                .desired_width(0.0)
+                                .frame(self.edit_mode)
+                                .interactive(self.edit_mode)
+                                .font(TextStyle::Body),
+                        )
+                        .changed();
+                    self.changed |= ui
+                        .add(
+                            egui::TextEdit::singleline(&mut s.desc)
+                                .clip_text(false)
+                                .desired_width(0.0)
+                                .frame(self.edit_mode)
+                                .interactive(self.edit_mode)
+                                .font(TextStyle::Small),
+                        )
+                        .changed();
+                });
+            });
         });
         ui.separator();
 
