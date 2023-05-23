@@ -33,7 +33,7 @@ impl TermScreen {
 
         Self {
             term,
-            fact_placeholder: vec![],
+            fact_placeholder: vec!["".to_string(); args.len()],
             rule_placeholder: RulePlaceholder::new(args.len()),
             edit_mode: false,
             term_arguments: DragAndDrop::new(args, Box::new(|| NameDescription::new("", ""))),
