@@ -1,4 +1,4 @@
-use egui::TextStyle;
+use egui::{TextStyle, RichText};
 
 use crate::{
     model::{
@@ -96,7 +96,6 @@ impl TermScreen {
                     self.term_arguments.unlock();
                 }
             }
-            ui.separator();
 
             self.term_arguments.show(ui, |s, ui| {
                 ui.horizontal(|ui| {
@@ -132,6 +131,7 @@ impl TermScreen {
                 ui.with_layout(
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
+                        ui.label(RichText::new("Description").small().italics());
                         self.changed |= ui
                             .add(
                                 egui::TextEdit::multiline(&mut self.term.meta.term.desc)
@@ -155,6 +155,7 @@ impl TermScreen {
                 ui.with_layout(
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
+                        ui.label(RichText::new("Rules").small().italics());
                         for rule in &self.term.term.rules {
                             // TODO: it might be worth to cache this string
                             let arg_strings: Vec<&str> = rule
@@ -235,6 +236,7 @@ impl TermScreen {
                 ui.with_layout(
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
+                        ui.label(RichText::new("Facts").small().italics());
                         for fact in &self.term.term.facts {
                             // TODO: it might be worth to cache this string
                             let arg_strings: Vec<&str> = fact
