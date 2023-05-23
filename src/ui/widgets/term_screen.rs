@@ -1,4 +1,4 @@
-use egui::{TextStyle, RichText};
+use egui::{RichText, TextStyle};
 
 use crate::{
     model::{
@@ -94,6 +94,7 @@ impl TermScreen {
                     }
                 } else {
                     self.term_arguments.unlock();
+                    self.rule_placeholder.body.unlock();
                 }
             }
 
@@ -200,22 +201,46 @@ impl TermScreen {
 
                         if self.edit_mode {
                             ui.horizontal(|ui| {
-                                if let Some((idx, term_that_lost_focus)) = show_rule_placeholder(
+                                show_placeholder(
                                     ui,
                                     &self.term.meta.term.name,
                                     self.rule_placeholder.head.iter_mut(),
-                                    self.rule_placeholder.body.iter_mut(),
-                                ) {
-                                    // TODO: handle the None here
-                                    let t =
-                                        terms_knowledge_base.get(&term_that_lost_focus).unwrap();
-                                    self.rule_placeholder.body[idx] = (
-                                        term_that_lost_focus,
-                                        vec!["".to_string(); t.meta.args.len()],
-                                    );
-                                    self.rule_placeholder.body.push(("".to_string(), vec![]));
-                                }
-                                if ui.small_button("+").clicked() {
+                                );
+                                ui.label(egui::RichText::new("if").weak());
+
+                                self.rule_placeholder.body.show(ui, |s, ui| {
+                                    ui.horizontal(|ui| {
+                                        if ui
+                                            .add(
+                                                egui::TextEdit::singleline(&mut s.0)
+                                                    .clip_text(false)
+                                                    .desired_width(0.0),
+                                            )
+                                            .lost_focus()
+                                        {
+                                            // TODO: handle the None here
+                                            let t = terms_knowledge_base.get(&s.0).unwrap();
+                                            s.1 = vec!["".to_string(); t.meta.args.len()];
+                                        }
+                                        let mut added_once = false;
+                                        ui.label(egui::RichText::new("(").weak());
+                                        for param in &mut s.1 {
+                                            if added_once {
+                                                ui.label(egui::RichText::new(", ").weak());
+                                            }
+                                            ui.add(
+                                                egui::TextEdit::singleline(param)
+                                                    .clip_text(false)
+                                                    .desired_width(SINGLE_CHAR_WIDTH)
+                                                    .hint_text("X"),
+                                            );
+                                            added_once = true
+                                        }
+                                        ui.label(egui::RichText::new(")").weak());
+                                    });
+                                });
+
+                                if ui.small_button("Add rule").clicked() {
                                     let new_rule = placeholder_rule_to_rule(&self.rule_placeholder);
                                     self.term.term.rules.push(new_rule);
                                     // reset the rule placeholder
@@ -297,14 +322,17 @@ impl TermScreen {
 
 struct RulePlaceholder {
     head: Vec<String>,
-    body: Vec<(String, Vec<String>)>,
+    body: DragAndDrop<(String, Vec<String>)>,
 }
 
 impl RulePlaceholder {
     fn new(args_count: usize) -> Self {
         Self {
             head: vec!["".to_string(); args_count],
-            body: vec![("".to_string(), vec![]); 1],
+            body: DragAndDrop::new(
+                vec![("".to_string(), vec![])],
+                Box::new(|| ("".to_string(), vec![])),
+            ),
         }
     }
 }
@@ -333,52 +361,6 @@ fn show_placeholder<'a>(
         added_once = true
     }
     ui.label(egui::RichText::new(")").weak());
-}
-
-// expects to be called in a horizontal layout
-fn show_rule_placeholder<'a>(
-    ui: &mut egui::Ui,
-    term_name: &str,
-    parameters: impl Iterator<Item = &'a mut String>,
-    body_terms: impl Iterator<Item = &'a mut (String, Vec<String>)>,
-) -> Option<(usize, String)> {
-    show_placeholder(ui, term_name, parameters);
-    ui.label(egui::RichText::new("if").weak());
-
-    let mut term_that_lost_focus: Option<(usize, String)> = None;
-
-    ui.vertical(|ui| {
-        for (idx, (name, parameters)) in body_terms.enumerate() {
-            ui.horizontal(|ui| {
-                if ui
-                    .add(
-                        egui::TextEdit::singleline(name)
-                            .clip_text(false)
-                            .desired_width(0.0),
-                    )
-                    .lost_focus()
-                {
-                    term_that_lost_focus = Some((idx, name.clone()));
-                }
-                let mut added_once = false;
-                ui.label(egui::RichText::new("(").weak());
-                for param in parameters {
-                    if added_once {
-                        ui.label(egui::RichText::new(", ").weak());
-                    }
-                    ui.add(
-                        egui::TextEdit::singleline(param)
-                            .clip_text(false)
-                            .desired_width(SINGLE_CHAR_WIDTH)
-                            .hint_text("X"),
-                    );
-                    added_once = true
-                }
-                ui.label(egui::RichText::new(")").weak());
-            });
-        }
-    });
-    term_that_lost_focus
 }
 
 fn normalize_input_args<'a>(input: impl Iterator<Item = &'a String>) -> Vec<Option<String>> {
