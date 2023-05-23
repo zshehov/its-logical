@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use nom::{error::VerboseError, IResult};
 
 use super::{
@@ -56,8 +54,8 @@ fn test_parse_encode() {
     let input = r"%! father a father is a parent that's male
 % @arg FatherName the name of the father
 % @arg ChildName the name of the child
-father(Stefan,Petko).
-father(Hristo,Stoichko).
+father(stefan,petko).
+father(hristo,stoichko).
 father(Father,Child):-parent(Father,Child),male(Father)
 ";
     let parsed = parse_fat_term(input);
@@ -73,10 +71,10 @@ father(Father,Child):-parent(Father,Child),male(Father)
         Term::new(
             vec![
                 ArgsBinding {
-                    binding: vec![Some("Stefan".to_string()), Some("Petko".to_string())],
+                    binding: vec![Some("stefan".to_string()), Some("petko".to_string())],
                 },
                 ArgsBinding {
-                    binding: vec![Some("Hristo".to_string()), Some("Stoichko".to_string())],
+                    binding: vec![Some("hristo".to_string()), Some("stoichko".to_string())],
                 },
             ],
             vec![Rule {

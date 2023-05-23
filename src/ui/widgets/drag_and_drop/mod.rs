@@ -73,51 +73,50 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                                 default_item_present = true;
                             }
 
-                            let is_being_dragged = ui.memory(|mem| mem.is_being_dragged(item_id));
-
-                            if !is_being_dragged {
-                                let response = ui
-                                    .horizontal(|ui| {
-                                        // the grab should only happen on the "::" part of the item
-                                        let scoped_handle = ui
-                                            .scope(|ui| {
-                                                ui.label(
-                                                    egui::RichText::new("::").heading().monospace(),
-                                                )
-                                            })
-                                            .response;
-                                        show_item(item, ui);
-                                        if ui.small_button("-").clicked() {
-                                            item_for_deletion_idx = Some(idx);
-                                        }
-                                        scoped_handle
-                                    })
-                                    .inner;
-                                *bottom = response.rect.bottom();
-
-                                // Check for drags:
-                                let response = ui.interact(response.rect, item_id, Sense::drag());
-                                if response.hovered() {
-                                    ui.ctx().set_cursor_icon(CursorIcon::Grab);
-                                }
-                            } else {
-                                ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
-
-                                // Paint the body to a new layer:
-                                let layer_id = LayerId::new(Order::Tooltip, item_id);
-                                let response = ui
-                                    .with_layer_id(layer_id, |ui| {
-                                        ui.horizontal(|ui| {
-                                            ui.label("::");
-                                            show_item(item, ui);
+                            let mut render_entry = |ui: &mut Ui| -> egui::Response {
+                                ui.horizontal(|ui| {
+                                    // the grab should only happen on the "::" part of the item
+                                    let scoped_handle = ui
+                                        .scope(|ui| {
+                                            ui.label(
+                                                egui::RichText::new("::").heading().monospace(),
+                                            )
                                         })
-                                    })
-                                    .response;
-                                *bottom = response.rect.bottom();
+                                        .response;
+                                    show_item(item, ui);
+                                    if ui.small_button("-").clicked() {
+                                        item_for_deletion_idx = Some(idx);
+                                    }
+                                    scoped_handle
+                                })
+                                .inner
+                            };
 
-                                if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-                                    let delta = pointer_pos - response.rect.left_center();
-                                    ui.ctx().translate_layer(layer_id, delta);
+                            match ui.memory(|mem| mem.is_being_dragged(item_id)) {
+                                true => {
+                                    ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
+
+                                    // Paint the body to a new layer:
+                                    let layer_id = LayerId::new(Order::Tooltip, item_id);
+                                    let response =
+                                        ui.with_layer_id(layer_id, render_entry).response;
+                                    *bottom = response.rect.bottom();
+
+                                    if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+                                        let delta = pointer_pos - response.rect.left_center();
+                                        ui.ctx().translate_layer(layer_id, delta);
+                                    }
+                                }
+                                false => {
+                                    let response = render_entry(ui);
+                                    *bottom = response.rect.bottom();
+
+                                    // Check for drags:
+                                    let response =
+                                        ui.interact(response.rect, item_id, Sense::drag());
+                                    if response.hovered() {
+                                        ui.ctx().set_cursor_icon(CursorIcon::Grab);
+                                    }
                                 }
                             }
                         }
