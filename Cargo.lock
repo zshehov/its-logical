@@ -1104,6 +1104,7 @@ dependencies = [
  "nom",
  "serde",
  "thiserror",
+ "tracing",
  "tracing-subscriber",
  "tracing-wasm",
  "wasm-bindgen-futures",

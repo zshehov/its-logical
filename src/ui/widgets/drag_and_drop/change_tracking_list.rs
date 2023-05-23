@@ -71,6 +71,9 @@ impl<T: Clone + Eq + Hash> ChangeTrackingVec<T> {
     }
 
     pub(crate) fn get_current_changes(&mut self) -> Vec<Change<T>> {
+        if let Some(order_changes) = self.flush_order_changes() {
+            self.current_changes.push(Change::Moved(order_changes));
+        }
         let mut empty_changes: Vec<Change<T>> = vec![];
         std::mem::swap(&mut self.current_changes, &mut empty_changes);
         empty_changes

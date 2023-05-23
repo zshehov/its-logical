@@ -1,14 +1,17 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use tracing::Level;
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
     use its_logical::{term_knowledge_base::PersistentMemoryTerms, ItsLogicalApp};
 
     // Log to stdout (if you run with `RUST_LOG=debug`).
-    tracing_subscriber::fmt::init();
-    // what if we wnt to 
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .init();
+    // what if we wnt to
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "It's Logical",

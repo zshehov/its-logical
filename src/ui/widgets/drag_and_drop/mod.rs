@@ -46,7 +46,7 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
         self.items.iter()
     }
 
-    pub(crate) fn show(&mut self, ui: &mut Ui, show_item: impl Fn(&mut T, &mut Ui)) {
+    pub(crate) fn show(&mut self, ui: &mut Ui, mut show_item: impl FnMut(&mut T, &mut Ui)) {
         let margin = Vec2::splat(4.0);
 
         ui.vertical(|ui| {
