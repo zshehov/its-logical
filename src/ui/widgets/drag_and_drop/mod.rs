@@ -52,6 +52,12 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
         self.items.iter()
     }
 
+    // TODO: maybe return a Result here, since failures may occur (repeating item id)
+    pub(crate) fn push(&mut self, item: T) {
+        self.items.push(item);
+        self.bottoms.push(0.0);
+    }
+
     pub(crate) fn show(&mut self, ui: &mut Ui, mut show_item: impl FnMut(&mut T, &mut Ui)) {
         let margin = Vec2::splat(4.0);
 
