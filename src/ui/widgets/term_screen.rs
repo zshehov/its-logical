@@ -26,6 +26,7 @@ pub(crate) struct TermScreen {
     rules: DragAndDrop<Rule>,
     facts: DragAndDrop<ArgsBinding>,
     term_arguments: DragAndDrop<NameDescription>,
+    arg_placeholder: NameDescription,
 }
 
 impl TermScreen {
@@ -39,16 +40,15 @@ impl TermScreen {
             fact_placeholder: vec!["".to_string(); args.len()],
             rule_placeholder: RulePlaceholder::new(args.len()),
             edit_mode: false,
-            term_arguments: DragAndDrop::new(args)
-                .with_create_item(Box::new(|| NameDescription::new("", ""))),
+            term_arguments: DragAndDrop::new(args),
             changed: false,
             rules: DragAndDrop::new(rules),
             facts: DragAndDrop::new(facts),
+            arg_placeholder: NameDescription::new("", ""),
         }
     }
     pub(crate) fn with_new_term() -> Self {
-        let mut term_arguments =
-            DragAndDrop::new(vec![]).with_create_item(Box::new(|| NameDescription::new("", "")));
+        let mut term_arguments = DragAndDrop::new(vec![]);
         term_arguments.unlock();
         let mut rules = DragAndDrop::new(vec![]);
         rules.unlock();
@@ -63,6 +63,7 @@ impl TermScreen {
             term_arguments,
             rules,
             facts,
+            arg_placeholder: NameDescription::new("", ""),
         }
     }
 
@@ -98,6 +99,7 @@ impl TermScreen {
                     let facts_changes = self.facts.lock();
                     self.rule_placeholder = RulePlaceholder::new(self.term_arguments.len());
                     self.fact_placeholder = vec!["".to_string(); self.term_arguments.len()];
+                    self.arg_placeholder = NameDescription::new("", "");
                     // TODO: apply argument changes to Rules
                     // TODO: apply argument changes to Facts
                     // TODO: apply argument changes Related
@@ -128,30 +130,31 @@ impl TermScreen {
                 }
             }
 
-            self.term_arguments.show(ui, |s, ui| {
-                ui.horizontal(|ui| {
-                    self.changed |= ui
-                        .add(
-                            egui::TextEdit::singleline(&mut s.name)
-                                .clip_text(false)
-                                .hint_text("Enter arg name")
-                                .desired_width(0.0)
-                                .frame(self.edit_mode)
-                                .interactive(self.edit_mode)
-                                .font(TextStyle::Body),
-                        )
-                        .changed();
-                    self.changed |= ui
-                        .add(
-                            egui::TextEdit::singleline(&mut s.desc)
-                                .clip_text(false)
-                                .desired_width(0.0)
-                                .frame(self.edit_mode)
-                                .interactive(self.edit_mode)
-                                .font(TextStyle::Small),
-                        )
-                        .changed();
+            ui.vertical(|ui| {
+                self.term_arguments.show(ui, |s, ui| {
+                    ui.horizontal(|ui| {
+                        self.changed |= show_arg(ui, &mut s.name, &mut s.desc, self.edit_mode);
+                    });
                 });
+
+                if self.edit_mode {
+                    ui.horizontal(|ui| {
+                        show_arg(
+                            ui,
+                            &mut self.arg_placeholder.name,
+                            &mut self.arg_placeholder.desc,
+                            self.edit_mode,
+                        );
+                        if ui.small_button("+").clicked() {
+                            let mut empty_arg_placeholder = NameDescription::new("", "");
+                            // reset the arg placeholder
+                            std::mem::swap(&mut self.arg_placeholder, &mut empty_arg_placeholder);
+
+                            self.term_arguments.push(empty_arg_placeholder);
+                            self.changed = true;
+                        }
+                    });
+                }
             });
         });
         ui.separator();
@@ -165,16 +168,14 @@ impl TermScreen {
                         ui.label(RichText::new("Description").small().italics());
                         self.changed |= ui
                             .add(
-                                egui::TextEdit::multiline(
-                                    &mut self.name_description.desc,
-                                )
-                                .clip_text(false)
-                                .desired_width(0.0)
-                                .desired_rows(1)
-                                .hint_text("Enter description")
-                                .frame(self.edit_mode)
-                                .interactive(self.edit_mode)
-                                .font(TextStyle::Body),
+                                egui::TextEdit::multiline(&mut self.name_description.desc)
+                                    .clip_text(false)
+                                    .desired_width(0.0)
+                                    .desired_rows(1)
+                                    .hint_text("Enter description")
+                                    .frame(self.edit_mode)
+                                    .interactive(self.edit_mode)
+                                    .font(TextStyle::Body),
                             )
                             .changed();
                     },
@@ -220,7 +221,7 @@ impl TermScreen {
                                 );
                                 ui.label(egui::RichText::new("if").weak());
 
-                                self.rule_placeholder.body.show(ui, |s, ui| {
+                               self.rule_placeholder.body.show(ui, |s, ui| {
                                     ui.horizontal(|ui| {
                                         if ui
                                             .add(
@@ -252,7 +253,7 @@ impl TermScreen {
                                     });
                                 });
 
-                                if ui.small_button("Add rule").clicked() {
+                                if ui.small_button("+").clicked() {
                                     let mut empty_rule_placeholder =
                                         RulePlaceholder::new(self.term_arguments.len());
                                     // reset the rule placeholder
@@ -323,7 +324,7 @@ impl TermScreen {
                 ui.with_layout(
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
-                        ui.label("Referred by:");
+                        ui.label(RichText::new("Referred by").small().italics());
                         ui.label("grandmother");
                     },
                 )
@@ -371,6 +372,39 @@ fn show_placeholder<'a>(
         added_once = true
     }
     ui.label(egui::RichText::new(")").weak());
+}
+
+fn show_arg(
+    ui: &mut egui::Ui,
+    arg_name: &mut String,
+    arg_desc: &mut String,
+    edit_mode: bool,
+) -> bool {
+    // TODO: fix the hardcoded widths
+    let mut changed = false;
+    changed |= ui
+        .add(
+            egui::TextEdit::singleline(arg_name)
+                .clip_text(false)
+                .hint_text("Name")
+                .desired_width(60.0)
+                .frame(edit_mode)
+                .interactive(edit_mode)
+                .font(TextStyle::Body),
+        )
+        .changed();
+    changed |= ui
+        .add(
+            egui::TextEdit::singleline(arg_desc)
+                .clip_text(false)
+                .hint_text("Description")
+                .desired_width(100.0)
+                .frame(edit_mode)
+                .interactive(edit_mode)
+                .font(TextStyle::Small),
+        )
+        .changed();
+    changed
 }
 
 fn extract_rule(placeholder: RulePlaceholder) -> Rule {
