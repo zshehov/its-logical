@@ -71,27 +71,27 @@ father(Father,Child):-parent(Father,Child),male(Father)
         Term::new(
             vec![
                 ArgsBinding {
-                    binding: vec![Some("stefan".to_string()), Some("petko".to_string())],
+                    binding: vec!["stefan".to_string(), "petko".to_string()],
                 },
                 ArgsBinding {
-                    binding: vec![Some("hristo".to_string()), Some("stoichko".to_string())],
+                    binding: vec!["hristo".to_string(), "stoichko".to_string()],
                 },
             ],
             vec![Rule {
                 arg_bindings: ArgsBinding {
-                    binding: vec![Some("Father".to_string()), Some("Child".to_string())],
+                    binding: vec!["Father".to_string(), "Child".to_string()],
                 },
                 body: vec![
                     BoundTerm {
                         name: "parent".to_string(),
                         arg_bindings: ArgsBinding {
-                            binding: vec![Some("Father".to_string()), Some("Child".to_string())],
+                            binding: vec!["Father".to_string(), "Child".to_string()],
                         },
                     },
                     BoundTerm {
                         name: "male".to_string(),
                         arg_bindings: ArgsBinding {
-                            binding: vec![Some("Father".to_string())],
+                            binding: vec!["Father".to_string()],
                         },
                     },
                 ],

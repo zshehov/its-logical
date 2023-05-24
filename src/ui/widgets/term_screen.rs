@@ -159,33 +159,15 @@ impl TermScreen {
                         ui.label(RichText::new("Rules").small().italics());
                         for rule in &self.term.term.rules {
                             // TODO: it might be worth to cache this string
-                            let arg_strings: Vec<&str> = rule
-                                .arg_bindings
-                                .binding
-                                .iter()
-                                .map(|a| match a {
-                                    Some(v) => v,
-                                    None => "_",
-                                })
-                                .collect();
 
-                            let arguments_string: String = arg_strings.join(", ");
+                            let arguments_string: String = rule.arg_bindings.binding.join(", ");
 
                             let body_strings: Vec<String> = rule
                                 .body
                                 .iter()
                                 .map(|c| {
-                                    let arg_strings: Vec<&str> = c
-                                        .arg_bindings
-                                        .binding
-                                        .iter()
-                                        .map(|a| match a {
-                                            Some(v) => v,
-                                            None => "_",
-                                        })
-                                        .collect();
-
-                                    let arguments_string: String = arg_strings.join(", ");
+                                    let arguments_string: String =
+                                        c.arg_bindings.binding.join(", ");
 
                                     return format!("{} ( {} )", c.name, arguments_string);
                                 })
@@ -241,11 +223,14 @@ impl TermScreen {
                                 });
 
                                 if ui.small_button("Add rule").clicked() {
-                                    let new_rule = placeholder_rule_to_rule(&self.rule_placeholder);
+                                    let mut empty_rule_placeholder = RulePlaceholder::new(self.term_arguments.len());
+
+                                    std::mem::swap(&mut self.rule_placeholder, &mut empty_rule_placeholder);
+                                        
+                                    let new_rule =
+                                        extract_rule(empty_rule_placeholder);
                                     self.term.term.rules.push(new_rule);
                                     // reset the rule placeholder
-                                    self.rule_placeholder =
-                                        RulePlaceholder::new(self.term_arguments.len());
                                     self.changed = true;
                                 }
                             });
@@ -263,17 +248,7 @@ impl TermScreen {
                     |ui| {
                         ui.label(RichText::new("Facts").small().italics());
                         for fact in &self.term.term.facts {
-                            // TODO: it might be worth to cache this string
-                            let arg_strings: Vec<&str> = fact
-                                .binding
-                                .iter()
-                                .map(|a| match a {
-                                    Some(v) => v,
-                                    None => "_",
-                                })
-                                .collect();
-
-                            let arguments_string: String = arg_strings.join(", ");
+                            let arguments_string: String = fact.binding.join(", ");
                             ui.label(format!(
                                 "{} ( {} )",
                                 &self.term.meta.term.name, arguments_string
@@ -288,14 +263,19 @@ impl TermScreen {
                                     self.fact_placeholder.iter_mut(),
                                 );
                                 if ui.small_button("+").clicked() {
-                                    let binding =
-                                        normalize_input_args(self.fact_placeholder.iter());
-                                    self.term.term.facts.push(
-                                        crate::model::term::args_binding::ArgsBinding { binding },
-                                    );
-                                    // reset the placeholder
-                                    self.fact_placeholder =
+                                    let mut empty_fact_placeholder =
                                         vec!["".to_string(); self.term_arguments.len()];
+                                    // reset the placeholder
+                                    std::mem::swap(
+                                        &mut empty_fact_placeholder,
+                                        &mut self.fact_placeholder,
+                                    );
+
+                                    self.term.term.facts.push(
+                                        crate::model::term::args_binding::ArgsBinding {
+                                            binding: empty_fact_placeholder,
+                                        },
+                                    );
                                     self.changed = true;
                                 }
                             });
@@ -363,19 +343,8 @@ fn show_placeholder<'a>(
     ui.label(egui::RichText::new(")").weak());
 }
 
-fn normalize_input_args<'a>(input: impl Iterator<Item = &'a String>) -> Vec<Option<String>> {
-    input
-        .map(|a| {
-            if a == "" {
-                return None;
-            }
-            Some(a.to_string())
-        })
-        .collect()
-}
-
-fn placeholder_rule_to_rule(placeholder: &RulePlaceholder) -> Rule {
-    let head_binding = normalize_input_args(placeholder.head.iter());
+fn extract_rule(placeholder: RulePlaceholder) -> Rule {
+    let head_binding = placeholder.head;
 
     let body_bindings = placeholder
         .body
@@ -386,12 +355,10 @@ fn placeholder_rule_to_rule(placeholder: &RulePlaceholder) -> Rule {
                 return None;
             }
 
-            let bound_args = normalize_input_args(args.iter());
-
             Some(BoundTerm {
                 name: name.to_owned(),
                 arg_bindings: crate::model::term::args_binding::ArgsBinding {
-                    binding: bound_args,
+                    binding: args.to_owned(),
                 },
             })
         })

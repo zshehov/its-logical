@@ -7,17 +7,11 @@ use nom::{
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct ArgsBinding {
-    // TODO: reconsider this being optional, just a string with _ value is probably better
-    pub(crate) binding: Vec<Option<String>>,
+    pub(crate) binding: Vec<String>,
 }
 impl ArgsBinding {
     pub(crate) fn encode(&self) -> String {
-        let normalised: Vec<String> = self.binding.iter().map(|f| match f {
-            Some(s) => s.to_owned(),
-            None => "_".to_string(),
-        }).collect();
-
-        normalised.join(",")
+        self.binding.join(",")
     }
 }
 
@@ -28,15 +22,7 @@ pub(crate) fn parse_args_binding<'a>(
         (
             leftover,
             ArgsBinding {
-                binding: args
-                    .iter()
-                    .map(|&s| {
-                        if s == "_" {
-                            return None;
-                        }
-                        return Some(s.to_string());
-                    })
-                    .collect(),
+                binding: args.into_iter().map(|x| x.to_string()).collect(),
             },
         )
     })

@@ -78,7 +78,7 @@ fn test_parse_fact() {
             BoundTerm {
                 name: "parent".to_string(),
                 arg_bindings: ArgsBinding {
-                    binding: vec![Some("john".to_string()), Some("mary".to_string())]
+                    binding: vec!["john".to_string(), "mary".to_string()]
                 },
             }
         ))
@@ -100,27 +100,27 @@ parent(X,Y):-strong_match_in_dna(X,Y),older(X,Y)
             Term {
                 facts: vec![
                     ArgsBinding {
-                        binding: vec![Some("john".to_string()), Some("mary".to_string())]
+                        binding: vec!["john".to_string(), "mary".to_string()]
                     },
                     ArgsBinding {
-                        binding: vec![Some("bill".to_string()), Some("hilly".to_string())]
+                        binding: vec!["bill".to_string(), "hilly".to_string()]
                     }
                 ],
                 rules: vec![Rule {
                     arg_bindings: ArgsBinding {
-                        binding: vec![Some("X".to_string()), Some("Y".to_string())],
+                        binding: vec!["X".to_string(), "Y".to_string()],
                     },
                     body: vec![
                         BoundTerm {
                             name: "strong_match_in_dna".to_string(),
                             arg_bindings: ArgsBinding {
-                                binding: vec![Some("X".to_string()), Some("Y".to_string())]
+                                binding: vec!["X".to_string(), "Y".to_string()]
                             }
                         },
                         BoundTerm {
                             name: "older".to_string(),
                             arg_bindings: ArgsBinding {
-                                binding: vec![Some("X".to_string()), Some("Y".to_string())]
+                                binding: vec!["X".to_string(), "Y".to_string()]
                             }
                         }
                     ]
@@ -135,27 +135,27 @@ fn test_encode_term() {
     let term = Term {
         facts: vec![
             ArgsBinding {
-                binding: vec![Some("john".to_string()), Some("mary".to_string())],
+                binding: vec!["john".to_string(), "mary".to_string()],
             },
             ArgsBinding {
-                binding: vec![Some("bill".to_string()), Some("hilly".to_string())],
+                binding: vec!["bill".to_string(), "hilly".to_string()],
             },
         ],
         rules: vec![Rule {
             arg_bindings: ArgsBinding {
-                binding: vec![Some("X".to_string()), Some("Y".to_string())],
+                binding: vec!["X".to_string(), "Y".to_string()],
             },
             body: vec![
                 BoundTerm {
                     name: "strong_match_in_dna".to_string(),
                     arg_bindings: ArgsBinding {
-                        binding: vec![Some("X".to_string()), Some("Y".to_string())],
+                        binding: vec!["X".to_string(), "Y".to_string()],
                     },
                 },
                 BoundTerm {
                     name: "older".to_string(),
                     arg_bindings: ArgsBinding {
-                        binding: vec![Some("X".to_string()), Some("Y".to_string())],
+                        binding: vec!["X".to_string(), "Y".to_string()],
                     },
                 },
             ],
