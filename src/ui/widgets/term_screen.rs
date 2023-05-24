@@ -23,6 +23,7 @@ pub(crate) struct TermScreen {
     rule_placeholder: RulePlaceholder,
     edit_mode: bool,
     changed: bool,
+    rules: DragAndDrop<Rule>,
     term_arguments: DragAndDrop<NameDescription>,
 }
 
@@ -30,27 +31,33 @@ impl TermScreen {
     pub(crate) fn new(term: &FatTerm) -> Self {
         let term = term.to_owned();
         let args = term.meta.args.to_owned();
+        let rules = term.term.rules.to_owned();
 
         Self {
             term,
             fact_placeholder: vec!["".to_string(); args.len()],
             rule_placeholder: RulePlaceholder::new(args.len()),
             edit_mode: false,
-            term_arguments: DragAndDrop::new(args, Box::new(|| NameDescription::new("", ""))),
+            term_arguments: DragAndDrop::new(args)
+                .with_create_item(Box::new(|| NameDescription::new("", ""))),
             changed: false,
+            rules: DragAndDrop::new(rules),
         }
     }
     pub(crate) fn with_new_term() -> Self {
         let mut term_arguments =
-            DragAndDrop::new(vec![], Box::new(|| NameDescription::new("", "")));
+            DragAndDrop::new(vec![]).with_create_item(Box::new(|| NameDescription::new("", "")));
         term_arguments.unlock();
+        let mut rules = DragAndDrop::new(vec![]);
+        rules.unlock();
         Self {
             term: FatTerm::default(),
             fact_placeholder: vec![],
             rule_placeholder: RulePlaceholder::new(0),
             edit_mode: true,
-            term_arguments,
             changed: false,
+            term_arguments,
+            rules,
         }
     }
 
@@ -82,19 +89,25 @@ impl TermScreen {
             {
                 if !self.edit_mode {
                     let argument_changes = self.term_arguments.lock();
+                    let rules_changes = self.rules.lock();
                     self.rule_placeholder = RulePlaceholder::new(self.term_arguments.len());
                     self.fact_placeholder = vec!["".to_string(); self.term_arguments.len()];
                     self.term.meta.args = self.term_arguments.iter().cloned().collect();
                     // TODO: apply argument changes to Rules
                     // TODO: apply argument changes to Facts
                     // TODO: apply argument changes Related
-                    if argument_changes.len() > 0 || self.changed {
+                    if argument_changes.len() > 0 || rules_changes.len() > 0 || self.changed {
+                        // TODO: the `self.term` field is probably not needed anyway. The
+                        // following is just a hack to syncrhonise between it and the current state
+                        // of rules
+                        self.term.term.rules = self.rules.iter().cloned().collect();
                         change = Change::TermChange(self.term.clone());
                         debug!("made some changes");
                     }
                 } else {
                     self.term_arguments.unlock();
                     self.rule_placeholder.body.unlock();
+                    self.rules.unlock();
                 }
             }
 
@@ -157,12 +170,10 @@ impl TermScreen {
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
                         ui.label(RichText::new("Rules").small().italics());
-                        for rule in &self.term.term.rules {
-                            // TODO: it might be worth to cache this string
+                        self.rules.show(ui, |r, ui| {
+                            let arguments_string: String = r.arg_bindings.binding.join(", ");
 
-                            let arguments_string: String = rule.arg_bindings.binding.join(", ");
-
-                            let body_strings: Vec<String> = rule
+                            let body_strings: Vec<String> = r
                                 .body
                                 .iter()
                                 .map(|c| {
@@ -179,7 +190,7 @@ impl TermScreen {
                                 arguments_string,
                                 body_strings.join(", ")
                             ));
-                        }
+                        });
 
                         if self.edit_mode {
                             ui.horizontal(|ui| {
@@ -223,12 +234,15 @@ impl TermScreen {
                                 });
 
                                 if ui.small_button("Add rule").clicked() {
-                                    let mut empty_rule_placeholder = RulePlaceholder::new(self.term_arguments.len());
+                                    let mut empty_rule_placeholder =
+                                        RulePlaceholder::new(self.term_arguments.len());
 
-                                    std::mem::swap(&mut self.rule_placeholder, &mut empty_rule_placeholder);
-                                        
-                                    let new_rule =
-                                        extract_rule(empty_rule_placeholder);
+                                    std::mem::swap(
+                                        &mut self.rule_placeholder,
+                                        &mut empty_rule_placeholder,
+                                    );
+
+                                    let new_rule = extract_rule(empty_rule_placeholder);
                                     self.term.term.rules.push(new_rule);
                                     // reset the rule placeholder
                                     self.changed = true;
@@ -309,10 +323,8 @@ impl RulePlaceholder {
     fn new(args_count: usize) -> Self {
         Self {
             head: vec!["".to_string(); args_count],
-            body: DragAndDrop::new(
-                vec![("".to_string(), vec![])],
-                Box::new(|| ("".to_string(), vec![])),
-            ),
+            body: DragAndDrop::new(vec![("".to_string(), vec![])])
+                .with_create_item(Box::new(|| ("".to_string(), vec![]))),
         }
     }
 }

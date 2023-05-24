@@ -7,7 +7,7 @@ use nom::{
 
 use super::args_binding::{parse_args_binding, ArgsBinding};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub(crate) struct BoundTerm {
     pub(crate) name: String,
     pub(crate) arg_bindings: ArgsBinding,

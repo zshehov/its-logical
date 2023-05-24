@@ -11,24 +11,30 @@ mod change_tracking_list;
 pub(crate) struct DragAndDrop<T: Hash + Clone + Eq> {
     active: bool,
     items: ChangeTrackingVec<T>,
-    create_item: Box<dyn Fn() -> T>,
     bottoms: Vec<f32>,
-    default_value_id: Id,
+    create_item: Option<Box<dyn Fn() -> T>>,
+    default_value_id: Option<Id>,
 }
 const ID_SOURCE: &str = "drag_and_drop";
 
 impl<T: Hash + Clone + Eq> DragAndDrop<T> {
-    pub(crate) fn new(items: Vec<T>, create_item: Box<dyn Fn() -> T>) -> Self {
+    pub(crate) fn new(items: Vec<T>) -> Self {
         let items_len = items.len();
-        let prototype = create_item();
         Self {
             active: false,
             items: ChangeTrackingVec::new(items),
-            create_item,
+            create_item: None,
             bottoms: vec![0.0; items_len],
-            default_value_id: Id::new(ID_SOURCE).with(prototype),
+            default_value_id: None,
         }
     }
+    pub(crate) fn with_create_item(mut self, create_item: Box<dyn Fn() -> T>) -> Self {
+        let prototype = create_item();
+        self.create_item = Some(create_item);
+        self.default_value_id = Some(Id::new(ID_SOURCE).with(prototype));
+        self
+    }
+
     pub(crate) fn unlock(&mut self) {
         self.active = true;
     }
@@ -69,8 +75,10 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                             .enumerate()
                         {
                             let item_id = Id::new(ID_SOURCE).with(&item);
-                            if item_id == self.default_value_id {
-                                default_item_present = true;
+                            if let Some(default_item_id) = self.default_value_id {
+                                if item_id == default_item_id {
+                                    default_item_present = true;
+                                }
                             }
 
                             let mut render_entry = |ui: &mut Ui| -> egui::Response {
@@ -78,9 +86,7 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                                     // the grab should only happen on the "::" part of the item
                                     let scoped_handle = ui
                                         .scope(|ui| {
-                                            ui.label(
-                                                egui::RichText::new("∷").heading().monospace(),
-                                            )
+                                            ui.label(egui::RichText::new("∷").heading().monospace())
                                         })
                                         .response;
                                     show_item(item, ui);
@@ -126,11 +132,13 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                         }
                         ui.shrink_width_to_current();
                         ui.vertical_centered(|ui| {
-                            if !default_item_present {
-                                ui.separator();
-                                if ui.button("+").clicked() {
-                                    self.items.push((self.create_item)());
-                                    self.bottoms.push(0.0);
+                            if let Some(create_item) = &self.create_item {
+                                if !default_item_present {
+                                    ui.separator();
+                                    if ui.button("+").clicked() {
+                                        self.items.push((create_item)());
+                                        self.bottoms.push(0.0);
+                                    }
                                 }
                             }
                         });

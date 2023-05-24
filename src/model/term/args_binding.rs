@@ -5,7 +5,7 @@ use nom::{
     IResult,
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub(crate) struct ArgsBinding {
     pub(crate) binding: Vec<String>,
 }
