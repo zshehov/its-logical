@@ -95,7 +95,7 @@ where
             CentralPanelContent::None => widgets::ask::show(ui),
             CentralPanelContent::AskScreen => widgets::ask::show(ui),
             CentralPanelContent::TermScreen(term_screen) => {
-                let change = term_screen.show(ui, &self.terms);
+                let change = term_screen.show(ui, &mut self.terms);
                 match change {
                     widgets::term_screen::Change::None => {}
                     widgets::term_screen::Change::TermChange(updated_term) => {
@@ -109,6 +109,11 @@ where
                             .rename(&self.current_tab.name, &updated_term.meta.term.name);
                         self.current_tab.name = updated_term.meta.term.name;
                     }
+                    widgets::term_screen::Change::DeletedTerm => {
+                        self.term_tabs.remove(&self.current_tab.name);
+                        self.current_tab = widgets::tabs::ask_tab();
+                        self.central_panel = CentralPanelContent::AskScreen;
+                    },
                 }
             }
         });
@@ -133,5 +138,11 @@ impl TermTabs {
         }
         self.tabs_set.remove(from);
         self.tabs_set.insert(to.to_owned());
+    }
+    fn remove(&mut self, tab_name: &str) {
+        if let Some(item_idx) = self.tabs_vec.iter().position(|x| x.name == tab_name) {
+            self.tabs_vec.remove(item_idx);
+        }
+        self.tabs_set.remove(tab_name);
     }
 }

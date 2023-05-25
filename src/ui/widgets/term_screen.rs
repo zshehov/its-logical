@@ -1,4 +1,4 @@
-use egui::{RichText, TextStyle, Color32};
+use egui::{Color32, RichText, TextStyle};
 
 use crate::{
     model::{
@@ -15,6 +15,7 @@ use tracing::debug;
 pub(crate) enum Change {
     None,
     TermChange(FatTerm),
+    DeletedTerm,
 }
 
 struct Term {
@@ -67,7 +68,7 @@ impl TermScreen {
     pub(crate) fn show<T: TermsKnowledgeBase>(
         &mut self,
         ui: &mut egui::Ui,
-        terms_knowledge_base: &T,
+        terms_knowledge_base: &mut T,
     ) -> Change {
         let mut change = Change::None;
         ui.horizontal(|ui| {
@@ -205,7 +206,14 @@ impl TermScreen {
                 if deletion_confirmed {
                     delete_button = delete_button.fill(Color32::RED);
                 }
-                ui.add_enabled(deletion_confirmed, delete_button).on_disabled_hover_text("Type \"delete\" in the box to the left");
+                if ui
+                    .add_enabled(deletion_confirmed, delete_button)
+                    .on_disabled_hover_text("Type \"delete\" in the box to the left")
+                    .clicked()
+                {
+                    terms_knowledge_base.delete(&self.term.meta.name);
+                    change = Change::DeletedTerm;
+                };
             });
         }
         change

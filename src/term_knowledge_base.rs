@@ -8,10 +8,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::model::{
-    fat_term::{parse_fat_term, FatTerm},
-    term,
-};
+use crate::model::fat_term::{parse_fat_term, FatTerm};
 
 pub enum KnowledgeBaseError {
     NotFound,
@@ -82,11 +79,14 @@ impl TermsKnowledgeBase for InMemoryTerms {
 const PAGE_NAME: &str = "page.pl";
 const DESCRIPTOR_NAME: &str = "descriptor";
 
-#[derive(Decode, Encode)]
+#[derive(Decode, Encode, Clone)]
 struct DescriptorEntry {
     name: String,
     offset: usize,
+
     len: usize,
+    // this field should be skipped during encoding/decoding - couldn't find a way to do that with bincode
+    is_deleted: bool,
 }
 
 pub struct PersistentMemoryTerms {
@@ -121,7 +121,7 @@ impl PersistentMemoryTerms {
     pub fn new(base_path: &PathBuf) -> Self {
         let descriptor_path = base_path.join(DESCRIPTOR_NAME);
 
-        let descriptor_vec = if !descriptor_path.exists() {
+        let mut descriptor_vec = if !descriptor_path.exists() {
             File::create(&descriptor_path).unwrap();
             vec![]
         } else {
@@ -132,6 +132,9 @@ impl PersistentMemoryTerms {
                 decode_from_std_read(&mut descriptor, config::standard()).unwrap();
             descriptor_vec
         };
+
+        // TODO: use drain_filter when it's stable
+        descriptor_vec = descriptor_vec.into_iter().filter(|x| !x.is_deleted).collect();
 
         let mut index = HashMap::new();
         for (entry_idx, entry) in descriptor_vec.iter().enumerate() {
@@ -212,6 +215,7 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
             name: term_name.to_string(),
             offset: new_entry_offset,
             len: new_entry_len,
+            is_deleted: false,
         });
 
         self.keys.push(term_name.to_string());
@@ -224,7 +228,32 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
         return &self.keys;
     }
 
+    // delete doesn't delete the descriptor entry for the record - rather it just sets its len to 0
     fn delete(&mut self, term_name: &str) {
-        todo!()
+        let deleted_entry_idx = self.index.get(term_name).unwrap().to_owned();
+        let deleted_entry = self.descriptor[deleted_entry_idx].to_owned();
+
+        if let Some(deleted_entry) = self.descriptor.get_mut(deleted_entry_idx) {
+            *deleted_entry = DescriptorEntry {
+                name: "".to_string(),
+                offset: 0,
+                len: 0,
+                is_deleted: true,
+            }
+        }
+
+        self.buffer.replace_range(
+            deleted_entry.offset..deleted_entry.offset + deleted_entry.len,
+            "",
+        );
+
+        for desriptor_entry in self.descriptor[deleted_entry_idx + 1..].iter_mut() {
+            let mut adjusted_offset = desriptor_entry.offset as i64;
+            adjusted_offset -= deleted_entry.len as i64;
+
+            desriptor_entry.offset = adjusted_offset as usize;
+        }
+        self.index.remove(term_name);
+        self.keys.remove(deleted_entry_idx);
     }
 }
