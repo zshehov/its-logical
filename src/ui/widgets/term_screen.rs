@@ -85,6 +85,8 @@ impl TermScreen {
                         .font(TextStyle::Heading),
                 )
                 .changed();
+
+            //ui.button("🗑");
             let toggle_value_text = if self.edit_mode { "💾" } else { "📝" };
             if ui
                 .toggle_value(
@@ -221,7 +223,7 @@ impl TermScreen {
                                 );
                                 ui.label(egui::RichText::new("if").weak());
 
-                               self.rule_placeholder.body.show(ui, |s, ui| {
+                                self.rule_placeholder.body.show(ui, |s, ui| {
                                     ui.horizontal(|ui| {
                                         if ui
                                             .add(
@@ -253,7 +255,7 @@ impl TermScreen {
                                     });
                                 });
 
-                                if ui.small_button("+").clicked() {
+                                if ui.small_button("add rule").clicked() {
                                     let mut empty_rule_placeholder =
                                         RulePlaceholder::new(self.term_arguments.len());
                                     // reset the rule placeholder
