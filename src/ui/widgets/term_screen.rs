@@ -1,4 +1,4 @@
-use egui::{RichText, TextStyle};
+use egui::{RichText, TextStyle, Color32};
 
 use crate::{
     model::{
@@ -29,6 +29,7 @@ pub(crate) struct TermScreen {
     fact_placeholder: Vec<String>,
     rule_placeholder: RulePlaceholder,
     arg_placeholder: NameDescription,
+    delete_confirmation: String,
     edit_mode: bool,
     changed: bool,
 }
@@ -42,6 +43,7 @@ impl TermScreen {
             arg_placeholder: NameDescription::new("", ""),
             edit_mode: false,
             changed: false,
+            delete_confirmation: "".to_string(),
         }
     }
     pub(crate) fn with_new_term() -> Self {
@@ -58,6 +60,7 @@ impl TermScreen {
             arg_placeholder: NameDescription::new("", ""),
             edit_mode: true,
             changed: false,
+            delete_confirmation: "".to_string(),
         }
     }
 
@@ -80,7 +83,6 @@ impl TermScreen {
                 )
                 .changed();
 
-            //ui.button("🗑");
             let toggle_value_text = if self.edit_mode { "💾" } else { "📝" };
             if ui
                 .toggle_value(
@@ -110,6 +112,7 @@ impl TermScreen {
                         debug!("made some changes");
                     }
                 } else {
+                    self.delete_confirmation = "".to_string();
                     self.term.arguments.unlock();
                     self.rule_placeholder.body.unlock();
                     self.term.rules.unlock();
@@ -187,6 +190,24 @@ impl TermScreen {
                     },
                 )
             });
+        if self.edit_mode {
+            ui.separator();
+            ui.horizontal(|ui| {
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.delete_confirmation)
+                        .clip_text(false)
+                        .hint_text("delete")
+                        .desired_width(60.0),
+                );
+                let mut delete_button = egui::Button::new("🗑");
+
+                let deletion_confirmed = self.delete_confirmation == "delete";
+                if deletion_confirmed {
+                    delete_button = delete_button.fill(Color32::RED);
+                }
+                ui.add_enabled(deletion_confirmed, delete_button).on_disabled_hover_text("Type \"delete\" in the box to the left");
+            });
+        }
         change
     }
 
