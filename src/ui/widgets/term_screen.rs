@@ -184,7 +184,78 @@ impl TermScreen {
                 );
             });
         ui.separator();
-        // Rules:
+
+        self.show_rules_section(ui, terms_knowledge_base);
+        ui.separator();
+
+        self.show_facts_section(ui);
+        ui.separator();
+
+        egui::ScrollArea::vertical()
+            .id_source("referred_by_scroll_area")
+            .show(ui, |ui| {
+                ui.with_layout(
+                    egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+                    |ui| {
+                        ui.label(RichText::new("Referred by").small().italics());
+                        ui.label("grandmother");
+                    },
+                )
+            });
+        change
+    }
+
+    fn show_facts_section(&mut self, ui: &mut egui::Ui) {
+        egui::ScrollArea::vertical()
+            .id_source("facts_scroll_area")
+            .show(ui, |ui| {
+                ui.with_layout(
+                    egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+                    |ui| {
+                        ui.label(RichText::new("Facts").small().italics());
+                        self.facts.show(ui, |f, ui| {
+                            let arguments_string: String = f.binding.join(", ");
+                            ui.label(format!(
+                                "{} ( {} )",
+                                &self.name_description.name, arguments_string
+                            ));
+                        });
+
+                        if self.edit_mode {
+                            ui.horizontal(|ui| {
+                                show_placeholder(
+                                    ui,
+                                    &self.name_description.name,
+                                    self.fact_placeholder.iter_mut(),
+                                );
+                                if ui.small_button("+").clicked() {
+                                    let mut empty_fact_placeholder =
+                                        vec!["".to_string(); self.term_arguments.len()];
+                                    // reset the placeholder
+                                    std::mem::swap(
+                                        &mut empty_fact_placeholder,
+                                        &mut self.fact_placeholder,
+                                    );
+
+                                    self.facts.push(
+                                        crate::model::term::args_binding::ArgsBinding {
+                                            binding: empty_fact_placeholder,
+                                        },
+                                    );
+                                    self.changed = true;
+                                }
+                            });
+                        }
+                    },
+                )
+            });
+    }
+
+    fn show_rules_section<T: TermsKnowledgeBase>(
+        &mut self,
+        ui: &mut egui::Ui,
+        terms_knowledge_base: &T,
+    ) {
         egui::ScrollArea::vertical()
             .id_source("rules_scroll_area")
             .show(ui, |ui| {
@@ -273,65 +344,6 @@ impl TermScreen {
                     },
                 )
             });
-        ui.separator();
-        // Facts:
-        egui::ScrollArea::vertical()
-            .id_source("facts_scroll_area")
-            .show(ui, |ui| {
-                ui.with_layout(
-                    egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
-                    |ui| {
-                        ui.label(RichText::new("Facts").small().italics());
-                        self.facts.show(ui, |f, ui| {
-                            let arguments_string: String = f.binding.join(", ");
-                            ui.label(format!(
-                                "{} ( {} )",
-                                &self.name_description.name, arguments_string
-                            ));
-                        });
-
-                        if self.edit_mode {
-                            ui.horizontal(|ui| {
-                                show_placeholder(
-                                    ui,
-                                    &self.name_description.name,
-                                    self.fact_placeholder.iter_mut(),
-                                );
-                                if ui.small_button("+").clicked() {
-                                    let mut empty_fact_placeholder =
-                                        vec!["".to_string(); self.term_arguments.len()];
-                                    // reset the placeholder
-                                    std::mem::swap(
-                                        &mut empty_fact_placeholder,
-                                        &mut self.fact_placeholder,
-                                    );
-
-                                    self.facts.push(
-                                        crate::model::term::args_binding::ArgsBinding {
-                                            binding: empty_fact_placeholder,
-                                        },
-                                    );
-                                    self.changed = true;
-                                }
-                            });
-                        }
-                    },
-                )
-            });
-        ui.separator();
-        // Reffered by:
-        egui::ScrollArea::vertical()
-            .id_source("referred_by_scroll_area")
-            .show(ui, |ui| {
-                ui.with_layout(
-                    egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
-                    |ui| {
-                        ui.label(RichText::new("Referred by").small().italics());
-                        ui.label("grandmother");
-                    },
-                )
-            });
-        change
     }
 }
 
