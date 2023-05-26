@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use egui::{Color32, RichText, TextStyle};
 
 use crate::{
@@ -7,6 +9,7 @@ use crate::{
         term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule},
     },
     term_knowledge_base::TermsKnowledgeBase,
+    ui::widgets::drag_and_drop,
 };
 
 use super::drag_and_drop::DragAndDrop;
@@ -108,7 +111,9 @@ impl TermScreen {
                         || facts_changes.len() > 0
                         || self.changed
                     {
-                        let updated_term = (&self.term).into();
+                        let updated_term: FatTerm = (&self.term).into();
+
+                        self.update_related_terms(terms_knowledge_base, rules_changes);
 
                         change = Change::TermChange(updated_term);
                         debug!("made some changes");
@@ -270,7 +275,7 @@ impl TermScreen {
     fn show_rules_section<T: TermsKnowledgeBase>(
         &mut self,
         ui: &mut egui::Ui,
-        terms_knowledge_base: &T,
+        terms_knowledge_base: &mut T,
     ) {
         egui::ScrollArea::vertical()
             .id_source("rules_scroll_area")
@@ -310,6 +315,7 @@ impl TermScreen {
                                 );
                                 ui.label(egui::RichText::new("if").weak());
 
+                                let mut term_added_to_body = None;
                                 self.rule_placeholder.body.show(ui, |s, ui| {
                                     ui.horizontal(|ui| {
                                         if ui
@@ -323,6 +329,7 @@ impl TermScreen {
                                             // TODO: handle the None here
                                             let t = terms_knowledge_base.get(&s.0).unwrap();
                                             s.1 = vec!["".to_string(); t.meta.args.len()];
+                                            term_added_to_body = Some(t.meta.term.name.to_owned());
                                         }
                                         let mut added_once = false;
                                         ui.label(egui::RichText::new("(").weak());
@@ -341,10 +348,16 @@ impl TermScreen {
                                         ui.label(egui::RichText::new(")").weak());
                                     });
                                 });
+                                if let Some(term_added_to_body) = term_added_to_body {
+                                    self.rule_placeholder
+                                        .external_terms
+                                        .insert(term_added_to_body);
+                                }
 
                                 if ui.small_button("add rule").clicked() {
                                     let mut empty_rule_placeholder =
                                         RulePlaceholder::new(self.term.arguments.len());
+
                                     // reset the rule placeholder
                                     std::mem::swap(
                                         &mut self.rule_placeholder,
@@ -361,11 +374,68 @@ impl TermScreen {
                 )
             });
     }
+
+    fn update_related_terms<T: TermsKnowledgeBase>(
+        &mut self,
+        terms_knowledge_base: &mut T,
+        rules_changes: Vec<drag_and_drop::Change<Rule>>,
+    ) {
+        let mut related_terms = HashSet::<String>::new();
+        let mut removed_related_terms = HashSet::<String>::new();
+        let mut pushed_related_terms = HashSet::<String>::new();
+
+        // grab all the currently related terms
+        for rule in self.term.rules.iter() {
+            for body_term in &rule.body {
+                related_terms.insert(body_term.name.clone());
+            }
+        }
+
+        // grab all the ones that were just removed from this term
+        for rule_change in rules_changes {
+            match rule_change {
+                drag_and_drop::Change::Pushed(pushed_rule) => {
+                    for body_term in pushed_rule.body {
+                        pushed_related_terms.insert(body_term.name);
+                    }
+                }
+                drag_and_drop::Change::Removed(_, removed_rule) => {
+                    for body_term in removed_rule.body {
+                        removed_related_terms.insert(body_term.name);
+                    }
+                }
+                drag_and_drop::Change::Moved(_) => {}
+            }
+        }
+
+        // the actually removed are the ones that have no instance present in this
+        // term any longer
+        removed_related_terms.retain(|k| !related_terms.contains(k));
+
+        for new_related_term_name in pushed_related_terms.iter() {
+            if let Some(mut new_related_term) = terms_knowledge_base.get(&new_related_term_name) {
+                if new_related_term.add_related(&self.term.meta.name) {
+                    terms_knowledge_base.edit(&new_related_term_name, &new_related_term);
+                }
+            }
+        }
+
+        for removed_related_term_name in removed_related_terms.iter() {
+            if let Some(mut removed_related_term) =
+                terms_knowledge_base.get(&removed_related_term_name)
+            {
+                if removed_related_term.remove_related(&self.term.meta.name) {
+                    terms_knowledge_base.edit(&removed_related_term_name, &removed_related_term);
+                }
+            }
+        }
+    }
 }
 
 struct RulePlaceholder {
     head: Vec<String>,
     body: DragAndDrop<(String, Vec<String>)>,
+    external_terms: HashSet<String>,
 }
 
 impl RulePlaceholder {
@@ -374,6 +444,7 @@ impl RulePlaceholder {
             head: vec!["".to_string(); args_count],
             body: DragAndDrop::new(vec![("".to_string(), vec![])])
                 .with_create_item(Box::new(|| ("".to_string(), vec![]))),
+            external_terms: HashSet::new(),
         }
     }
 }

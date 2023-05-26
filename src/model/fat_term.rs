@@ -28,6 +28,22 @@ impl FatTerm {
         encoded.push_str(&self.term.encode(&self.meta.term.name));
         encoded
     }
+
+    pub(crate) fn add_related(&mut self, term_name: &String) -> bool {
+        if !self.meta.related.contains(term_name) {
+            self.meta.related.push(term_name.to_owned());
+            return true;
+        }
+        return false;
+    }
+
+    pub(crate) fn remove_related(&mut self, term_name: &String) -> bool {
+        if let Some(idx) = self.meta.related.iter().position(|x| x == term_name) {
+            self.meta.related.remove(idx);
+            return true;
+        }
+        return false;
+    }
 }
 
 impl Default for FatTerm {

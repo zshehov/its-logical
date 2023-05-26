@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum Change<T> {
-    Pushed(),
+    Pushed(T),
     Moved(Vec<usize>),
     Removed(usize, T),
 }
@@ -36,7 +36,7 @@ impl<T: Clone + Eq + Hash> ChangeTrackingVec<T> {
         }
         self.items.push(item.clone());
         self.order_changes.push(self.items.len() - 1);
-        self.current_changes.push(Change::Pushed());
+        self.current_changes.push(Change::Pushed(item));
     }
 
     pub(crate) fn move_item(&mut self, from: usize, to: usize) {
@@ -118,7 +118,7 @@ fn test_push() {
     assert_eq!(v.items, vec![1, 2, 3, 4]);
     assert_eq!(v.order_changes.len(), 4);
     assert_eq!(v.current_changes.len(), 1);
-    assert_eq!(v.current_changes[0], Change::Pushed());
+    assert_eq!(v.current_changes[0], Change::Pushed(4));
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn test_push_after_move() {
     let current_changes = v.get_current_changes();
     assert_eq!(current_changes.len(), 2);
     assert_eq!(current_changes[0], Change::Moved(vec![1, 2, 0]));
-    assert_eq!(current_changes[1], Change::Pushed());
+    assert_eq!(current_changes[1], Change::Pushed(69));
 }
 
 #[test]
@@ -186,10 +186,7 @@ fn test_move_after_move_when_from_is_after_to() {
     assert_eq!(v.items, vec![1, 2]);
     assert_eq!(v.order_changes.len(), 2);
     let current_changes = v.get_current_changes();
-    // order changes are not included in the changes until another type of change is made
-    assert_eq!(current_changes.len(), 0);
-    let order_changes = v.flush_order_changes().unwrap();
-    assert_eq!(order_changes, vec![0, 1]);
+    assert_eq!(current_changes, vec![Change::Moved(vec![0, 1])]);
 }
 
 #[test]
@@ -201,10 +198,7 @@ fn test_move_after_move_when_to_is_after_from() {
     assert_eq!(v.items, vec![1, 2]);
     assert_eq!(v.order_changes.len(), 2);
     let current_changes = v.get_current_changes();
-    // order changes are not included in the changes until another type of change is made
-    assert_eq!(current_changes.len(), 0);
-    let order_changes = v.flush_order_changes().unwrap();
-    assert_eq!(order_changes, vec![0, 1]);
+    assert_eq!(current_changes, vec![Change::Moved(vec![0, 1])]);
 }
 
 #[test]
