@@ -34,7 +34,7 @@ impl Default for FatTerm {
     fn default() -> Self {
         FatTerm::new(
             Comment::new(NameDescription::new("", ""), vec![], vec![]),
-            Term::new(vec![ArgsBinding { binding: vec![] }], vec![]),
+            Term::new(vec![], vec![]),
         )
     }
 }
