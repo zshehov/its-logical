@@ -33,7 +33,7 @@ impl FatTerm {
 impl Default for FatTerm {
     fn default() -> Self {
         FatTerm::new(
-            Comment::new(NameDescription::new("", ""), vec![]),
+            Comment::new(NameDescription::new("", ""), vec![], vec![]),
             Term::new(vec![ArgsBinding { binding: vec![] }], vec![]),
         )
     }
@@ -54,6 +54,7 @@ fn test_parse_encode() {
     let input = r"%! father a father is a parent that's male
 % @arg FatherName the name of the father
 % @arg ChildName the name of the child
+% @see parent,male
 father(stefan,petko).
 father(hristo,stoichko).
 father(Father,Child):-parent(Father,Child),male(Father)
@@ -67,6 +68,7 @@ father(Father,Child):-parent(Father,Child),male(Father)
                 NameDescription::new("FatherName", "the name of the father"),
                 NameDescription::new("ChildName", "the name of the child"),
             ],
+            vec!["parent".to_string(), "male".to_string()],
         ),
         Term::new(
             vec![

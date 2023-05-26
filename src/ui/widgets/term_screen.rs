@@ -23,6 +23,7 @@ struct Term {
     rules: DragAndDrop<Rule>,
     facts: DragAndDrop<ArgsBinding>,
     arguments: DragAndDrop<NameDescription>,
+    related: Vec<String>,
 }
 
 pub(crate) struct TermScreen {
@@ -187,7 +188,11 @@ impl TermScreen {
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
                         ui.label(RichText::new("Referred by").small().italics());
-                        ui.label("grandmother");
+                        ui.horizontal(|ui| {
+                            for related_term in &self.term.related {
+                                ui.label(related_term);
+                            }
+                        });
                     },
                 )
             });
@@ -467,12 +472,14 @@ impl Term {
         rules: DragAndDrop<Rule>,
         facts: DragAndDrop<ArgsBinding>,
         arguments: DragAndDrop<NameDescription>,
+        related: Vec<String>,
     ) -> Self {
         Self {
             meta,
             rules,
             facts,
             arguments,
+            related,
         }
     }
 }
@@ -484,6 +491,7 @@ impl From<&FatTerm> for Term {
             DragAndDrop::new(fat_term.term.rules.to_owned()),
             DragAndDrop::new(fat_term.term.facts.to_owned()),
             DragAndDrop::new(fat_term.meta.args.to_owned()),
+            fat_term.meta.related.to_owned(),
         )
     }
 }
@@ -494,6 +502,7 @@ impl From<&Term> for FatTerm {
             Comment::new(
                 term.meta.to_owned(),
                 term.arguments.iter().cloned().collect(),
+                term.related.clone(),
             ),
             crate::model::term::term::Term::new(
                 term.facts.iter().cloned().collect(),
