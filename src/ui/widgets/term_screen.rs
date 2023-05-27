@@ -80,8 +80,8 @@ impl TermScreen {
                 .add(
                     egui::TextEdit::singleline(&mut self.term.meta.name)
                         .clip_text(false)
-                        .desired_width(0.0)
-                        .hint_text("Enter term name")
+                        .desired_width(120.0)
+                        .hint_text("Term name")
                         .frame(self.edit_mode)
                         .interactive(self.edit_mode)
                         .font(TextStyle::Heading),
