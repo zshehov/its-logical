@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, rc::Rc};
 
 use egui::{Color32, RichText, TextStyle};
 
@@ -31,7 +31,7 @@ struct Term {
 
 pub(crate) struct TermScreen {
     term: Term,
-    fact_placeholder: Vec<String>,
+    fact_placeholder: FactPlaceholder,
     rule_placeholder: RulePlaceholder,
     arg_placeholder: NameDescription,
     delete_confirmation: String,
@@ -43,8 +43,8 @@ impl TermScreen {
     pub(crate) fn new(term: &FatTerm) -> Self {
         Self {
             term: term.into(),
-            fact_placeholder: vec!["".to_string(); term.meta.args.len()],
-            rule_placeholder: RulePlaceholder::new(term.meta.args.len()),
+            fact_placeholder: FactPlaceholder::new(),
+            rule_placeholder: RulePlaceholder::new(),
             arg_placeholder: NameDescription::new("", ""),
             edit_mode: false,
             changed: false,
@@ -60,8 +60,8 @@ impl TermScreen {
 
         Self {
             term,
-            fact_placeholder: vec![],
-            rule_placeholder: RulePlaceholder::new(0),
+            fact_placeholder: FactPlaceholder::new(),
+            rule_placeholder: RulePlaceholder::new(),
             arg_placeholder: NameDescription::new("", ""),
             edit_mode: true,
             changed: false,
@@ -100,8 +100,8 @@ impl TermScreen {
                     let argument_changes = self.term.arguments.lock();
                     let rules_changes = self.term.rules.lock();
                     let facts_changes = self.term.facts.lock();
-                    self.rule_placeholder = RulePlaceholder::new(self.term.arguments.len());
-                    self.fact_placeholder = vec!["".to_string(); self.term.arguments.len()];
+                    self.rule_placeholder = RulePlaceholder::new();
+                    self.fact_placeholder = FactPlaceholder::new();
                     self.arg_placeholder = NameDescription::new("", "");
                     // TODO: apply argument changes to Rules
                     // TODO: apply argument changes to Facts
@@ -244,25 +244,12 @@ impl TermScreen {
 
                         if self.edit_mode {
                             ui.horizontal(|ui| {
-                                show_placeholder(
+                                if let Some(new_fact_binding) = self.fact_placeholder.show(
                                     ui,
                                     &self.term.meta.name,
-                                    self.fact_placeholder.iter_mut(),
-                                );
-                                if ui.small_button("+").clicked() {
-                                    let mut empty_fact_placeholder =
-                                        vec!["".to_string(); self.term.arguments.len()];
-                                    // reset the placeholder
-                                    std::mem::swap(
-                                        &mut empty_fact_placeholder,
-                                        &mut self.fact_placeholder,
-                                    );
-
-                                    self.term.facts.push(
-                                        crate::model::term::args_binding::ArgsBinding {
-                                            binding: empty_fact_placeholder,
-                                        },
-                                    );
+                                    self.term.arguments.iter(),
+                                ) {
+                                    self.term.facts.push(new_fact_binding);
                                     self.changed = true;
                                 }
                             });
@@ -308,63 +295,12 @@ impl TermScreen {
 
                         if self.edit_mode {
                             ui.horizontal(|ui| {
-                                show_placeholder(
+                                if let Some(new_rule) = self.rule_placeholder.show(
                                     ui,
                                     &self.term.meta.name,
-                                    self.rule_placeholder.head.iter_mut(),
-                                );
-                                ui.label(egui::RichText::new("if").weak());
-
-                                let mut term_added_to_body = None;
-                                self.rule_placeholder.body.show(ui, |s, ui| {
-                                    ui.horizontal(|ui| {
-                                        if ui
-                                            .add(
-                                                egui::TextEdit::singleline(&mut s.0)
-                                                    .clip_text(false)
-                                                    .desired_width(0.0),
-                                            )
-                                            .lost_focus()
-                                        {
-                                            // TODO: handle the None here
-                                            let t = terms_knowledge_base.get(&s.0).unwrap();
-                                            s.1 = vec!["".to_string(); t.meta.args.len()];
-                                            term_added_to_body = Some(t.meta.term.name.to_owned());
-                                        }
-                                        let mut added_once = false;
-                                        ui.label(egui::RichText::new("(").weak());
-                                        for param in &mut s.1 {
-                                            if added_once {
-                                                ui.label(egui::RichText::new(", ").weak());
-                                            }
-                                            ui.add(
-                                                egui::TextEdit::singleline(param)
-                                                    .clip_text(false)
-                                                    .desired_width(SINGLE_CHAR_WIDTH)
-                                                    .hint_text("X"),
-                                            );
-                                            added_once = true
-                                        }
-                                        ui.label(egui::RichText::new(")").weak());
-                                    });
-                                });
-                                if let Some(term_added_to_body) = term_added_to_body {
-                                    self.rule_placeholder
-                                        .external_terms
-                                        .insert(term_added_to_body);
-                                }
-
-                                if ui.small_button("add rule").clicked() {
-                                    let mut empty_rule_placeholder =
-                                        RulePlaceholder::new(self.term.arguments.len());
-
-                                    // reset the rule placeholder
-                                    std::mem::swap(
-                                        &mut self.rule_placeholder,
-                                        &mut empty_rule_placeholder,
-                                    );
-
-                                    let new_rule = extract_rule(empty_rule_placeholder);
+                                    terms_knowledge_base,
+                                    self.term.arguments.iter(),
+                                ) {
                                     self.term.rules.push(new_rule);
                                     self.changed = true;
                                 }
@@ -432,48 +368,150 @@ impl TermScreen {
     }
 }
 
+struct HeadPlaceholder {
+    binding: Vec<String>,
+}
+
+impl HeadPlaceholder {
+    fn new() -> Self {
+        Self { binding: vec![] }
+    }
+
+    fn show<'a>(
+        &mut self,
+        ui: &mut egui::Ui,
+        term_name: &str,
+        template: impl ExactSizeIterator<Item = &'a NameDescription>,
+    ) {
+        ui.label(egui::RichText::new(format!("{} (", term_name)).weak());
+
+        let mut added_once = false;
+        if template.len() != self.binding.len() {
+            self.binding = vec![String::new(); template.len()];
+        }
+
+        for (template_param, param) in template.zip(self.binding.iter_mut()) {
+            if added_once {
+                ui.label(egui::RichText::new(", ").weak());
+            }
+            ui.add(
+                egui::TextEdit::singleline(param)
+                    .hint_text(&template_param.name)
+                    .clip_text(false)
+                    .desired_width(SINGLE_CHAR_WIDTH * template_param.name.len() as f32)
+            );
+            added_once = true
+        }
+        ui.label(egui::RichText::new(")").weak());
+    }
+}
+
+struct FactPlaceholder {
+    head: HeadPlaceholder,
+}
+
+impl FactPlaceholder {
+    fn new() -> Self {
+        Self {
+            head: HeadPlaceholder::new(),
+        }
+    }
+    fn show<'a>(
+        &mut self,
+        ui: &mut egui::Ui,
+        term_name: &str,
+        template: impl ExactSizeIterator<Item = &'a NameDescription>,
+    ) -> Option<ArgsBinding> {
+        self.head.show(ui, term_name, template);
+        if ui.small_button("+").clicked() {
+            let mut empty_fact_placeholder = FactPlaceholder::new();
+            // reset the placeholder
+            std::mem::swap(&mut empty_fact_placeholder, self);
+
+            return Some(ArgsBinding {
+                binding: empty_fact_placeholder.head.binding,
+            });
+        }
+        None
+    }
+}
+
 struct RulePlaceholder {
-    head: Vec<String>,
+    head: HeadPlaceholder,
     body: DragAndDrop<(String, Vec<String>)>,
     external_terms: HashSet<String>,
 }
 
 impl RulePlaceholder {
-    fn new(args_count: usize) -> Self {
+    fn new() -> Self {
         Self {
-            head: vec!["".to_string(); args_count],
+            head: HeadPlaceholder::new(),
             body: DragAndDrop::new(vec![("".to_string(), vec![])])
                 .with_create_item(Box::new(|| ("".to_string(), vec![]))),
             external_terms: HashSet::new(),
         }
     }
+    fn show<'a, T: TermsKnowledgeBase>(
+        &mut self,
+        ui: &mut egui::Ui,
+        term_name: &str,
+        terms_knowledge_base: &T,
+        template: impl ExactSizeIterator<Item = &'a NameDescription>,
+    ) -> Option<Rule> {
+        self.head.show(ui, term_name, template);
+        ui.label(egui::RichText::new("if").weak());
+
+        let mut term_added_to_body = None;
+        self.body.show(ui, |s, ui| {
+            ui.horizontal(|ui| {
+                if ui
+                    .add(
+                        egui::TextEdit::singleline(&mut s.0)
+                            .clip_text(false)
+                            .desired_width(0.0),
+                    )
+                    .lost_focus()
+                {
+                    // TODO: handle the None here
+                    let t = terms_knowledge_base.get(&s.0).unwrap();
+                    s.1 = vec!["".to_string(); t.meta.args.len()];
+                    term_added_to_body = Some(t.meta.term.name.to_owned());
+                }
+                let mut added_once = false;
+                ui.label(egui::RichText::new("(").weak());
+                for param in &mut s.1 {
+                    if added_once {
+                        ui.label(egui::RichText::new(", ").weak());
+                    }
+                    ui.add(
+                        egui::TextEdit::singleline(param)
+                            .clip_text(false)
+                            .desired_width(SINGLE_CHAR_WIDTH)
+                            .hint_text("X"),
+                    );
+                    added_once = true
+                }
+                ui.label(egui::RichText::new(")").weak());
+            });
+        });
+        if let Some(term_added_to_body) = term_added_to_body {
+            self.external_terms.insert(term_added_to_body);
+        }
+
+        if ui.small_button("add rule").clicked() {
+            let mut empty_rule_placeholder = RulePlaceholder::new();
+
+            // reset the rule placeholder
+            std::mem::swap(&mut empty_rule_placeholder, self);
+
+            return Some(extract_rule(empty_rule_placeholder));
+        }
+        None
+    }
 }
 
 // TODO: get this from the framework if possible
-const SINGLE_CHAR_WIDTH: f32 = 15.0;
-// expects to be called in a horizontal layout
-fn show_placeholder<'a>(
-    ui: &mut egui::Ui,
-    term_name: &str,
-    parameters: impl Iterator<Item = &'a mut String>,
-) {
-    ui.label(egui::RichText::new(format!("{} (", term_name)).weak());
-
-    let mut added_once = false;
-    for param in parameters {
-        if added_once {
-            ui.label(egui::RichText::new(", ").weak());
-        }
-        ui.add(
-            egui::TextEdit::singleline(param)
-                .clip_text(false)
-                .desired_width(SINGLE_CHAR_WIDTH)
-                .hint_text("X"),
-        );
-        added_once = true
-    }
-    ui.label(egui::RichText::new(")").weak());
-}
+const SINGLE_CHAR_WIDTH: f32 = 11.0;
 
 fn show_arg(
     ui: &mut egui::Ui,
@@ -531,7 +569,7 @@ fn extract_rule(placeholder: RulePlaceholder) -> Rule {
 
     Rule {
         arg_bindings: crate::model::term::args_binding::ArgsBinding {
-            binding: head_binding,
+            binding: head_binding.binding,
         },
         body: body_bindings,
     }
