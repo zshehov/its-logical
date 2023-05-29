@@ -18,7 +18,6 @@ pub enum KnowledgeBaseError {
 
 pub trait TermsKnowledgeBase {
     fn get(&self, term_name: &str) -> Option<FatTerm>;
-    fn edit(&mut self, term_name: &str, updated: &FatTerm) -> Result<(), KnowledgeBaseError>;
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError>;
     fn keys(&self) -> &Vec<String>;
     fn delete(&mut self, term_name: &str);
@@ -41,28 +40,17 @@ impl TermsKnowledgeBase for InMemoryTerms {
         self.map.get(term_name).cloned()
     }
 
-    fn edit(&mut self, term_name: &str, updated: &FatTerm) -> Result<(), KnowledgeBaseError> {
-        match self
-            .map
-            .entry(term_name.to_string())
-            .and_modify(|e| *e = updated.clone())
-        {
-            std::collections::hash_map::Entry::Occupied(_) => Ok(()),
-            std::collections::hash_map::Entry::Vacant(_) => Err(KnowledgeBaseError::NotFound),
-        }
-    }
-
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError> {
         match self.map.entry(term_name.to_string()) {
-            std::collections::hash_map::Entry::Occupied(_) => {
-                Err(KnowledgeBaseError::AlreadyPresent)
+            std::collections::hash_map::Entry::Occupied(mut e) => {
+                *e.get_mut() = term;
             }
-            std::collections::hash_map::Entry::Vacant(v) => {
-                self.vec.push(term.meta.term.name.clone());
-                v.insert(term);
-                Ok(())
+            std::collections::hash_map::Entry::Vacant(e) => {
+                e.insert(term);
             }
         }
+
+        Ok(())
     }
 
     fn delete(&mut self, term_name: &str) {
@@ -134,7 +122,10 @@ impl PersistentMemoryTerms {
         };
 
         // TODO: use drain_filter when it's stable
-        descriptor_vec = descriptor_vec.into_iter().filter(|x| !x.is_deleted).collect();
+        descriptor_vec = descriptor_vec
+            .into_iter()
+            .filter(|x| !x.is_deleted)
+            .collect();
 
         let mut index = HashMap::new();
         for (entry_idx, entry) in descriptor_vec.iter().enumerate() {
@@ -156,25 +147,14 @@ impl PersistentMemoryTerms {
             keys,
         }
     }
-}
 
-impl TermsKnowledgeBase for PersistentMemoryTerms {
-    fn get(&self, term_name: &str) -> Option<FatTerm> {
-        match self.index.get(term_name) {
-            Some(offset) => {
-                let entry = &self.descriptor[*offset];
-                let raw_term = &self.buffer[entry.offset..entry.offset + entry.len];
-
-                let (_, fat_term) = parse_fat_term(raw_term).unwrap();
-                Some(fat_term)
-            }
-            None => None,
-        }
-    }
-
-    fn edit(&mut self, term_name: &str, updated: &FatTerm) -> Result<(), KnowledgeBaseError> {
-        let offset = self.index.get(term_name).unwrap().to_owned();
-        let entry = &mut self.descriptor[offset];
+    fn edit(
+        &mut self,
+        term_name: &str,
+        term_idx: usize,
+        updated: &FatTerm,
+    ) -> Result<(), KnowledgeBaseError> {
+        let entry = &mut self.descriptor[term_idx];
         let original_len = entry.len;
         let updated_encoded = &updated.encode();
 
@@ -185,8 +165,8 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
 
         entry.len = updated_encoded.len();
 
-        self.descriptor[offset].name = updated.meta.term.name.to_owned();
-        for desriptor_entry in self.descriptor[offset + 1..].iter_mut() {
+        self.descriptor[term_idx].name = updated.meta.term.name.to_owned();
+        for desriptor_entry in self.descriptor[term_idx + 1..].iter_mut() {
             let mut adjusted_offset = desriptor_entry.offset as i64;
             adjusted_offset += len_diff;
 
@@ -194,8 +174,8 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
         }
         self.index.remove(term_name);
         self.index
-            .insert(updated.meta.term.name.to_string(), offset);
-        self.keys[offset] = updated.meta.term.name.to_string();
+            .insert(updated.meta.term.name.to_string(), term_idx);
+        self.keys[term_idx] = updated.meta.term.name.to_string();
 
         Ok(())
     }
@@ -222,6 +202,28 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
 
         self.buffer.push_str(&encoded_term);
         Ok(())
+    }
+}
+
+impl TermsKnowledgeBase for PersistentMemoryTerms {
+    fn get(&self, term_name: &str) -> Option<FatTerm> {
+        match self.index.get(term_name) {
+            Some(offset) => {
+                let entry = &self.descriptor[*offset];
+                let raw_term = &self.buffer[entry.offset..entry.offset + entry.len];
+
+                let (_, fat_term) = parse_fat_term(raw_term).unwrap();
+                Some(fat_term)
+            }
+            None => None,
+        }
+    }
+
+    fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError> {
+        match self.index.get(term_name) {
+            Some(&term_idx) => self.edit(term_name, term_idx, &term),
+            None => self.put(term_name, term),
+        }
     }
 
     fn keys(&self) -> &Vec<String> {

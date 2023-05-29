@@ -1,8 +1,5 @@
-use nom::error::VerboseError;
 use std::io;
 use thiserror::Error;
-
-use nom::bytes::complete::tag;
 
 #[derive(Error, Debug)]
 pub enum Error {

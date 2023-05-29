@@ -17,8 +17,11 @@ use tracing::debug;
 
 pub(crate) enum Change {
     None,
-    TermChange(FatTerm),
-    DeletedTerm,
+    TermChange {
+        original_name: String,
+        updated_term: FatTerm,
+    },
+    DeletedTerm(String),
 }
 
 struct Term {
@@ -32,6 +35,7 @@ struct Term {
 mod placeholder;
 
 pub(crate) struct TermScreen {
+    original_term_name: String,
     term: Term,
     fact_placeholder: placeholder::FactPlaceholder,
     rule_placeholder: placeholder::RulePlaceholder,
@@ -42,9 +46,14 @@ pub(crate) struct TermScreen {
 }
 
 impl TermScreen {
+    pub(crate) fn name(&self) -> String {
+        self.term.meta.name.clone()
+    }
+
     pub(crate) fn new(term: &FatTerm) -> Self {
         Self {
             term: term.into(),
+            original_term_name: term.meta.term.name.clone(),
             fact_placeholder: placeholder::FactPlaceholder::new(),
             rule_placeholder: placeholder::RulePlaceholder::new(),
             arg_placeholder: NameDescription::new("", ""),
@@ -62,6 +71,7 @@ impl TermScreen {
 
         Self {
             term,
+            original_term_name: "".to_string(),
             fact_placeholder: placeholder::FactPlaceholder::new(),
             rule_placeholder: placeholder::RulePlaceholder::new(),
             arg_placeholder: NameDescription::new("", ""),
@@ -117,10 +127,24 @@ impl TermScreen {
 
                         self.update_related_terms(terms_knowledge_base, rules_changes);
 
-                        change = Change::TermChange(updated_term);
+                        let mut original_name = String::new();
+                        if self.original_term_name == "" {
+                            // maybe the "new term" case can be handled more gracefully than this
+                            // if
+                            original_name = self.term.meta.name.clone()
+                        } else {
+                            std::mem::swap(&mut original_name, &mut self.original_term_name);
+                        };
+
+                        change = Change::TermChange {
+                            original_name,
+                            updated_term,
+                        };
+                        self.original_term_name = self.term.meta.name.clone();
                         debug!("made some changes");
                     }
                 } else {
+                    self.original_term_name = self.term.meta.name.clone();
                     self.delete_confirmation = "".to_string();
                     self.term.arguments.unlock();
                     self.rule_placeholder.unlock();
@@ -224,7 +248,7 @@ impl TermScreen {
                     .clicked()
                 {
                     terms_knowledge_base.delete(&self.term.meta.name);
-                    change = Change::DeletedTerm;
+                    change = Change::DeletedTerm(self.term.meta.name.clone());
                 };
             });
         }
@@ -353,7 +377,7 @@ impl TermScreen {
         for new_related_term_name in pushed_related_terms.iter() {
             if let Some(mut new_related_term) = terms_knowledge_base.get(&new_related_term_name) {
                 if new_related_term.add_related(&self.term.meta.name) {
-                    terms_knowledge_base.edit(&new_related_term_name, &new_related_term);
+                    terms_knowledge_base.put(&new_related_term_name, new_related_term);
                 }
             }
         }
@@ -363,7 +387,7 @@ impl TermScreen {
                 terms_knowledge_base.get(&removed_related_term_name)
             {
                 if removed_related_term.remove_related(&self.term.meta.name) {
-                    terms_knowledge_base.edit(&removed_related_term_name, &removed_related_term);
+                    terms_knowledge_base.put(&removed_related_term_name, removed_related_term);
                 }
             }
         }
