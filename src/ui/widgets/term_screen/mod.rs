@@ -50,6 +50,10 @@ impl TermScreen {
         self.term.meta.name.clone()
     }
 
+    pub(crate) fn is_being_edited(&self) -> bool {
+        self.edit_mode
+    }
+
     pub(crate) fn new(term: &FatTerm) -> Self {
         Self {
             term: term.into(),
@@ -62,6 +66,7 @@ impl TermScreen {
             delete_confirmation: "".to_string(),
         }
     }
+
     pub(crate) fn with_new_term() -> Self {
         let mut term: Term = (&FatTerm::default()).into();
 

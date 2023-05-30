@@ -77,7 +77,11 @@ impl TermTabs {
                         if term.name() == "" {
                             "untitled".to_string()
                         } else {
-                            term.name()
+                            if term.is_being_edited() {
+                                term.name() + "*"
+                            } else {
+                                term.name()
+                            }
                         },
                     )
                     .secondary_clicked()
