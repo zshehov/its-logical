@@ -1,10 +1,8 @@
-use std::collections::HashSet;
-
 use egui::Context;
 
 use crate::term_knowledge_base::TermsKnowledgeBase;
 
-use self::widgets::{tabs::ChosenTab, term_screen::TermScreen};
+use self::widgets::tabs::{ChosenTab, TermTabs};
 
 mod widgets;
 
@@ -33,8 +31,7 @@ where
                 .button(egui::RichText::new("Add term").underline().strong())
                 .clicked()
             {
-                self.term_tabs.tabs_vec.push(TermScreen::with_new_term());
-                self.term_tabs.tabs_vec.select("");
+                self.term_tabs.add_new_term();
             };
             let term_list_selection = widgets::terms_list::show(ui, self.terms.keys().iter());
 
@@ -45,7 +42,7 @@ where
 
         let chosen_tab = egui::TopBottomPanel::top("tabs_panel")
             .show(ctx, |ui| {
-                return self.term_tabs.tabs_vec.show(ui);
+                return self.term_tabs.show(ui);
             })
             .inner;
 
@@ -79,27 +76,3 @@ where
     }
 }
 
-#[derive(Default)]
-struct TermTabs {
-    tabs_vec: widgets::tabs::TabsState,
-    tabs_set: HashSet<String>,
-}
-
-impl TermTabs {
-    fn select<T: TermsKnowledgeBase>(&mut self, term_name: &str, terms: &T) {
-        if self.tabs_set.insert(term_name.to_string()) {
-            self.tabs_vec
-                .push(TermScreen::new(&terms.get(&term_name).unwrap().clone()));
-        }
-        self.tabs_vec.select(term_name);
-    }
-
-    fn rename(&mut self, from: &str, to: &str) {
-        self.tabs_set.remove(from);
-        self.tabs_set.insert(to.to_owned());
-    }
-    fn remove(&mut self, tab_name: &str) {
-        self.tabs_vec.remove(tab_name);
-        self.tabs_set.remove(tab_name);
-    }
-}
