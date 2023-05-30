@@ -87,18 +87,26 @@ impl TermTabs {
                     .secondary_clicked()
                 {
                     delete_idx = Some(idx);
-                    self.tabs_set.remove(&term.name());
                 };
             }
             if let Some(delete_idx) = delete_idx {
-                if let ChoseTabInternal::Term(current_idx) = self.tabs_vec.current_selection {
-                    if delete_idx == current_idx {
-                        self.tabs_vec.current_selection = ChoseTabInternal::Ask;
-                    } else if delete_idx < current_idx {
-                        self.tabs_vec.current_selection = ChoseTabInternal::Term(current_idx - 1);
+                if self.tabs_vec.terms[delete_idx].is_being_edited() {
+                    // finish editing before closing a tab
+                    self.tabs_vec
+                        .select(&self.tabs_vec.terms[delete_idx].name());
+                } else {
+                    if let ChoseTabInternal::Term(current_idx) = self.tabs_vec.current_selection {
+                        if delete_idx == current_idx {
+                            self.tabs_vec.current_selection = ChoseTabInternal::Ask;
+                        } else if delete_idx < current_idx {
+                            self.tabs_vec.current_selection =
+                                ChoseTabInternal::Term(current_idx - 1);
+                        }
                     }
+                    self.tabs_set
+                        .remove(&self.tabs_vec.terms[delete_idx].name());
+                    self.tabs_vec.terms.remove(delete_idx);
                 }
-                self.tabs_vec.terms.remove(delete_idx);
             }
         });
         match self.tabs_vec.current_selection {
