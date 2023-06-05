@@ -58,25 +58,15 @@ where
                         change_propagator::apply_changes(changes, &self.terms);
 
                     if needs_confirmation {
-                        // TODO: just open in-memory changed terms in the tabs. don't persist the
-                        // changes
-                    }
-                    for (term_name, updated_term) in all_changes {
-                        self.terms.put(&term_name, updated_term).unwrap();
-                        self.term_tabs.force_reload(&term_name, &self.terms);
-                    }
-
-                    /*
-                    match changes {
-                        widgets::term_screen::Result::Changes(changes, updated_term) => {
-                            self.terms.put(&updated_term.meta.term.name, updated_term);
-                            // TODO: call the change propagator
+                        for (_, updated_term) in all_changes {
+                            self.term_tabs.force_open_in_edit(&updated_term);
                         }
-                        widgets::term_screen::Result::Deleted(term_name) => {
-                            self.term_tabs.remove(&term_name);
+                    } else {
+                        for (term_name, updated_term) in all_changes {
+                            self.terms.put(&term_name, updated_term).unwrap();
+                            self.term_tabs.force_reload(&term_name, &self.terms);
                         }
                     }
-                    */
                 }
             }
             ChosenTab::Ask(_) => {

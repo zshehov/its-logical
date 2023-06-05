@@ -1,4 +1,4 @@
-use crate::term_knowledge_base::TermsKnowledgeBase;
+use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
 
 use super::term_screen::TermScreen;
 
@@ -86,13 +86,29 @@ impl Tabs {
         }
     }
 
+    pub(crate) fn force_open_in_edit(&mut self, term: &FatTerm) {
+        if let Some(term_idx) = self
+            .term_screens
+            .iter()
+            .position(|x| x.name() == term.meta.term.name)
+        {
+            if self.term_screens[term_idx].is_being_edited() {
+                // TODO: handle this properly
+            } else {
+                self.term_screens[term_idx] = TermScreen::new(term, true);
+            }
+        } else {
+            self.term_screens.push(TermScreen::new(term, true));
+        }
+    }
+
     pub(crate) fn force_reload<T: TermsKnowledgeBase>(&mut self, term_name: &str, terms: &T) {
         if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == term_name) {
             if self.term_screens[term_idx].is_being_edited() {
                 // TODO: handle this properly
             } else {
                 self.term_screens[term_idx] =
-                    TermScreen::new(&terms.get(&term_name).unwrap().clone());
+                    TermScreen::new(&terms.get(&term_name).unwrap().clone(), false);
             }
         }
     }
@@ -103,8 +119,10 @@ impl Tabs {
             .iter()
             .any(|screen| screen.name() == term_name)
         {
-            self.term_screens
-                .push(TermScreen::new(&terms.get(&term_name).unwrap().clone()));
+            self.term_screens.push(TermScreen::new(
+                &terms.get(&term_name).unwrap().clone(),
+                false,
+            ));
         }
         self.select(term_name);
     }

@@ -61,14 +61,23 @@ impl TermScreen {
         self.edit_mode
     }
 
-    pub(crate) fn new(term: &FatTerm) -> Self {
+    pub(crate) fn new(term: &FatTerm, in_edit: bool) -> Self {
+        let mut term: Term = term.into();
+
+        if in_edit {
+            term.arguments.unlock();
+            term.rules.unlock();
+            term.facts.unlock();
+        }
+        let original_name = term.meta.name.clone();
+
         Self {
-            term: term.into(),
-            original_term_name: term.meta.term.name.clone(),
+            term,
+            original_term_name: original_name,
             fact_placeholder: placeholder::FactPlaceholder::new(),
             rule_placeholder: placeholder::RulePlaceholder::new(),
             arg_placeholder: NameDescription::new("", ""),
-            edit_mode: false,
+            edit_mode: in_edit,
             delete_confirmation: "".to_string(),
             arg_rename: false,
             description_change: false,
@@ -138,7 +147,6 @@ impl TermScreen {
 
                     let argument_changes = self.term.arguments.lock();
                     if argument_changes.len() > 0 {
-                        debug!("woah some arrrrr");
                         changes.push(Change::ArgChanges(argument_changes));
                     }
 
