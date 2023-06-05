@@ -29,17 +29,25 @@ impl FatTerm {
         encoded
     }
 
-    pub(crate) fn add_related(&mut self, term_name: &String) -> bool {
-        if !self.meta.related.contains(term_name) {
-            self.meta.related.push(term_name.to_owned());
+    pub(crate) fn add_referred_by(&mut self, term_name: &String) -> bool {
+        if !self.meta.referred_by.contains(term_name) {
+            self.meta.referred_by.push(term_name.to_owned());
             return true;
         }
         return false;
     }
 
-    pub(crate) fn remove_related(&mut self, term_name: &String) -> bool {
-        if let Some(idx) = self.meta.related.iter().position(|x| x == term_name) {
-            self.meta.related.remove(idx);
+    pub(crate) fn remove_referred_by(&mut self, term_name: &str) -> bool {
+        if let Some(idx) = self.meta.referred_by.iter().position(|x| x == term_name) {
+            self.meta.referred_by.remove(idx);
+            return true;
+        }
+        return false;
+    }
+
+    pub(crate) fn rename_referred_by(&mut self, from: &str, to: &str) -> bool {
+        if let Some(idx) = self.meta.referred_by.iter().position(|x| x == from) {
+            *self.meta.referred_by.get_mut(idx).unwrap() = to.to_owned();
             return true;
         }
         return false;

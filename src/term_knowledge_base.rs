@@ -10,6 +10,7 @@ use std::{
 
 use crate::model::fat_term::{parse_fat_term, FatTerm};
 
+#[derive(Debug)]
 pub enum KnowledgeBaseError {
     NotFound,
     AlreadyPresent,

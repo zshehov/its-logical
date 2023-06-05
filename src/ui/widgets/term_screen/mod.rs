@@ -16,12 +16,18 @@ use super::drag_and_drop::DragAndDrop;
 use tracing::debug;
 
 pub(crate) enum Change {
-    None,
-    TermChange {
-        original_name: String,
-        updated_term: FatTerm,
-    },
-    DeletedTerm(String),
+    DescriptionChange,
+    FactsChange,
+    ArgRename,
+    ArgChanges(Vec<drag_and_drop::Change<NameDescription>>),
+    RuleChanges(Vec<drag_and_drop::Change<Rule>>),
+}
+
+pub(crate) enum Result {
+    // the sequnce of changes and the resulting FatTerm
+    Changes(Vec<Change>, String, FatTerm),
+    // a deletion event
+    Deleted(String),
 }
 
 struct Term {
@@ -42,7 +48,8 @@ pub(crate) struct TermScreen {
     arg_placeholder: NameDescription,
     delete_confirmation: String,
     edit_mode: bool,
-    changed: bool,
+    arg_rename: bool,
+    description_change: bool,
 }
 
 impl TermScreen {
@@ -62,8 +69,9 @@ impl TermScreen {
             rule_placeholder: placeholder::RulePlaceholder::new(),
             arg_placeholder: NameDescription::new("", ""),
             edit_mode: false,
-            changed: false,
             delete_confirmation: "".to_string(),
+            arg_rename: false,
+            description_change: false,
         }
     }
 
@@ -81,29 +89,28 @@ impl TermScreen {
             rule_placeholder: placeholder::RulePlaceholder::new(),
             arg_placeholder: NameDescription::new("", ""),
             edit_mode: true,
-            changed: false,
             delete_confirmation: "".to_string(),
+            arg_rename: false,
+            description_change: false,
         }
     }
 
     pub(crate) fn show<T: TermsKnowledgeBase>(
         &mut self,
         ui: &mut egui::Ui,
-        terms_knowledge_base: &mut T,
-    ) -> Change {
-        let mut change = Change::None;
+        terms_knowledge_base: &T,
+    ) -> Option<Result> {
+        let mut result = None;
         ui.horizontal(|ui| {
-            self.changed |= ui
-                .add(
-                    egui::TextEdit::singleline(&mut self.term.meta.name)
-                        .clip_text(false)
-                        .desired_width(120.0)
-                        .hint_text("Term name")
-                        .frame(self.edit_mode)
-                        .interactive(self.edit_mode)
-                        .font(TextStyle::Heading),
-                )
-                .changed();
+            ui.add(
+                egui::TextEdit::singleline(&mut self.term.meta.name)
+                    .clip_text(false)
+                    .desired_width(120.0)
+                    .hint_text("Term name")
+                    .frame(self.edit_mode)
+                    .interactive(self.edit_mode)
+                    .font(TextStyle::Heading),
+            );
 
             let toggle_value_text = if self.edit_mode { "💾" } else { "📝" };
             if ui
@@ -114,39 +121,50 @@ impl TermScreen {
                 .clicked()
             {
                 if !self.edit_mode {
-                    let argument_changes = self.term.arguments.lock();
-                    let rules_changes = self.term.rules.lock();
+                    let mut changes = vec![];
+
+                    if self.arg_rename {
+                        changes.push(Change::ArgRename);
+                        self.arg_rename = false;
+                    }
+                    if self.description_change {
+                        changes.push(Change::DescriptionChange);
+                        self.description_change = false;
+                    }
                     let facts_changes = self.term.facts.lock();
+                    if facts_changes.len() > 0 {
+                        changes.push(Change::FactsChange);
+                    }
+
+                    let argument_changes = self.term.arguments.lock();
+                    if argument_changes.len() > 0 {
+                        debug!("woah some arrrrr");
+                        changes.push(Change::ArgChanges(argument_changes));
+                    }
+
+                    let rules_changes = self.term.rules.lock();
+                    if rules_changes.len() > 0 {
+                        changes.push(Change::RuleChanges(rules_changes));
+                    }
+
                     self.rule_placeholder = placeholder::RulePlaceholder::new();
                     self.fact_placeholder = placeholder::FactPlaceholder::new();
                     self.arg_placeholder = NameDescription::new("", "");
-                    // TODO: apply argument changes to Rules
-                    // TODO: apply argument changes to Facts
-                    // TODO: apply argument changes Related
-                    if argument_changes.len() > 0
-                        || rules_changes.len() > 0
-                        || facts_changes.len() > 0
-                        || self.changed
-                    {
+
+                    if changes.len() > 0 || self.original_term_name != self.term.meta.name {
                         let updated_term: FatTerm = (&self.term).into();
 
-                        self.update_related_terms(terms_knowledge_base, rules_changes);
-
-                        let mut original_name = String::new();
+                        let mut original_name = self.term.meta.name.clone();
                         if self.original_term_name == "" {
                             // maybe the "new term" case can be handled more gracefully than this
                             // if
-                            original_name = self.term.meta.name.clone()
-                        } else {
-                            std::mem::swap(&mut original_name, &mut self.original_term_name);
-                        };
+                            self.original_term_name = self.term.meta.name.clone();
+                        }
 
-                        change = Change::TermChange {
-                            original_name,
-                            updated_term,
-                        };
-                        self.original_term_name = self.term.meta.name.clone();
+                        std::mem::swap(&mut original_name, &mut self.original_term_name);
+
                         debug!("made some changes");
+                        result = Some(Result::Changes(changes, original_name, updated_term));
                     }
                 } else {
                     self.original_term_name = self.term.meta.name.clone();
@@ -161,7 +179,7 @@ impl TermScreen {
             ui.vertical(|ui| {
                 self.term.arguments.show(ui, |s, ui| {
                     ui.horizontal(|ui| {
-                        self.changed |= show_arg(ui, &mut s.name, &mut s.desc, self.edit_mode);
+                        self.arg_rename |= show_arg(ui, &mut s.name, &mut s.desc, self.edit_mode);
                     });
                 });
 
@@ -179,7 +197,6 @@ impl TermScreen {
                             std::mem::swap(&mut self.arg_placeholder, &mut empty_arg_placeholder);
 
                             self.term.arguments.push(empty_arg_placeholder);
-                            self.changed = true;
                         }
                     });
                 }
@@ -194,7 +211,7 @@ impl TermScreen {
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
                         ui.label(RichText::new("Description").small().italics());
-                        self.changed |= ui
+                        self.description_change |= ui
                             .add(
                                 egui::TextEdit::multiline(&mut self.term.meta.desc)
                                     .clip_text(false)
@@ -252,12 +269,13 @@ impl TermScreen {
                     .on_disabled_hover_text("Type \"delete\" in the box to the left")
                     .clicked()
                 {
-                    terms_knowledge_base.delete(&self.term.meta.name);
-                    change = Change::DeletedTerm(self.term.meta.name.clone());
+                    //terms_knowledge_base.delete(&self.term.meta.name);
+                    result = Some(Result::Deleted(self.original_term_name.clone()));
                 };
             });
         }
-        change
+
+        result
     }
 
     fn show_facts_section(&mut self, ui: &mut egui::Ui) {
@@ -281,7 +299,6 @@ impl TermScreen {
                                     self.term.arguments.iter(),
                                 ) {
                                     self.term.facts.push(new_fact_binding);
-                                    self.changed = true;
                                 }
                             });
                         }
@@ -293,7 +310,7 @@ impl TermScreen {
     fn show_rules_section<T: TermsKnowledgeBase>(
         &mut self,
         ui: &mut egui::Ui,
-        terms_knowledge_base: &mut T,
+        terms_knowledge_base: &T,
     ) {
         egui::ScrollArea::vertical()
             .id_source("rules_scroll_area")
@@ -333,69 +350,12 @@ impl TermScreen {
                                     self.term.arguments.iter(),
                                 ) {
                                     self.term.rules.push(new_rule);
-                                    self.changed = true;
                                 }
                             });
                         }
                     },
                 )
             });
-    }
-
-    fn update_related_terms<T: TermsKnowledgeBase>(
-        &mut self,
-        terms_knowledge_base: &mut T,
-        rules_changes: Vec<drag_and_drop::Change<Rule>>,
-    ) {
-        let mut related_terms = HashSet::<String>::new();
-        let mut removed_related_terms = HashSet::<String>::new();
-        let mut pushed_related_terms = HashSet::<String>::new();
-
-        // grab all the currently related terms
-        for rule in self.term.rules.iter() {
-            for body_term in &rule.body {
-                related_terms.insert(body_term.name.clone());
-            }
-        }
-
-        // grab all the ones that were just removed from this term
-        for rule_change in rules_changes {
-            match rule_change {
-                drag_and_drop::Change::Pushed(pushed_rule) => {
-                    for body_term in pushed_rule.body {
-                        pushed_related_terms.insert(body_term.name);
-                    }
-                }
-                drag_and_drop::Change::Removed(_, removed_rule) => {
-                    for body_term in removed_rule.body {
-                        removed_related_terms.insert(body_term.name);
-                    }
-                }
-                drag_and_drop::Change::Moved(_) => {}
-            }
-        }
-
-        // the actually removed are the ones that have no instance present in this
-        // term any longer
-        removed_related_terms.retain(|k| !related_terms.contains(k));
-
-        for new_related_term_name in pushed_related_terms.iter() {
-            if let Some(mut new_related_term) = terms_knowledge_base.get(&new_related_term_name) {
-                if new_related_term.add_related(&self.term.meta.name) {
-                    terms_knowledge_base.put(&new_related_term_name, new_related_term);
-                }
-            }
-        }
-
-        for removed_related_term_name in removed_related_terms.iter() {
-            if let Some(mut removed_related_term) =
-                terms_knowledge_base.get(&removed_related_term_name)
-            {
-                if removed_related_term.remove_related(&self.term.meta.name) {
-                    terms_knowledge_base.put(&removed_related_term_name, removed_related_term);
-                }
-            }
-        }
     }
 }
 
@@ -457,7 +417,7 @@ impl From<&FatTerm> for Term {
             DragAndDrop::new(fat_term.term.rules.to_owned()),
             DragAndDrop::new(fat_term.term.facts.to_owned()),
             DragAndDrop::new(fat_term.meta.args.to_owned()),
-            fat_term.meta.related.to_owned(),
+            fat_term.meta.referred_by.to_owned(),
         )
     }
 }

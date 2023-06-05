@@ -1,5 +1,5 @@
 use nom::{
-    bytes::complete::{tag, take_until, take_till1},
+    bytes::complete::{tag, take_till1, take_until},
     error::VerboseError,
     multi::{many0, separated_list0},
     sequence::{preceded, terminated, tuple},
@@ -12,7 +12,7 @@ use super::name_description::{parse_name_description, NameDescription};
 pub(crate) struct Comment {
     pub(crate) term: NameDescription,
     pub(crate) args: Vec<NameDescription>,
-    pub(crate) related: Vec<String>,
+    pub(crate) referred_by: Vec<String>,
 }
 
 const NEWLINE: &str = r"
@@ -33,7 +33,7 @@ impl Comment {
         }
 
         encoded.push_str("% @see ");
-        encoded.push_str(&self.related.join(",").to_string());
+        encoded.push_str(&self.referred_by.join(",").to_string());
         encoded.push_str(NEWLINE);
         encoded
     }
@@ -41,12 +41,12 @@ impl Comment {
     pub(crate) fn new(
         term: NameDescription,
         args: Vec<NameDescription>,
-        related: Vec<String>,
+        referred_by: Vec<String>,
     ) -> Self {
         Self {
             term,
             args,
-            related,
+            referred_by,
         }
     }
 }
@@ -57,16 +57,16 @@ pub(crate) fn parse_comment<'a>(i: &'a str) -> IResult<&'a str, Comment, Verbose
             tuple((
                 term_definition_parser,
                 args_definition_parser,
-                related_terms_parser,
+                referred_by_terms_parser,
             ))(leftover)
         })
-        .map(|(leftover, (term, args, related))| {
+        .map(|(leftover, (term, args, referred_by))| {
             (
                 leftover,
                 Comment {
                     term,
                     args,
-                    related,
+                    referred_by,
                 },
             )
         })
@@ -82,7 +82,7 @@ fn args_definition_parser<'a>(
     many0(preceded(tag("% @arg "), parse_name_description))(i)
 }
 
-fn related_terms_parser<'a>(i: &'a str) -> IResult<&'a str, Vec<String>, VerboseError<&str>> {
+fn referred_by_terms_parser<'a>(i: &'a str) -> IResult<&'a str, Vec<String>, VerboseError<&str>> {
     preceded(
         tag("% @see "),
         terminated(
@@ -93,12 +93,13 @@ fn related_terms_parser<'a>(i: &'a str) -> IResult<&'a str, Vec<String>, Verbose
 }
 
 fn parse_to_owned_string<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&str>> {
-    take_till1(|c| c == ',' || c == '\n')(i).map(|(leftover, parsed)| (leftover, parsed.to_string()))
+    take_till1(|c| c == ',' || c == '\n')(i)
+        .map(|(leftover, parsed)| (leftover, parsed.to_string()))
 }
 
 #[test]
-fn test_related_terms_parser() {
-    let res = related_terms_parser(
+fn test_referred_by_terms_parser() {
+    let res = referred_by_terms_parser(
         r"% @see parent,male
 ",
     );
@@ -106,20 +107,14 @@ fn test_related_terms_parser() {
         res,
         Ok(("", vec!["parent".to_string(), "male".to_string()]))
     );
-    let res = related_terms_parser(
+    let res = referred_by_terms_parser(
         r"% @see parent
 ",
     );
-    assert_eq!(
-        res,
-        Ok(("", vec!["parent".to_string()]))
-    );
-    let res = related_terms_parser(
+    assert_eq!(res, Ok(("", vec!["parent".to_string()])));
+    let res = referred_by_terms_parser(
         r"% @see 
 ",
     );
-    assert_eq!(
-        res,
-        Ok(("", vec![]))
-    );
+    assert_eq!(res, Ok(("", vec![])));
 }

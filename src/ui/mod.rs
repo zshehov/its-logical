@@ -2,12 +2,13 @@ use egui::Context;
 
 use crate::term_knowledge_base::TermsKnowledgeBase;
 
-use self::widgets::tabs::{ChosenTab, TermTabs};
+use self::widgets::tabs::{ChosenTab, Tabs};
 
+mod change_propagator;
 mod widgets;
 
 pub struct App<T: TermsKnowledgeBase> {
-    term_tabs: TermTabs,
+    term_tabs: Tabs,
     terms: T,
 }
 
@@ -17,7 +18,7 @@ where
 {
     pub fn new(terms: T) -> Self {
         Self {
-            term_tabs: TermTabs::default(),
+            term_tabs: Tabs::default(),
             terms,
         }
     }
@@ -36,7 +37,7 @@ where
             let term_list_selection = widgets::terms_list::show(ui, self.terms.keys().iter());
 
             if let Some(term_name) = term_list_selection {
-                self.term_tabs.select(&term_name, &self.terms);
+                self.term_tabs.select_with_push(&term_name, &self.terms);
             }
         });
 
@@ -48,24 +49,35 @@ where
 
         match chosen_tab {
             ChosenTab::Term(term_screen) => {
-                let change = egui::CentralPanel::default()
+                let changes = egui::CentralPanel::default()
                     .show(ctx, |ui| term_screen.show(ui, &mut self.terms))
                     .inner;
 
-                match change {
-                    widgets::term_screen::Change::None => {}
-                    widgets::term_screen::Change::TermChange {
-                        original_name,
-                        updated_term,
-                    } => {
-                        self.term_tabs
-                            .rename(&original_name, &updated_term.meta.term.name);
-                        self.terms.put(&original_name, updated_term);
+                if let Some(changes) = changes {
+                    let (all_changes, needs_confirmation) =
+                        change_propagator::apply_changes(changes, &self.terms);
+
+                    if needs_confirmation {
+                        // TODO: just open in-memory changed terms in the tabs. don't persist the
+                        // changes
                     }
-                    widgets::term_screen::Change::DeletedTerm(term_name) => {
-                        self.term_tabs.remove(&term_name);
+                    for (term_name, updated_term) in all_changes {
+                        self.terms.put(&term_name, updated_term).unwrap();
+                        self.term_tabs.force_reload(&term_name, &self.terms);
                     }
-                };
+
+                    /*
+                    match changes {
+                        widgets::term_screen::Result::Changes(changes, updated_term) => {
+                            self.terms.put(&updated_term.meta.term.name, updated_term);
+                            // TODO: call the change propagator
+                        }
+                        widgets::term_screen::Result::Deleted(term_name) => {
+                            self.term_tabs.remove(&term_name);
+                        }
+                    }
+                    */
+                }
             }
             ChosenTab::Ask(_) => {
                 egui::CentralPanel::default().show(ctx, |ui| {

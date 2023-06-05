@@ -41,7 +41,7 @@ impl Tabs {
             );
             ui.separator();
 
-            let mut delete_idx = None;
+            let mut close_idx = None;
             for (idx, term) in self.term_screens.iter_mut().enumerate() {
                 if ui
                     .selectable_value(
@@ -59,22 +59,22 @@ impl Tabs {
                     )
                     .secondary_clicked()
                 {
-                    delete_idx = Some(idx);
+                    close_idx = Some(idx);
                 };
             }
-            if let Some(delete_idx) = delete_idx {
-                if self.term_screens[delete_idx].is_being_edited() {
+            if let Some(close_idx) = close_idx {
+                if self.term_screens[close_idx].is_being_edited() {
                     // finish editing before closing a tab
-                    self.select(&self.term_screens[delete_idx].name());
+                    self.select(&self.term_screens[close_idx].name());
                 } else {
                     if let ChoseTabInternal::Term(current_idx) = self.current_selection {
-                        if delete_idx == current_idx {
+                        if close_idx == current_idx {
                             self.current_selection = ChoseTabInternal::Ask;
-                        } else if delete_idx < current_idx {
+                        } else if close_idx < current_idx {
                             self.current_selection = ChoseTabInternal::Term(current_idx - 1);
                         }
                     }
-                    self.term_screens.remove(delete_idx);
+                    self.term_screens.remove(close_idx);
                 }
             }
         });
@@ -82,6 +82,17 @@ impl Tabs {
             ChoseTabInternal::Ask => ChosenTab::Ask(&self.ask),
             ChoseTabInternal::Term(term_screen_idx) => {
                 ChosenTab::Term(&mut self.term_screens[term_screen_idx])
+            }
+        }
+    }
+
+    pub(crate) fn force_reload<T: TermsKnowledgeBase>(&mut self, term_name: &str, terms: &T) {
+        if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == term_name) {
+            if self.term_screens[term_idx].is_being_edited() {
+                // TODO: handle this properly
+            } else {
+                self.term_screens[term_idx] =
+                    TermScreen::new(&terms.get(&term_name).unwrap().clone());
             }
         }
     }
@@ -96,13 +107,6 @@ impl Tabs {
                 .push(TermScreen::new(&terms.get(&term_name).unwrap().clone()));
         }
         self.select(term_name);
-    }
-
-    pub(crate) fn remove(&mut self, tab_name: &str) {
-        if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == tab_name) {
-            self.term_screens.remove(term_idx);
-            self.current_selection = ChoseTabInternal::Ask;
-        }
     }
 
     pub(crate) fn add_new_term(&mut self) {
