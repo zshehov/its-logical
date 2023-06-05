@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::term_knowledge_base::TermsKnowledgeBase;
 
 use super::term_screen::TermScreen;
@@ -55,7 +53,6 @@ impl TabsState {
 #[derive(Default)]
 pub(crate) struct TermTabs {
     tabs_vec: TabsState,
-    tabs_set: HashSet<String>,
 }
 
 impl TermTabs {
@@ -103,8 +100,6 @@ impl TermTabs {
                                 ChoseTabInternal::Term(current_idx - 1);
                         }
                     }
-                    self.tabs_set
-                        .remove(&self.tabs_vec.terms[delete_idx].name());
                     self.tabs_vec.terms.remove(delete_idx);
                 }
             }
@@ -118,21 +113,20 @@ impl TermTabs {
     }
 
     pub(crate) fn select<T: TermsKnowledgeBase>(&mut self, term_name: &str, terms: &T) {
-        if self.tabs_set.insert(term_name.to_string()) {
+        if !self
+            .tabs_vec
+            .terms
+            .iter()
+            .any(|screen| screen.name() == term_name)
+        {
             self.tabs_vec
                 .push(TermScreen::new(&terms.get(&term_name).unwrap().clone()));
         }
         self.tabs_vec.select(term_name);
     }
 
-    pub(crate) fn rename(&mut self, from: &str, to: &str) {
-        self.tabs_set.remove(from);
-        self.tabs_set.insert(to.to_owned());
-    }
-
     pub(crate) fn remove(&mut self, tab_name: &str) {
         self.tabs_vec.remove(tab_name);
-        self.tabs_set.remove(tab_name);
     }
 
     pub(crate) fn add_new_term(&mut self) {
