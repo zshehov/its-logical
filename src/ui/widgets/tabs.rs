@@ -15,61 +15,37 @@ enum ChoseTabInternal {
     Term(usize),
 }
 
-struct TabsState {
+pub(crate) struct Tabs {
     current_selection: ChoseTabInternal,
     ask: String,
-    terms: Vec<TermScreen>,
+    term_screens: Vec<TermScreen>,
 }
 
-impl Default for TabsState {
+impl Default for Tabs {
     fn default() -> Self {
         Self {
             current_selection: ChoseTabInternal::Ask,
             ask: ASK_TAB_NAME.to_string(),
-            terms: vec![],
+            term_screens: vec![],
         }
     }
 }
 
-impl TabsState {
-    fn push(&mut self, term_screen: TermScreen) {
-        self.terms.push(term_screen);
-    }
-
-    fn select(&mut self, term_name: &str) {
-        if let Some(term_idx) = self.terms.iter().position(|x| x.name() == term_name) {
-            self.current_selection = ChoseTabInternal::Term(term_idx);
-        }
-    }
-
-    fn remove(&mut self, term_name: &str) {
-        if let Some(term_idx) = self.terms.iter().position(|x| x.name() == term_name) {
-            self.terms.remove(term_idx);
-            self.current_selection = ChoseTabInternal::Ask;
-        }
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct TermTabs {
-    tabs_vec: TabsState,
-}
-
-impl TermTabs {
+impl Tabs {
     pub(crate) fn show<'a>(&'a mut self, ui: &mut egui::Ui) -> ChosenTab<'a> {
         ui.horizontal(|ui| {
             ui.selectable_value(
-                &mut self.tabs_vec.current_selection,
+                &mut self.current_selection,
                 ChoseTabInternal::Ask,
                 egui::RichText::new(ASK_TAB_NAME).strong(),
             );
             ui.separator();
 
             let mut delete_idx = None;
-            for (idx, term) in self.tabs_vec.terms.iter_mut().enumerate() {
+            for (idx, term) in self.term_screens.iter_mut().enumerate() {
                 if ui
                     .selectable_value(
-                        &mut self.tabs_vec.current_selection,
+                        &mut self.current_selection,
                         ChoseTabInternal::Term(idx),
                         if term.name() == "" {
                             "untitled".to_string()
@@ -87,50 +63,56 @@ impl TermTabs {
                 };
             }
             if let Some(delete_idx) = delete_idx {
-                if self.tabs_vec.terms[delete_idx].is_being_edited() {
+                if self.term_screens[delete_idx].is_being_edited() {
                     // finish editing before closing a tab
-                    self.tabs_vec
-                        .select(&self.tabs_vec.terms[delete_idx].name());
+                    self.select(&self.term_screens[delete_idx].name());
                 } else {
-                    if let ChoseTabInternal::Term(current_idx) = self.tabs_vec.current_selection {
+                    if let ChoseTabInternal::Term(current_idx) = self.current_selection {
                         if delete_idx == current_idx {
-                            self.tabs_vec.current_selection = ChoseTabInternal::Ask;
+                            self.current_selection = ChoseTabInternal::Ask;
                         } else if delete_idx < current_idx {
-                            self.tabs_vec.current_selection =
-                                ChoseTabInternal::Term(current_idx - 1);
+                            self.current_selection = ChoseTabInternal::Term(current_idx - 1);
                         }
                     }
-                    self.tabs_vec.terms.remove(delete_idx);
+                    self.term_screens.remove(delete_idx);
                 }
             }
         });
-        match self.tabs_vec.current_selection {
-            ChoseTabInternal::Ask => ChosenTab::Ask(&self.tabs_vec.ask),
+        match self.current_selection {
+            ChoseTabInternal::Ask => ChosenTab::Ask(&self.ask),
             ChoseTabInternal::Term(term_screen_idx) => {
-                ChosenTab::Term(&mut self.tabs_vec.terms[term_screen_idx])
+                ChosenTab::Term(&mut self.term_screens[term_screen_idx])
             }
         }
     }
 
-    pub(crate) fn select<T: TermsKnowledgeBase>(&mut self, term_name: &str, terms: &T) {
+    pub(crate) fn select_with_push<T: TermsKnowledgeBase>(&mut self, term_name: &str, terms: &T) {
         if !self
-            .tabs_vec
-            .terms
+            .term_screens
             .iter()
             .any(|screen| screen.name() == term_name)
         {
-            self.tabs_vec
+            self.term_screens
                 .push(TermScreen::new(&terms.get(&term_name).unwrap().clone()));
         }
-        self.tabs_vec.select(term_name);
+        self.select(term_name);
     }
 
     pub(crate) fn remove(&mut self, tab_name: &str) {
-        self.tabs_vec.remove(tab_name);
+        if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == tab_name) {
+            self.term_screens.remove(term_idx);
+            self.current_selection = ChoseTabInternal::Ask;
+        }
     }
 
     pub(crate) fn add_new_term(&mut self) {
-        self.tabs_vec.push(TermScreen::with_new_term());
-        self.tabs_vec.select("");
+        self.term_screens.push(TermScreen::with_new_term());
+        self.current_selection = ChoseTabInternal::Term(self.term_screens.len() - 1);
+    }
+
+    pub fn select(&mut self, term_name: &str) {
+        if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == term_name) {
+            self.current_selection = ChoseTabInternal::Term(term_idx);
+        }
     }
 }
