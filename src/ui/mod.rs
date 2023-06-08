@@ -55,7 +55,7 @@ where
 
                 if let Some(changes) = changes {
                     let (all_changes, needs_confirmation) =
-                        change_propagator::apply_changes(changes, &self.terms);
+                        change_propagator::apply_changes(&changes, &self.terms);
 
                     if needs_confirmation {
                         for (_, updated_term) in all_changes {
@@ -65,6 +65,9 @@ where
                         for (term_name, updated_term) in all_changes {
                             self.terms.put(&term_name, updated_term).unwrap();
                             self.term_tabs.force_reload(&term_name, &self.terms);
+                        }
+                        if let widgets::term_screen::Result::Deleted(term_name) = changes {
+                            self.terms.delete(&term_name);
                         }
                     }
                 }

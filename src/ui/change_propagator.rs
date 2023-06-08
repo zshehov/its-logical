@@ -13,7 +13,7 @@ use super::widgets::{
 };
 
 pub(crate) fn apply_changes<T: TermsKnowledgeBase>(
-    changes: Result,
+    changes: &Result,
     terms: &T,
 ) -> (HashMap<String, FatTerm>, bool) {
     let mut updated_terms = HashMap::new();
@@ -21,29 +21,31 @@ pub(crate) fn apply_changes<T: TermsKnowledgeBase>(
 
     match changes {
         Result::Changes(changes, original_name, updated_term) => {
+            let original_name = original_name.to_owned();
             for change in changes {
                 match change {
                     Change::DescriptionChange | Change::FactsChange | Change::ArgRename => {
                         debug!("internal changes");
                     }
                     Change::ArgChanges(arg_changes) => {
-                        for arg_change in &arg_changes {
-                            if let drag_and_drop::Change::Pushed(_)
-                            | drag_and_drop::Change::Removed(_, _) = arg_change
-                            {
-                                // currently only a new or removed argument triggers user
-                                // intervention - all other changes can be applied
-                                // automaticallly
-                                needs_confirmation = true;
-                            }
-                        }
-
                         for referred_by_term_name in &updated_term.meta.referred_by {
                             let referred_by_term = updated_terms
                                 .entry(referred_by_term_name.clone())
                                 .or_insert(terms.get(&referred_by_term_name).unwrap());
 
                             apply_arg_changes(referred_by_term, &original_name, arg_changes.iter());
+                        }
+                        if updated_term.meta.referred_by.len() > 0 {
+                            for arg_change in arg_changes {
+                                if let drag_and_drop::Change::Pushed(_)
+                                | drag_and_drop::Change::Removed(_, _) = arg_change
+                                {
+                                    // currently only a new or removed argument triggers user
+                                    // intervention - all other changes can be applied
+                                    // automaticallly
+                                    needs_confirmation = true;
+                                }
+                            }
                         }
                     }
                     Change::RuleChanges(_) => {
@@ -103,7 +105,36 @@ pub(crate) fn apply_changes<T: TermsKnowledgeBase>(
                 .entry(original_name.clone())
                 .or_insert(updated_term.clone());
         }
-        Result::Deleted(term_name) => {}
+        Result::Deleted(term_name) => {
+            let original_term = terms.get(term_name).unwrap();
+
+            for rule in original_term.term.rules.iter() {
+                for body_term in &rule.body {
+                    let mentioned_term = updated_terms
+                        .entry(body_term.name.clone())
+                        .or_insert(terms.get(&body_term.name).unwrap());
+                    mentioned_term.remove_referred_by(term_name);
+                }
+            }
+
+            for referred_by_term_name in &original_term.meta.referred_by {
+                let referred_by_term = updated_terms
+                    .entry(referred_by_term_name.to_owned())
+                    .or_insert(terms.get(&referred_by_term_name).unwrap());
+
+                for rule in &mut referred_by_term.term.rules {
+                    let before_removal_body_term_count = rule.body.len();
+                    rule.body.retain(|body_term| body_term.name != *term_name);
+
+                    if rule.body.len() < before_removal_body_term_count {
+                        // A confirmation is needed only if actual removing was done. There is the
+                        // case when the user has already confirmed the deletion and this code path
+                        // does not remove anything.
+                        needs_confirmation = true;
+                    }
+                }
+            }
+        }
     }
     (updated_terms, needs_confirmation)
 }

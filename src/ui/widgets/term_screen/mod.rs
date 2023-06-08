@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use egui::{Color32, RichText, TextStyle};
 
 use crate::{
@@ -277,7 +275,6 @@ impl TermScreen {
                     .on_disabled_hover_text("Type \"delete\" in the box to the left")
                     .clicked()
                 {
-                    //terms_knowledge_base.delete(&self.term.meta.name);
                     result = Some(Result::Deleted(self.original_term_name.clone()));
                 };
             });
