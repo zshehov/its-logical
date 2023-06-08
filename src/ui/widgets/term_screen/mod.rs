@@ -36,6 +36,7 @@ struct Term {
     related: Vec<String>,
 }
 
+mod edit_button;
 mod placeholder;
 
 pub(crate) struct TermScreen {
@@ -119,15 +120,17 @@ impl TermScreen {
                     .font(TextStyle::Heading),
             );
 
-            let toggle_value_text = if self.edit_mode { "💾" } else { "📝" };
-            if ui
-                .toggle_value(
-                    &mut self.edit_mode,
-                    egui::RichText::new(toggle_value_text).heading().monospace(),
-                )
-                .clicked()
-            {
-                if !self.edit_mode {
+            match edit_button::show_edit_button(ui, &mut self.edit_mode) {
+                edit_button::EditToggle::None => {}
+                edit_button::EditToggle::ClickedEdit => {
+                    self.original_term_name = self.term.meta.name.clone();
+                    self.delete_confirmation = "".to_string();
+                    self.term.arguments.unlock();
+                    self.rule_placeholder.unlock();
+                    self.term.rules.unlock();
+                    self.term.facts.unlock();
+                }
+                edit_button::EditToggle::ClickedSave => {
                     let mut changes = vec![];
 
                     if self.arg_rename {
@@ -172,13 +175,6 @@ impl TermScreen {
                         debug!("made some changes");
                         result = Some(Result::Changes(changes, original_name, updated_term));
                     }
-                } else {
-                    self.original_term_name = self.term.meta.name.clone();
-                    self.delete_confirmation = "".to_string();
-                    self.term.arguments.unlock();
-                    self.rule_placeholder.unlock();
-                    self.term.rules.unlock();
-                    self.term.facts.unlock();
                 }
             }
 
