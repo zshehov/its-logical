@@ -9,25 +9,25 @@ use crate::{
 
 use super::widgets::{
     drag_and_drop,
-    term_screen::{Change, Result},
+    term_screen::{TermChange, Change},
 };
 
 pub(crate) fn apply_changes<T: TermsKnowledgeBase>(
-    changes: &Result,
+    changes: &Change,
     terms: &T,
 ) -> (HashMap<String, FatTerm>, bool) {
     let mut updated_terms = HashMap::new();
     let mut needs_confirmation = false;
 
     match changes {
-        Result::Changes(changes, original_name, updated_term) => {
+        Change::Changes(changes, original_name, updated_term) => {
             let original_name = original_name.to_owned();
             for change in changes {
                 match change {
-                    Change::DescriptionChange | Change::FactsChange | Change::ArgRename => {
+                    TermChange::DescriptionChange | TermChange::FactsChange | TermChange::ArgRename => {
                         debug!("internal changes");
                     }
-                    Change::ArgChanges(arg_changes) => {
+                    TermChange::ArgChanges(arg_changes) => {
                         for referred_by_term_name in &updated_term.meta.referred_by {
                             let referred_by_term = updated_terms
                                 .entry(referred_by_term_name.clone())
@@ -48,7 +48,7 @@ pub(crate) fn apply_changes<T: TermsKnowledgeBase>(
                             }
                         }
                     }
-                    Change::RuleChanges(_) => {
+                    TermChange::RuleChanges(_) => {
                         let (new, removed) = changes_in_mentioned_terms(
                             &terms.get(&original_name).unwrap(),
                             &updated_term,
@@ -105,7 +105,7 @@ pub(crate) fn apply_changes<T: TermsKnowledgeBase>(
                 .entry(original_name.clone())
                 .or_insert(updated_term.clone());
         }
-        Result::Deleted(term_name) => {
+        Change::Deleted(term_name) => {
             let original_term = terms.get(term_name).unwrap();
 
             for rule in original_term.term.rules.iter() {

@@ -65,7 +65,7 @@ impl Tabs {
             if let Some(close_idx) = close_idx {
                 if self.term_screens[close_idx].is_being_edited() {
                     // finish editing before closing a tab
-                    self.select(&self.term_screens[close_idx].name());
+                    self.current_selection = ChoseTabInternal::Term(close_idx);
                 } else {
                     if let ChoseTabInternal::Term(current_idx) = self.current_selection {
                         if close_idx == current_idx {

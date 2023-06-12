@@ -66,7 +66,7 @@ where
                             self.terms.put(&term_name, updated_term).unwrap();
                             self.term_tabs.force_reload(&term_name, &self.terms);
                         }
-                        if let widgets::term_screen::Result::Deleted(term_name) = changes {
+                        if let widgets::term_screen::Change::Deleted(term_name) = changes {
                             self.terms.delete(&term_name);
                         }
                     }
