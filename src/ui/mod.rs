@@ -49,17 +49,23 @@ where
 
         match chosen_tab {
             ChosenTab::Term(term_screen) => {
+                let term_name = term_screen.name();
                 let changes = egui::CentralPanel::default()
                     .show(ctx, |ui| term_screen.show(ui, &mut self.terms))
                     .inner;
 
                 if let Some(changes) = changes {
-                    let (all_changes, needs_confirmation) =
-                        change_propagator::apply_changes(&changes, &self.terms);
+                    let (all_changes, needs_confirmation) = change_propagator::apply_changes(
+                        &changes,
+                        &TermsCache::new(&self.terms, &self.term_tabs),
+                    );
 
                     if needs_confirmation {
                         for (_, updated_term) in all_changes {
-                            self.term_tabs.force_open_in_edit(&updated_term);
+                            self.term_tabs.force_open_in_edit(
+                                &updated_term,
+                                &("after changes in ".to_string() + &term_name),
+                            );
                         }
                     } else {
                         for (term_name, updated_term) in all_changes {
@@ -78,5 +84,25 @@ where
                 });
             }
         };
+    }
+}
+
+struct TermsCache<'a, T: TermsKnowledgeBase> {
+    backing: &'a T,
+    cache: &'a Tabs,
+}
+
+impl<'a, T: TermsKnowledgeBase> TermsCache<'a, T> {
+    fn new(backing: &'a T, cache: &'a Tabs) -> Self {
+        Self { backing, cache }
+    }
+}
+
+impl<'a, T: TermsKnowledgeBase> change_propagator::Terms for TermsCache<'a, T> {
+    fn get(&self, term_name: &str) -> Option<crate::model::fat_term::FatTerm> {
+        if let Some(term_screen) = self.cache.get(term_name) {
+            return Some(term_screen.extract_term());
+        }
+        self.backing.get(term_name)
     }
 }

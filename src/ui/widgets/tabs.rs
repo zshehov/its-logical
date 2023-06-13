@@ -86,7 +86,7 @@ impl Tabs {
         }
     }
 
-    pub(crate) fn force_open_in_edit(&mut self, term: &FatTerm) {
+    pub(crate) fn force_open_in_edit(&mut self, term: &FatTerm, edit_reason: &str) {
         if let Some(term_idx) = self
             .term_screens
             .iter()
@@ -95,7 +95,7 @@ impl Tabs {
             if self.term_screens[term_idx].is_being_edited() {
                 // TODO: handle this properly
             } else {
-                self.term_screens[term_idx] = TermScreen::new(term, true);
+                self.term_screens[term_idx].push_pit(term, edit_reason);
             }
         } else {
             self.term_screens.push(TermScreen::new(term, true));
@@ -132,7 +132,14 @@ impl Tabs {
         self.current_selection = ChoseTabInternal::Term(self.term_screens.len() - 1);
     }
 
-    pub fn select(&mut self, term_name: &str) {
+    pub(crate) fn get<'a>(&'a self, term_name: &str) -> Option<&'a TermScreen> {
+        if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == term_name) {
+            return Some(&self.term_screens[term_idx]);
+        }
+        None
+    }
+
+    fn select(&mut self, term_name: &str) {
         if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == term_name) {
             self.current_selection = ChoseTabInternal::Term(term_idx);
         }

@@ -2,17 +2,18 @@ use std::collections::{HashMap, HashSet};
 
 use tracing::debug;
 
-use crate::{
-    model::{comment::name_description::NameDescription, fat_term::FatTerm},
-    term_knowledge_base::TermsKnowledgeBase,
-};
+use crate::model::{comment::name_description::NameDescription, fat_term::FatTerm};
 
 use super::widgets::{
     drag_and_drop,
-    term_screen::{TermChange, Change},
+    term_screen::{Change, TermChange},
 };
 
-pub(crate) fn apply_changes<T: TermsKnowledgeBase>(
+pub(crate) trait Terms {
+    fn get(&self, term_name: &str) -> Option<FatTerm>;
+}
+
+pub(crate) fn apply_changes<T: Terms>(
     changes: &Change,
     terms: &T,
 ) -> (HashMap<String, FatTerm>, bool) {
@@ -24,7 +25,9 @@ pub(crate) fn apply_changes<T: TermsKnowledgeBase>(
             let original_name = original_name.to_owned();
             for change in changes {
                 match change {
-                    TermChange::DescriptionChange | TermChange::FactsChange | TermChange::ArgRename => {
+                    TermChange::DescriptionChange
+                    | TermChange::FactsChange
+                    | TermChange::ArgRename => {
                         debug!("internal changes");
                     }
                     TermChange::ArgChanges(arg_changes) => {

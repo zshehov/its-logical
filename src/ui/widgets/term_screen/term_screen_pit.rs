@@ -42,6 +42,10 @@ impl TermScreenPIT {
         self.edit_mode
     }
 
+    pub(crate) fn extract_term(&self) -> FatTerm {
+        (&self.term).into()
+    }
+
     pub(crate) fn new(term: &FatTerm, in_edit: bool) -> Self {
         let mut term: Term = term.into();
 
@@ -89,6 +93,7 @@ impl TermScreenPIT {
         &mut self,
         ui: &mut egui::Ui,
         terms_knowledge_base: &T,
+        frozen: bool,
     ) -> Option<Change> {
         let mut result = None;
         ui.horizontal(|ui| {
@@ -102,60 +107,62 @@ impl TermScreenPIT {
                     .font(TextStyle::Heading),
             );
 
-            match edit_button::show_edit_button(ui, &mut self.edit_mode) {
-                edit_button::EditToggle::None => {}
-                edit_button::EditToggle::ClickedEdit => {
-                    self.original_term_name = self.term.meta.name.clone();
-                    self.delete_confirmation = "".to_string();
-                    self.term.arguments.unlock();
-                    self.rule_placeholder.unlock();
-                    self.term.rules.unlock();
-                    self.term.facts.unlock();
-                }
-                edit_button::EditToggle::ClickedSave => {
-                    let mut changes = vec![];
-
-                    if self.arg_rename {
-                        changes.push(TermChange::ArgRename);
-                        self.arg_rename = false;
+            if !frozen {
+                match edit_button::show_edit_button(ui, &mut self.edit_mode) {
+                    edit_button::EditToggle::None => {}
+                    edit_button::EditToggle::ClickedEdit => {
+                        self.original_term_name = self.term.meta.name.clone();
+                        self.delete_confirmation = "".to_string();
+                        self.term.arguments.unlock();
+                        self.rule_placeholder.unlock();
+                        self.term.rules.unlock();
+                        self.term.facts.unlock();
                     }
-                    if self.description_change {
-                        changes.push(TermChange::DescriptionChange);
-                        self.description_change = false;
-                    }
-                    let facts_changes = self.term.facts.lock();
-                    if facts_changes.len() > 0 {
-                        changes.push(TermChange::FactsChange);
-                    }
+                    edit_button::EditToggle::ClickedSave => {
+                        let mut changes = vec![];
 
-                    let argument_changes = self.term.arguments.lock();
-                    if argument_changes.len() > 0 {
-                        changes.push(TermChange::ArgChanges(argument_changes));
-                    }
-
-                    let rules_changes = self.term.rules.lock();
-                    if rules_changes.len() > 0 {
-                        changes.push(TermChange::RuleChanges(rules_changes));
-                    }
-
-                    self.rule_placeholder = placeholder::RulePlaceholder::new();
-                    self.fact_placeholder = placeholder::FactPlaceholder::new();
-                    self.arg_placeholder = NameDescription::new("", "");
-
-                    if changes.len() > 0 || self.original_term_name != self.term.meta.name {
-                        let updated_term: FatTerm = (&self.term).into();
-
-                        let mut original_name = self.term.meta.name.clone();
-                        if self.original_term_name == "" {
-                            // maybe the "new term" case can be handled more gracefully than this
-                            // if
-                            self.original_term_name = self.term.meta.name.clone();
+                        if self.arg_rename {
+                            changes.push(TermChange::ArgRename);
+                            self.arg_rename = false;
+                        }
+                        if self.description_change {
+                            changes.push(TermChange::DescriptionChange);
+                            self.description_change = false;
+                        }
+                        let facts_changes = self.term.facts.lock();
+                        if facts_changes.len() > 0 {
+                            changes.push(TermChange::FactsChange);
                         }
 
-                        std::mem::swap(&mut original_name, &mut self.original_term_name);
+                        let argument_changes = self.term.arguments.lock();
+                        if argument_changes.len() > 0 {
+                            changes.push(TermChange::ArgChanges(argument_changes));
+                        }
 
-                        debug!("made some changes");
-                        result = Some(Change::Changes(changes, original_name, updated_term));
+                        let rules_changes = self.term.rules.lock();
+                        if rules_changes.len() > 0 {
+                            changes.push(TermChange::RuleChanges(rules_changes));
+                        }
+
+                        self.rule_placeholder = placeholder::RulePlaceholder::new();
+                        self.fact_placeholder = placeholder::FactPlaceholder::new();
+                        self.arg_placeholder = NameDescription::new("", "");
+
+                        if changes.len() > 0 || self.original_term_name != self.term.meta.name {
+                            let updated_term: FatTerm = (&self.term).into();
+
+                            let mut original_name = self.term.meta.name.clone();
+                            if self.original_term_name == "" {
+                                // maybe the "new term" case can be handled more gracefully than this
+                                // if
+                                self.original_term_name = self.term.meta.name.clone();
+                            }
+
+                            std::mem::swap(&mut original_name, &mut self.original_term_name);
+
+                            debug!("made some changes");
+                            result = Some(Change::Changes(changes, original_name, updated_term));
+                        }
                     }
                 }
             }
