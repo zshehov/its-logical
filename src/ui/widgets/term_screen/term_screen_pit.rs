@@ -28,7 +28,6 @@ pub(crate) struct TermScreenPIT {
     rule_placeholder: placeholder::RulePlaceholder,
     arg_placeholder: NameDescription,
     delete_confirmation: String,
-    edit_mode: bool,
     arg_rename: bool,
     description_change: bool,
 }
@@ -36,10 +35,6 @@ pub(crate) struct TermScreenPIT {
 impl TermScreenPIT {
     pub(crate) fn name(&self) -> String {
         self.term.meta.name.clone()
-    }
-
-    pub(crate) fn is_being_edited(&self) -> bool {
-        self.edit_mode
     }
 
     pub(crate) fn extract_term(&self) -> FatTerm {
@@ -62,37 +57,76 @@ impl TermScreenPIT {
             fact_placeholder: placeholder::FactPlaceholder::new(),
             rule_placeholder: placeholder::RulePlaceholder::new(),
             arg_placeholder: NameDescription::new("", ""),
-            edit_mode: in_edit,
             delete_confirmation: "".to_string(),
             arg_rename: false,
             description_change: false,
         }
     }
 
-    pub(crate) fn with_new_term() -> Self {
-        let mut term: Term = (&FatTerm::default()).into();
-
-        term.arguments.unlock();
-        term.rules.unlock();
-        term.facts.unlock();
-
-        Self {
-            term,
-            original_term_name: "".to_string(),
-            fact_placeholder: placeholder::FactPlaceholder::new(),
-            rule_placeholder: placeholder::RulePlaceholder::new(),
-            arg_placeholder: NameDescription::new("", ""),
-            edit_mode: true,
-            delete_confirmation: "".to_string(),
-            arg_rename: false,
-            description_change: false,
-        }
+    pub(crate) fn start_changes(&mut self) {
+        self.original_term_name = self.term.meta.name.clone();
+        self.delete_confirmation = "".to_string();
+        self.term.arguments.unlock();
+        self.rule_placeholder.unlock();
+        self.term.rules.unlock();
+        self.term.facts.unlock();
     }
+    pub(crate) fn finish_changes(&mut self) -> Option<Change> {
+        let mut result = None;
+        let mut changes = vec![];
 
+        if self.arg_rename {
+            changes.push(TermChange::ArgRename);
+            self.arg_rename = false;
+        }
+        if self.description_change {
+            changes.push(TermChange::DescriptionChange);
+            self.description_change = false;
+        }
+        let facts_changes = self.term.facts.lock();
+        if facts_changes.len() > 0 {
+            changes.push(TermChange::FactsChange);
+        }
+
+        let argument_changes = self.term.arguments.lock();
+        if argument_changes.len() > 0 {
+            changes.push(TermChange::ArgChanges(argument_changes));
+        }
+
+        let rules_changes = self.term.rules.lock();
+        if rules_changes.len() > 0 {
+            changes.push(TermChange::RuleChanges(rules_changes));
+        }
+
+        self.rule_placeholder = placeholder::RulePlaceholder::new();
+        self.fact_placeholder = placeholder::FactPlaceholder::new();
+        self.arg_placeholder = NameDescription::new("", "");
+
+        if changes.len() > 0 || self.original_term_name != self.term.meta.name {
+            let updated_term: FatTerm = (&self.term).into();
+
+            let mut original_name = self.term.meta.name.clone();
+            if self.original_term_name == "" {
+                // maybe the "new term" case can be handled more gracefully than this
+                // if
+                self.original_term_name = self.term.meta.name.clone();
+            }
+
+            std::mem::swap(&mut original_name, &mut self.original_term_name);
+
+            debug!("made some changes");
+            result = Some(Change::Changes(changes, original_name, updated_term));
+        }
+        result
+    }
+}
+
+impl TermScreenPIT {
     pub(crate) fn show<T: TermsKnowledgeBase>(
         &mut self,
         ui: &mut egui::Ui,
         terms_knowledge_base: &T,
+        edit_mode: bool,
         frozen: bool,
     ) -> Option<Change> {
         let mut result = None;
@@ -102,85 +136,25 @@ impl TermScreenPIT {
                     .clip_text(false)
                     .desired_width(120.0)
                     .hint_text("Term name")
-                    .frame(self.edit_mode)
-                    .interactive(self.edit_mode)
+                    .frame(edit_mode)
+                    .interactive(edit_mode)
                     .font(TextStyle::Heading),
             );
-
-            if !frozen {
-                match edit_button::show_edit_button(ui, &mut self.edit_mode) {
-                    edit_button::EditToggle::None => {}
-                    edit_button::EditToggle::ClickedEdit => {
-                        self.original_term_name = self.term.meta.name.clone();
-                        self.delete_confirmation = "".to_string();
-                        self.term.arguments.unlock();
-                        self.rule_placeholder.unlock();
-                        self.term.rules.unlock();
-                        self.term.facts.unlock();
-                    }
-                    edit_button::EditToggle::ClickedSave => {
-                        let mut changes = vec![];
-
-                        if self.arg_rename {
-                            changes.push(TermChange::ArgRename);
-                            self.arg_rename = false;
-                        }
-                        if self.description_change {
-                            changes.push(TermChange::DescriptionChange);
-                            self.description_change = false;
-                        }
-                        let facts_changes = self.term.facts.lock();
-                        if facts_changes.len() > 0 {
-                            changes.push(TermChange::FactsChange);
-                        }
-
-                        let argument_changes = self.term.arguments.lock();
-                        if argument_changes.len() > 0 {
-                            changes.push(TermChange::ArgChanges(argument_changes));
-                        }
-
-                        let rules_changes = self.term.rules.lock();
-                        if rules_changes.len() > 0 {
-                            changes.push(TermChange::RuleChanges(rules_changes));
-                        }
-
-                        self.rule_placeholder = placeholder::RulePlaceholder::new();
-                        self.fact_placeholder = placeholder::FactPlaceholder::new();
-                        self.arg_placeholder = NameDescription::new("", "");
-
-                        if changes.len() > 0 || self.original_term_name != self.term.meta.name {
-                            let updated_term: FatTerm = (&self.term).into();
-
-                            let mut original_name = self.term.meta.name.clone();
-                            if self.original_term_name == "" {
-                                // maybe the "new term" case can be handled more gracefully than this
-                                // if
-                                self.original_term_name = self.term.meta.name.clone();
-                            }
-
-                            std::mem::swap(&mut original_name, &mut self.original_term_name);
-
-                            debug!("made some changes");
-                            result = Some(Change::Changes(changes, original_name, updated_term));
-                        }
-                    }
-                }
-            }
 
             ui.vertical(|ui| {
                 self.term.arguments.show(ui, |s, ui| {
                     ui.horizontal(|ui| {
-                        self.arg_rename |= show_arg(ui, &mut s.name, &mut s.desc, self.edit_mode);
+                        self.arg_rename |= show_arg(ui, &mut s.name, &mut s.desc, edit_mode);
                     });
                 });
 
-                if self.edit_mode {
+                if edit_mode {
                     ui.horizontal(|ui| {
                         show_arg(
                             ui,
                             &mut self.arg_placeholder.name,
                             &mut self.arg_placeholder.desc,
-                            self.edit_mode,
+                            edit_mode,
                         );
                         if ui.small_button("+").clicked() {
                             let mut empty_arg_placeholder = NameDescription::new("", "");
@@ -209,8 +183,8 @@ impl TermScreenPIT {
                                     .desired_width(0.0)
                                     .desired_rows(1)
                                     .hint_text("Enter description")
-                                    .frame(self.edit_mode)
-                                    .interactive(self.edit_mode)
+                                    .frame(edit_mode)
+                                    .interactive(edit_mode)
                                     .font(TextStyle::Body),
                             )
                             .changed();
@@ -219,10 +193,10 @@ impl TermScreenPIT {
             });
         ui.separator();
 
-        self.show_rules_section(ui, terms_knowledge_base);
+        self.show_rules_section(ui, edit_mode, terms_knowledge_base);
         ui.separator();
 
-        self.show_facts_section(ui);
+        self.show_facts_section(ui, edit_mode);
         ui.separator();
 
         egui::ScrollArea::vertical()
@@ -240,7 +214,7 @@ impl TermScreenPIT {
                     },
                 )
             });
-        if self.edit_mode {
+        if edit_mode {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.add(
@@ -268,7 +242,7 @@ impl TermScreenPIT {
         result
     }
 
-    fn show_facts_section(&mut self, ui: &mut egui::Ui) {
+    fn show_facts_section(&mut self, ui: &mut egui::Ui, edit_mode: bool) {
         egui::ScrollArea::vertical()
             .id_source("facts_scroll_area")
             .show(ui, |ui| {
@@ -281,7 +255,7 @@ impl TermScreenPIT {
                             ui.label(format!("{} ( {} )", &self.term.meta.name, arguments_string));
                         });
 
-                        if self.edit_mode {
+                        if edit_mode {
                             ui.horizontal(|ui| {
                                 if let Some(new_fact_binding) = self.fact_placeholder.show(
                                     ui,
@@ -300,6 +274,7 @@ impl TermScreenPIT {
     fn show_rules_section<T: TermsKnowledgeBase>(
         &mut self,
         ui: &mut egui::Ui,
+        edit_mode: bool,
         terms_knowledge_base: &T,
     ) {
         egui::ScrollArea::vertical()
@@ -331,7 +306,7 @@ impl TermScreenPIT {
                             ));
                         });
 
-                        if self.edit_mode {
+                        if edit_mode {
                             ui.horizontal(|ui| {
                                 if let Some(new_rule) = self.rule_placeholder.show(
                                     ui,

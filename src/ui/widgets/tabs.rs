@@ -50,7 +50,7 @@ impl Tabs {
                         if term.name() == "" {
                             "untitled".to_string()
                         } else {
-                            if term.is_being_edited() {
+                            if term.in_edit() {
                                 term.name() + "*"
                             } else {
                                 term.name()
@@ -63,7 +63,7 @@ impl Tabs {
                 };
             }
             if let Some(close_idx) = close_idx {
-                if self.term_screens[close_idx].is_being_edited() {
+                if self.term_screens[close_idx].in_edit() {
                     // finish editing before closing a tab
                     self.current_selection = ChoseTabInternal::Term(close_idx);
                 } else {
@@ -86,25 +86,9 @@ impl Tabs {
         }
     }
 
-    pub(crate) fn force_open_in_edit(&mut self, term: &FatTerm, edit_reason: &str) {
-        if let Some(term_idx) = self
-            .term_screens
-            .iter()
-            .position(|x| x.name() == term.meta.term.name)
-        {
-            if self.term_screens[term_idx].is_being_edited() {
-                // TODO: handle this properly
-            } else {
-                self.term_screens[term_idx].push_pit(term, edit_reason);
-            }
-        } else {
-            self.term_screens.push(TermScreen::new(term, true));
-        }
-    }
-
     pub(crate) fn force_reload<T: TermsKnowledgeBase>(&mut self, term_name: &str, terms: &T) {
         if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == term_name) {
-            if self.term_screens[term_idx].is_being_edited() {
+            if self.term_screens[term_idx].in_edit() {
                 // TODO: handle this properly
             } else {
                 self.term_screens[term_idx] =
@@ -113,16 +97,17 @@ impl Tabs {
         }
     }
 
+    pub(crate) fn push(&mut self, term: &FatTerm) {
+        self.term_screens.push(TermScreen::new(term, false));
+    }
+
     pub(crate) fn select_with_push<T: TermsKnowledgeBase>(&mut self, term_name: &str, terms: &T) {
         if !self
             .term_screens
             .iter()
             .any(|screen| screen.name() == term_name)
         {
-            self.term_screens.push(TermScreen::new(
-                &terms.get(&term_name).unwrap().clone(),
-                false,
-            ));
+            self.push(&terms.get(&term_name).unwrap().clone());
         }
         self.select(term_name);
     }
@@ -135,6 +120,13 @@ impl Tabs {
     pub(crate) fn get<'a>(&'a self, term_name: &str) -> Option<&'a TermScreen> {
         if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == term_name) {
             return Some(&self.term_screens[term_idx]);
+        }
+        None
+    }
+
+    pub(crate) fn get_mut<'a>(&'a mut self, term_name: &str) -> Option<&'a mut TermScreen> {
+        if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == term_name) {
+            return Some(&mut self.term_screens[term_idx]);
         }
         None
     }

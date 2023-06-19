@@ -2,7 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use tracing::debug;
 
-use crate::model::{comment::name_description::NameDescription, fat_term::FatTerm};
+use crate::model::{
+    comment::{comment::Comment, name_description::NameDescription},
+    fat_term::FatTerm,
+    term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule, term::Term},
+};
 
 use super::widgets::{
     drag_and_drop,
@@ -13,12 +17,97 @@ pub(crate) trait Terms {
     fn get(&self, term_name: &str) -> Option<FatTerm>;
 }
 
-pub(crate) fn apply_changes<T: Terms>(
-    changes: &Change,
-    terms: &T,
-) -> (HashMap<String, FatTerm>, bool) {
+pub(crate) fn need_confirmation(changes: &Change) -> bool {
+    match changes {
+        Change::Changes(changes, _, updated_term) => {
+            for change in changes {
+                if let TermChange::ArgChanges(arg_changes) = change {
+                    if updated_term.meta.referred_by.len() > 0 {
+                        for arg_change in arg_changes {
+                            if let drag_and_drop::Change::Pushed(_)
+                            | drag_and_drop::Change::Removed(_, _) = arg_change
+                            {
+                                // currently only a new or removed argument triggers user
+                                // intervention - all other changes can be applied
+                                // automaticallly
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+        Change::Deleted(_) => {
+            return true;
+        }
+    }
+}
+
+pub(crate) fn get_relevant(original: &FatTerm, changes: &Change) -> Vec<String> {
+    let mut related_terms = vec![];
+    match changes {
+        Change::Changes(changes, original_name, updated_term) => {
+            let mut include_referred_by = false;
+            let mut include_mentioned = false;
+
+            if *original_name != updated_term.meta.term.name {
+                include_referred_by = true;
+                include_mentioned = true;
+            }
+
+            for change in changes {
+                match change {
+                    TermChange::DescriptionChange
+                    | TermChange::FactsChange
+                    | TermChange::ArgRename => {
+                        debug!("internal changes");
+                    }
+                    TermChange::ArgChanges(arg_changes) => {
+                        include_referred_by = true;
+                    }
+                    TermChange::RuleChanges(_) => {
+                        if include_mentioned {
+                            // all mentioned are already included so there's no need to figure out
+                            // new and old
+                        } else {
+                            let (mut new, mut removed) =
+                                changes_in_mentioned_terms(original, &updated_term);
+
+                            related_terms.append(&mut new);
+                            related_terms.append(&mut removed);
+                        }
+                    }
+                };
+            }
+            if include_referred_by {
+                related_terms.append(&mut updated_term.meta.referred_by.clone());
+            }
+            if include_mentioned {
+                let old_mentioned = get_mentioned_terms(original);
+                let current_mentioned = get_mentioned_terms(updated_term);
+
+                related_terms.append(
+                    &mut old_mentioned
+                        .union(&current_mentioned)
+                        .into_iter()
+                        .cloned()
+                        .collect(),
+                );
+            }
+        }
+        Change::Deleted(term_name) => {
+            // need to remove the term from all the terms' "referred by" field
+            related_terms.append(&mut get_mentioned_terms(original).into_iter().collect());
+            // need to remove the term from all the terms' rules that refer to it
+            related_terms.append(&mut original.meta.referred_by.clone());
+        }
+    }
+    related_terms
+}
+
+pub(crate) fn apply_changes<T: Terms>(changes: &Change, terms: &T) -> HashMap<String, FatTerm> {
     let mut updated_terms = HashMap::new();
-    let mut needs_confirmation = false;
 
     match changes {
         Change::Changes(changes, original_name, updated_term) => {
@@ -37,18 +126,6 @@ pub(crate) fn apply_changes<T: Terms>(
                                 .or_insert(terms.get(&referred_by_term_name).unwrap());
 
                             apply_arg_changes(referred_by_term, &original_name, arg_changes.iter());
-                        }
-                        if updated_term.meta.referred_by.len() > 0 {
-                            for arg_change in arg_changes {
-                                if let drag_and_drop::Change::Pushed(_)
-                                | drag_and_drop::Change::Removed(_, _) = arg_change
-                                {
-                                    // currently only a new or removed argument triggers user
-                                    // intervention - all other changes can be applied
-                                    // automaticallly
-                                    needs_confirmation = true;
-                                }
-                            }
                         }
                     }
                     TermChange::RuleChanges(_) => {
@@ -129,38 +206,38 @@ pub(crate) fn apply_changes<T: Terms>(
                     let before_removal_body_term_count = rule.body.len();
                     rule.body.retain(|body_term| body_term.name != *term_name);
 
+                    /*
                     if rule.body.len() < before_removal_body_term_count {
                         // A confirmation is needed only if actual removing was done. There is the
                         // case when the user has already confirmed the deletion and this code path
                         // does not remove anything.
                         needs_confirmation = true;
                     }
+                    */
                 }
             }
         }
     }
-    (updated_terms, needs_confirmation)
+    updated_terms
+}
+
+fn get_mentioned_terms(term: &FatTerm) -> HashSet<String> {
+    let mut mentioned_terms = HashSet::<String>::new();
+
+    for rule in term.term.rules.iter() {
+        for body_term in &rule.body {
+            mentioned_terms.insert(body_term.name.clone());
+        }
+    }
+    mentioned_terms
 }
 
 fn changes_in_mentioned_terms(
     original_term: &FatTerm,
     term: &FatTerm,
 ) -> (Vec<String>, Vec<String>) {
-    let mut related_terms = HashSet::<String>::new();
-    let mut old_related_terms = HashSet::<String>::new();
-
-    // grab all the old related terms
-    for rule in original_term.term.rules.iter() {
-        for body_term in &rule.body {
-            old_related_terms.insert(body_term.name.clone());
-        }
-    }
-    // grab all the currently related terms
-    for rule in term.term.rules.iter() {
-        for body_term in &rule.body {
-            related_terms.insert(body_term.name.clone());
-        }
-    }
+    let old_related_terms = get_mentioned_terms(original_term);
+    let related_terms = get_mentioned_terms(term);
 
     return (
         related_terms
@@ -207,3 +284,260 @@ fn apply_arg_changes<'a>(
         }
     }
 }
+
+fn create_test_term() -> FatTerm {
+    FatTerm::new(
+        Comment::new(
+            NameDescription::new("test", "test description"),
+            vec![NameDescription::new("FirstArg", "First arg's description")],
+            vec!["first_related".to_string()],
+        ),
+        Term::new(
+            vec![ArgsBinding {
+                binding: vec!["fact_value".to_string()],
+            }],
+            vec![
+                Rule {
+                    arg_bindings: ArgsBinding {
+                        binding: vec!["FirstHeadArg".to_string()],
+                    },
+                    body: vec![
+                        BoundTerm {
+                            name: "first_body_term".to_string(),
+                            arg_bindings: ArgsBinding {
+                                binding: vec!["with_some_arg".to_string()],
+                            },
+                        },
+                        BoundTerm {
+                            name: "second_body_term".to_string(),
+                            arg_bindings: ArgsBinding {
+                                binding: vec!["with_some_arg2".to_string()],
+                            },
+                        },
+                    ],
+                },
+                Rule {
+                    arg_bindings: ArgsBinding {
+                        binding: vec!["FirstHeadArg2".to_string()],
+                    },
+                    body: vec![
+                        BoundTerm {
+                            name: "first_body_term2".to_string(),
+                            arg_bindings: ArgsBinding {
+                                binding: vec!["with_some_arg".to_string()],
+                            },
+                        },
+                        BoundTerm {
+                            name: "second_body_term2".to_string(),
+                            arg_bindings: ArgsBinding {
+                                binding: vec!["with_some_arg2".to_string()],
+                            },
+                        },
+                    ],
+                },
+            ],
+        ),
+    )
+}
+
+#[test]
+fn test_get_relevant_changes_name_change() {
+    let original = create_test_term();
+
+    let mut with_name_change = original.clone();
+    with_name_change.meta.term.name = "new_name".to_string();
+
+    let mut relevant = get_relevant(
+        &original.clone(),
+        &Change::Changes(vec![], "test".to_string(), with_name_change),
+    );
+    relevant.sort();
+    let mut expected = vec![
+        "first_related".to_string(),
+        "first_body_term".to_string(),
+        "second_body_term".to_string(),
+        "first_body_term2".to_string(),
+        "second_body_term2".to_string(),
+    ];
+
+    expected.sort();
+    assert_eq!(relevant, expected);
+}
+
+#[test]
+fn test_get_relevant_changes_description_change() {
+    let original = create_test_term();
+
+    let mut with_descritpion_change = original.clone();
+    with_descritpion_change.meta.term.desc = "new description".to_string();
+
+    let relevant = get_relevant(
+        &original.clone(),
+        &Change::Changes(
+            vec![TermChange::DescriptionChange],
+            "test".to_string(),
+            with_descritpion_change,
+        ),
+    );
+    assert_eq!(relevant.len(), 0);
+}
+
+#[test]
+fn test_get_relevant_changes_facts_change() {
+    let original = create_test_term();
+
+    let mut with_facts_change = original.clone();
+    with_facts_change.term.facts.push(ArgsBinding {
+        binding: vec!["SomeArgValue".to_string()],
+    });
+
+    let relevant = get_relevant(
+        &original.clone(),
+        &Change::Changes(
+            vec![TermChange::FactsChange],
+            "test".to_string(),
+            with_facts_change,
+        ),
+    );
+    assert_eq!(relevant.len(), 0);
+}
+
+#[test]
+fn test_get_relevant_changes_args_rename() {
+    let original = create_test_term();
+
+    let mut with_args_rename = original.clone();
+    *with_args_rename.meta.args.last_mut().unwrap() =
+        NameDescription::new("NewArgName", "New desc");
+
+    let relevant = get_relevant(
+        &original.clone(),
+        &Change::Changes(
+            vec![TermChange::ArgRename],
+            "test".to_string(),
+            with_args_rename,
+        ),
+    );
+    assert_eq!(relevant.len(), 0);
+}
+
+#[test]
+fn test_get_relevant_changes_rules_change() {
+    let original = create_test_term();
+
+    let mut with_rules_change = original.clone();
+    let new_rule = Rule {
+        arg_bindings: ArgsBinding {
+            binding: vec!["Arg".to_string()],
+        },
+        body: vec![BoundTerm {
+            name: "new_rule_body_term".to_string(),
+            arg_bindings: ArgsBinding {
+                binding: vec!["with_some_arg".to_string()],
+            },
+        }],
+    };
+
+    // remove the first add another
+    with_rules_change.term.rules.remove(0);
+    with_rules_change.term.rules.push(new_rule.clone());
+
+    let mut relevant = get_relevant(
+        &original.clone(),
+        &Change::Changes(
+            vec![TermChange::RuleChanges(vec![
+                drag_and_drop::Change::Pushed(new_rule),
+            ])],
+            "test".to_string(),
+            with_rules_change,
+        ),
+    );
+    relevant.sort();
+    let mut expected = vec!["first_body_term", "second_body_term", "new_rule_body_term"];
+    expected.sort();
+
+    assert_eq!(relevant, expected);
+}
+
+#[test]
+fn test_get_relevant_changes_arg_changes() {
+    let original = create_test_term();
+
+    let mut with_arg_change = original.clone();
+    let new_arg = NameDescription::new("SomeNewArg", "With some desc");
+    with_arg_change.meta.args.push(new_arg.clone());
+
+    let relevant = get_relevant(
+        &original.clone(),
+        &Change::Changes(
+            vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
+                new_arg,
+            )])],
+            "test".to_string(),
+            with_arg_change,
+        ),
+    );
+    assert_eq!(relevant, vec!["first_related".to_string()]);
+}
+
+#[test]
+fn test_get_relevant_changes_arg_and_rules_changes() {
+    let original = create_test_term();
+
+    let mut with_changes = original.clone();
+    let new_rule = Rule {
+        arg_bindings: ArgsBinding {
+            binding: vec!["Arg".to_string()],
+        },
+        body: vec![BoundTerm {
+            name: "new_rule_body_term".to_string(),
+            arg_bindings: ArgsBinding {
+                binding: vec!["with_some_arg".to_string()],
+            },
+        }],
+    };
+
+    // remove the first add another
+    with_changes.term.rules.remove(0);
+    with_changes.term.rules.push(new_rule.clone());
+
+    let new_arg = NameDescription::new("SomeNewArg", "With some desc");
+    with_changes.meta.args.push(new_arg.clone());
+
+    let mut relevant = get_relevant(
+        &original.clone(),
+        &Change::Changes(
+            vec![
+                TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(new_arg)]),
+                TermChange::RuleChanges(vec![drag_and_drop::Change::Pushed(new_rule)]),
+            ],
+            "test".to_string(),
+            with_changes,
+        ),
+    );
+    relevant.sort();
+
+    let mut expected = vec![
+        "first_related",
+        "first_body_term",
+        "second_body_term",
+        "new_rule_body_term",
+    ];
+    expected.sort();
+    assert_eq!(relevant, expected);
+}
+
+/*
+#[test]
+fn test_get_relevant_deleted() {
+    let original = FatTerm {
+            // Initialize with relevant data
+        };
+
+    let changes = Change::Deleted("term_name");
+
+    let result = get_relevant(&original, &changes);
+    assert_eq!(result, vec![]);
+    // Add assertions to check the expected related terms
+}
+*/

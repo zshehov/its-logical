@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use egui::Context;
 
 use crate::term_knowledge_base::TermsKnowledgeBase;
@@ -50,30 +52,50 @@ where
         match chosen_tab {
             ChosenTab::Term(term_screen) => {
                 let term_name = term_screen.name();
+                let change_origin = term_screen
+                    .get_pits()
+                    .change_origin()
+                    .unwrap_or(term_name.clone());
+
                 let changes = egui::CentralPanel::default()
                     .show(ctx, |ui| term_screen.show(ui, &mut self.terms))
                     .inner;
 
                 if let Some(changes) = changes {
-                    let (all_changes, needs_confirmation) = change_propagator::apply_changes(
+                    let affected = change_propagator::get_relevant(
+                        &self.terms.get(&term_name).unwrap(),
                         &changes,
-                        &TermsCache::new(&self.terms, &self.term_tabs),
                     );
-
-                    if needs_confirmation {
-                        for (_, updated_term) in all_changes {
-                            self.term_tabs.force_open_in_edit(
-                                &updated_term,
-                                &("after changes in ".to_string() + &term_name),
-                            );
-                        }
-                    } else {
-                        for (term_name, updated_term) in all_changes {
-                            self.terms.put(&term_name, updated_term).unwrap();
-                            self.term_tabs.force_reload(&term_name, &self.terms);
-                        }
-                        if let widgets::term_screen::Change::Deleted(term_name) = changes {
-                            self.terms.delete(&term_name);
+                    if change_propagator::need_confirmation(&changes) {
+                        if affected.iter().any(|affected_term_name| -> bool {
+                            match self.term_tabs.get(&affected_term_name) {
+                                Some(affected_opened_term) => {
+                                    !affected_opened_term.is_ready_for_change(&change_origin)
+                                }
+                                None => false,
+                            }
+                        }) {
+                            // TODO: handle change chain disconnection
+                        } else {
+                            for affected_term_name in affected {
+                                if self.term_tabs.get(&affected_term_name).is_none() {
+                                    self.term_tabs
+                                        .push(&self.terms.get(&affected_term_name).unwrap());
+                                }
+                            }
+                            // now all the affected terms are opened in their respective
+                            // screens
+                            let all_changes =
+                                change_propagator::apply_changes(&changes, &self.term_tabs);
+                            for (affected_term_name, affected_updated_term) in all_changes {
+                                // TODO: change the name of this method
+                                self.term_tabs
+                                    .get_mut(&affected_term_name)
+                                    .unwrap()
+                                    .get_pits_mut()
+                                    .unwrap()
+                                    .push_pit(&affected_updated_term, &change_origin, &term_name);
+                            }
                         }
                     }
                 }
@@ -87,22 +109,8 @@ where
     }
 }
 
-struct TermsCache<'a, T: TermsKnowledgeBase> {
-    backing: &'a T,
-    cache: &'a Tabs,
-}
-
-impl<'a, T: TermsKnowledgeBase> TermsCache<'a, T> {
-    fn new(backing: &'a T, cache: &'a Tabs) -> Self {
-        Self { backing, cache }
-    }
-}
-
-impl<'a, T: TermsKnowledgeBase> change_propagator::Terms for TermsCache<'a, T> {
+impl change_propagator::Terms for Tabs {
     fn get(&self, term_name: &str) -> Option<crate::model::fat_term::FatTerm> {
-        if let Some(term_screen) = self.cache.get(term_name) {
-            return Some(term_screen.extract_term());
-        }
-        self.backing.get(term_name)
+        self.get(term_name).and_then(|t| Some(t.extract_term()))
     }
 }
