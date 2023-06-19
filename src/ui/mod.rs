@@ -63,7 +63,7 @@ where
 
                 if let Some(changes) = changes {
                     let affected = change_propagator::get_relevant(
-                        &self.terms.get(&term_name).unwrap(),
+                        &term_screen.get_pits().original().extract_term(),
                         &changes,
                     );
                     if change_propagator::need_confirmation(&changes) {
