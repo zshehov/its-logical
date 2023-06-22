@@ -1,35 +1,23 @@
-use std::ops::Deref;
+use std::cell::RefCell;
+use std::rc::Rc;
 
-use egui::RichText;
-
-use crate::model::comment::name_description::NameDescription;
-use crate::{
-    model::{fat_term::FatTerm, term::rule::Rule},
-    term_knowledge_base::TermsKnowledgeBase,
-    ui::widgets::drag_and_drop,
-};
+use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
 
 use self::points_in_time::PointsInTime;
 use self::term_screen_pit::TermScreenPIT;
-
-pub(crate) enum TermChange {
-    DescriptionChange,
-    FactsChange,
-    ArgRename,
-    ArgChanges(Vec<drag_and_drop::Change<NameDescription>>),
-    RuleChanges(Vec<drag_and_drop::Change<Rule>>),
-}
+use self::two_phase_commit::TwoPhaseCommit;
 
 pub(crate) enum Change {
     // the sequnce of changes and the resulting FatTerm
-    Changes(Vec<TermChange>, String, FatTerm),
+    Changes(Vec<term_screen_pit::TermChange>, String, FatTerm),
     // a deletion event
     Deleted(String),
 }
 
-enum ChangeSource {
-    Internal,
-    External(String),
+pub(crate) enum Output {
+    Changed(Change),
+    FinishTwoPhaseCommit,
+    None,
 }
 
 #[derive(Debug)]
@@ -41,7 +29,8 @@ pub enum TermScreenError {
 mod edit_button;
 mod placeholder;
 mod points_in_time;
-mod term_screen_pit;
+pub(crate) mod term_screen_pit;
+pub(crate) mod two_phase_commit;
 
 // TermScreen owns the state
 // - for the different points in time of a term
@@ -50,6 +39,7 @@ pub(crate) struct TermScreen {
     points_in_time: PointsInTime,
     showing_point_in_time: Option<usize>,
     current: Option<term_screen_pit::TermScreenPIT>,
+    pub(crate) two_phase_commit: Option<Rc<RefCell<TwoPhaseCommit>>>,
 }
 
 // TermScreen behaviour:
@@ -66,6 +56,7 @@ impl TermScreen {
                 None
             },
             showing_point_in_time: if in_edit { None } else { Some(0) },
+            two_phase_commit: None,
         }
     }
 
@@ -74,6 +65,7 @@ impl TermScreen {
             points_in_time: PointsInTime::new(&FatTerm::default()),
             current: Some(TermScreenPIT::new(&FatTerm::default(), true)),
             showing_point_in_time: None,
+            two_phase_commit: None,
         }
     }
 
@@ -87,7 +79,9 @@ impl TermScreen {
 
     // the only way to get mutable access to the Points in time is if there is no ongoing edit on
     // top of them
-    pub(crate) fn get_pits_mut(&mut self) -> Result<&mut PointsInTime, TermScreenError> {
+    pub(crate) fn get_pits_mut(
+        &mut self,
+    ) -> std::result::Result<&mut PointsInTime, TermScreenError> {
         if self.current.is_some() {
             return Err(TermScreenError::TermInEdit);
         }
@@ -120,7 +114,8 @@ impl TermScreen {
         &mut self,
         ui: &mut egui::Ui,
         terms_knowledge_base: &T,
-    ) -> Option<Change> {
+    ) -> Output {
+        // show points in time
         if self.points_in_time.len() > 1 || self.in_edit() {
             ui.horizontal(|ui| {
                 self.points_in_time
@@ -132,6 +127,25 @@ impl TermScreen {
             });
         }
 
+        let term_name = self.name();
+        // if this term is a part of a 2-phase-commit and should approve a change show the approve
+        // button
+        if let Some(two_phase_commit) = &mut self.two_phase_commit {
+            if !two_phase_commit.borrow().waits_for_approval() {
+                if two_phase_commit.borrow().is_being_waited() {
+                    if ui.button("approve").clicked() {
+                        two_phase_commit.borrow_mut().approve_all(&term_name);
+                    }
+                } else {
+                    // TODO: only if this is the owner of the 2-phase-commit
+                    if ui.button("finish commit").clicked() {
+                        return Output::FinishTwoPhaseCommit;
+                    }
+                }
+            }
+        }
+
+        // show the edit/save buttons
         match &mut self.current {
             Some(current) => {
                 if edit_button::show_edit_button(ui, true) {
@@ -140,7 +154,9 @@ impl TermScreen {
                     let changes = current.finish_changes();
                     self.current = None;
                     self.showing_point_in_time = Some(self.points_in_time.len() - 1);
-                    return changes;
+                    if let Some(changes) = changes {
+                        return Output::Changed(changes);
+                    }
                 }
             }
             None => {
@@ -156,26 +172,23 @@ impl TermScreen {
             }
         };
 
+        // show the actual content of the currently shown screen (a pit or the edit screen)
         match self.showing_point_in_time {
             Some(showing_pit) => {
-                return self
-                    .points_in_time
+                self.points_in_time
                     .show_pit(ui, showing_pit, terms_knowledge_base);
             }
-            None => self
-                .current
-                .as_mut()
-                .expect("current should always be present if a point in time is not chosen")
-                .show(ui, terms_knowledge_base, true, false),
+            None => {
+                if let Some(changes) = self
+                    .current
+                    .as_mut()
+                    .expect("current should always be present if a point in time is not chosen")
+                    .show(ui, terms_knowledge_base, true, false)
+                {
+                    return Output::Changed(changes);
+                }
+            }
         }
-    }
-}
-
-impl std::fmt::Display for ChangeSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ChangeSource::Internal => write!(f, "Internal"),
-            ChangeSource::External(s) => write!(f, "{}", s),
-        }
+        Output::None
     }
 }

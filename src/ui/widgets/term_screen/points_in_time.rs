@@ -2,7 +2,21 @@ use egui::RichText;
 
 use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
 
-use super::{term_screen_pit, Change, ChangeSource, TermScreenError};
+use super::{term_screen_pit, Change, TermScreenError};
+
+enum ChangeSource {
+    Internal,
+    External(String),
+}
+
+impl std::fmt::Display for ChangeSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChangeSource::Internal => write!(f, "Internal"),
+            ChangeSource::External(s) => write!(f, "{}", s),
+        }
+    }
+}
 
 pub(crate) struct PointsInTime {
     original: term_screen_pit::TermScreenPIT,
@@ -10,7 +24,6 @@ pub(crate) struct PointsInTime {
     // only relevant during 2-phase-commit
     points_in_time: Vec<term_screen_pit::TermScreenPIT>,
     pit_info: Vec<ChangeSource>,
-    change_origin: Option<String>,
 }
 
 impl PointsInTime {
@@ -19,27 +32,10 @@ impl PointsInTime {
             original: term_screen_pit::TermScreenPIT::new(&term.clone(), false),
             points_in_time: vec![],
             pit_info: vec![],
-            change_origin: None,
         }
     }
 
-    pub(crate) fn push_pit(
-        &mut self,
-        term: &FatTerm,
-        origin: &str,
-        source: &str,
-    ) -> Result<(), TermScreenError> {
-        match &self.change_origin {
-            Some(change_origin) => {
-                if change_origin != origin {
-                    // this term is being changed as a part of a separate change chain
-                    return Err(TermScreenError::DisconnectedChangeChain);
-                }
-            }
-            None => {
-                self.change_origin = Some(origin.to_owned());
-            }
-        }
+    pub(crate) fn push_pit(&mut self, term: &FatTerm, source: &str) -> Result<(), TermScreenError> {
         if source == self.points_in_time.last().unwrap_or(&self.original).name() {
             self.pit_info.push(ChangeSource::Internal);
         } else {
@@ -53,6 +49,16 @@ impl PointsInTime {
         Ok(())
     }
 
+    pub(crate) fn iter_change_sources<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
+        self.pit_info.iter().filter_map(|x| {
+            if let ChangeSource::External(e) = x {
+                Some(e.to_owned())
+            } else {
+                None
+            }
+        })
+    }
+
     pub(crate) fn original(&self) -> &term_screen_pit::TermScreenPIT {
         &self.original
     }
@@ -60,11 +66,16 @@ impl PointsInTime {
     pub(crate) fn latest(&self) -> &term_screen_pit::TermScreenPIT {
         self.points_in_time.last().unwrap_or(&self.original)
     }
+
     pub(crate) fn len(&self) -> usize {
         self.points_in_time.len() + 1
     }
+
     pub(crate) fn change_origin(&self) -> Option<String> {
-        self.change_origin.clone()
+        self.pit_info.first().map(|x| match x {
+            ChangeSource::Internal => self.original().name(),
+            ChangeSource::External(change_source_name) => change_source_name.to_owned(),
+        })
     }
 }
 

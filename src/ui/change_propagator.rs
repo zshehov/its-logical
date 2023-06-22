@@ -9,8 +9,7 @@ use crate::model::{
 };
 
 use super::widgets::{
-    drag_and_drop,
-    term_screen::{Change, TermChange},
+    drag_and_drop, term_screen::term_screen_pit::TermChange, term_screen::Change,
 };
 
 pub(crate) trait Terms {

@@ -8,10 +8,18 @@ use crate::{
         term::{args_binding::ArgsBinding, rule::Rule},
     },
     term_knowledge_base::TermsKnowledgeBase,
-    ui::widgets::drag_and_drop::DragAndDrop,
+    ui::widgets::drag_and_drop::{DragAndDrop, self},
 };
 
-use super::{edit_button, placeholder, Change, TermChange};
+use super::{placeholder, Change};
+
+pub(crate) enum TermChange {
+    DescriptionChange,
+    FactsChange,
+    ArgRename,
+    ArgChanges(Vec<drag_and_drop::Change<NameDescription>>),
+    RuleChanges(Vec<drag_and_drop::Change<Rule>>),
+}
 
 struct Term {
     meta: NameDescription,
@@ -71,6 +79,7 @@ impl TermScreenPIT {
         self.term.rules.unlock();
         self.term.facts.unlock();
     }
+
     pub(crate) fn finish_changes(&mut self) -> Option<Change> {
         let mut result = None;
         let mut changes = vec![];
