@@ -69,6 +69,12 @@ impl TermScreen {
         }
     }
 
+    pub(crate) fn choose_pit(&mut self, pit_idx: usize) {
+        if pit_idx < self.points_in_time.len() {
+            self.showing_point_in_time = Some(pit_idx);
+        }
+    }
+
     pub(crate) fn extract_term(&self) -> FatTerm {
         self.points_in_time.latest().extract_term()
     }

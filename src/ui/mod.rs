@@ -3,7 +3,10 @@ use std::{cell::RefCell, rc::Rc};
 use egui::Context;
 use tracing::debug;
 
-use crate::{term_knowledge_base::TermsKnowledgeBase, ui::widgets::term_screen::two_phase_commit};
+use crate::{
+    term_knowledge_base::TermsKnowledgeBase,
+    ui::widgets::term_screen::{two_phase_commit, TermScreen},
+};
 
 use self::widgets::{
     tabs::{ChosenTab, Tabs},
@@ -117,6 +120,7 @@ where
                                         .get_pits_mut()
                                         .unwrap()
                                         .push_pit(&affected_updated_term, &term_name);
+                                    affected_term.choose_pit(affected_term.get_pits().len() - 1);
 
                                     if affected_term_name != term_name {
                                         affected_term
@@ -175,18 +179,20 @@ where
                             let approved: Vec<String> =
                                 two_phase_commit.borrow().iter_approved().collect();
 
-                            self.terms.put(&term_name, term_screen.extract_term());
+                            let latest_term_version = term_screen.extract_term();
+                            *term_screen = TermScreen::new(&latest_term_version, false);
+                            self.terms.put(&term_name, latest_term_version);
 
                             for approved_name in approved {
-                                self.terms.put(
-                                    &approved_name,
-                                    self.term_tabs
-                                        .get(&approved_name)
-                                        .expect(
-                                            "all terms part of the 2-phase-commit can't be closed",
-                                        )
-                                        .extract_term(),
-                                );
+                                let latest_term_version = self
+                                    .term_tabs
+                                    .get(&approved_name)
+                                    .expect("all terms part of the 2-phase-commit can't be closed")
+                                    .extract_term();
+
+                                *self.term_tabs.get_mut(&approved_name).unwrap() =
+                                    TermScreen::new(&latest_term_version, false);
+                                self.terms.put(&approved_name, latest_term_version);
                             }
                         }
                     }
