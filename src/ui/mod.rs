@@ -79,11 +79,10 @@ where
                         if change_propagator::need_confirmation(&changes) {
                             debug!("Changes need confirmation");
                             // TODO: no need for approval from self
-                            let two_phase_commit = Rc::clone(
-                                term_screen
-                                    .two_phase_commit
-                                    .get_or_insert(Rc::new(RefCell::new(TwoPhaseCommit::new()))),
-                            );
+                            let two_phase_commit =
+                                Rc::clone(term_screen.two_phase_commit.get_or_insert(Rc::new(
+                                    RefCell::new(TwoPhaseCommit::new(true)),
+                                )));
 
                             two_phase_commit
                                 .borrow_mut()
@@ -123,7 +122,7 @@ where
                                         affected_term
                                             .two_phase_commit
                                             .get_or_insert(Rc::new(RefCell::new(
-                                                TwoPhaseCommit::new(),
+                                                TwoPhaseCommit::new(false),
                                             )))
                                             .borrow_mut()
                                             .add_waiter_for_approval(Rc::clone(&two_phase_commit));

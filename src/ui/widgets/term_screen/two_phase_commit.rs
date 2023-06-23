@@ -1,19 +1,26 @@
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 pub(crate) struct TwoPhaseCommit {
+    is_initiator: bool,
     waiting_for_approval_from: HashSet<String>,
     had_approval_from: HashSet<String>,
     awaiting_approval: Vec<Rc<RefCell<TwoPhaseCommit>>>,
 }
 
 impl TwoPhaseCommit {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(is_initiator: bool) -> Self {
         Self {
             waiting_for_approval_from: HashSet::new(),
             had_approval_from: HashSet::new(),
             awaiting_approval: vec![],
+            is_initiator,
         }
     }
+
+    pub(crate) fn is_initiator(&self) -> bool {
+        self.is_initiator
+    }
+
     pub(crate) fn is_being_waited(&self) -> bool {
         self.awaiting_approval.len() > 0
     }

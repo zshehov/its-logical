@@ -131,14 +131,24 @@ impl TermScreen {
         // if this term is a part of a 2-phase-commit and should approve a change show the approve
         // button
         if let Some(two_phase_commit) = &mut self.two_phase_commit {
-            if !two_phase_commit.borrow().waits_for_approval() {
-                if two_phase_commit.borrow().is_being_waited() {
+            let mut two_phase_commit = two_phase_commit.borrow_mut();
+
+            if !two_phase_commit.waits_for_approval() {
+                if two_phase_commit.is_being_waited() {
                     if ui.button("approve").clicked() {
-                        two_phase_commit.borrow_mut().approve_all(&term_name);
+                        two_phase_commit.approve_all(&term_name);
                     }
-                } else {
-                    // TODO: only if this is the owner of the 2-phase-commit
-                    if ui.button("finish commit").clicked() {
+                } else if two_phase_commit.is_initiator() {
+                    let approved_by = two_phase_commit
+                        .iter_approved()
+                        .collect::<Vec<String>>()
+                        .join(",");
+
+                    if ui
+                        .button("finish commit")
+                        .on_hover_text("Approved by: ".to_string() + &approved_by)
+                        .clicked()
+                    {
                         return Output::FinishTwoPhaseCommit;
                     }
                 }

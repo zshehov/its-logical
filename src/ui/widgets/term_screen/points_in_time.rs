@@ -49,12 +49,12 @@ impl PointsInTime {
         Ok(())
     }
 
-    pub(crate) fn iter_change_sources<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
-        self.pit_info.iter().filter_map(|x| {
+    pub(crate) fn iter_change_sources<'a>(&'a self) -> impl ExactSizeIterator<Item = String> + 'a {
+        self.pit_info.iter().map(|x| {
             if let ChangeSource::External(e) = x {
-                Some(e.to_owned())
+                e.to_owned()
             } else {
-                None
+                self.original.name()
             }
         })
     }
