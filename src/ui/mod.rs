@@ -125,7 +125,7 @@ where
                                                 TwoPhaseCommit::new(false),
                                             )))
                                             .borrow_mut()
-                                            .add_waiter_for_approval(Rc::clone(&two_phase_commit));
+                                            .add_approval_waiter(Rc::clone(&two_phase_commit));
                                     }
                                 }
                             }

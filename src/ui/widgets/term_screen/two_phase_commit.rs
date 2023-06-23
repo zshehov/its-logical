@@ -32,14 +32,8 @@ impl TwoPhaseCommit {
         self.awaiting_approval.clear();
     }
 
-    pub(crate) fn add_waiter_for_approval(&mut self, waiter: Rc<RefCell<TwoPhaseCommit>>) {
+    pub(crate) fn add_approval_waiter(&mut self, waiter: Rc<RefCell<TwoPhaseCommit>>) {
         self.awaiting_approval.push(waiter);
-    }
-
-    pub(crate) fn approve_from(&mut self, approved: &str) {
-        if self.waiting_for_approval_from.remove(approved) {
-            self.had_approval_from.insert(approved.to_owned());
-        }
     }
 
     pub(crate) fn append_approval_from(&mut self, approval_from: &Vec<String>) {
@@ -53,5 +47,11 @@ impl TwoPhaseCommit {
 
     pub(crate) fn waits_for_approval(&self) -> bool {
         self.waiting_for_approval_from.len() > 0
+    }
+
+    fn approve_from(&mut self, approved: &str) {
+        if self.waiting_for_approval_from.remove(approved) {
+            self.had_approval_from.insert(approved.to_owned());
+        }
     }
 }
