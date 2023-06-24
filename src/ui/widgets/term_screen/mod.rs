@@ -83,15 +83,8 @@ impl TermScreen {
         &self.points_in_time
     }
 
-    // the only way to get mutable access to the Points in time is if there is no ongoing edit on
-    // top of them
-    pub(crate) fn get_pits_mut(
-        &mut self,
-    ) -> std::result::Result<&mut PointsInTime, TermScreenError> {
-        if self.current.is_some() {
-            return Err(TermScreenError::TermInEdit);
-        }
-        Ok(&mut self.points_in_time)
+    pub(crate) fn get_pits_mut(&mut self) -> (&mut PointsInTime, Option<&mut TermScreenPIT>) {
+        (&mut self.points_in_time, self.current.as_mut())
     }
 
     pub(crate) fn is_ready_for_change(&self, origin: &str) -> bool {

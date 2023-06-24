@@ -4,8 +4,9 @@ use egui::Context;
 use tracing::debug;
 
 use crate::{
+    model::fat_term::FatTerm,
     term_knowledge_base::TermsKnowledgeBase,
-    ui::widgets::term_screen::{two_phase_commit, TermScreen},
+    ui::widgets::term_screen::{term_screen_pit::TermScreenPIT, two_phase_commit, TermScreen},
 };
 
 use self::widgets::{
@@ -118,7 +119,7 @@ where
 
                                     affected_term
                                         .get_pits_mut()
-                                        .unwrap()
+                                        .0
                                         .push_pit(&affected_updated_term, &term_name);
                                     affected_term.choose_pit(affected_term.get_pits().len() - 1);
 
@@ -152,12 +153,45 @@ where
                                 }
                             } else {
                                 debug!("NOT EVEN A COMMIT AY");
+                                let original = self.terms.get(&term_name).unwrap();
+
+                                // update the persisted terms
                                 let all_changes = change_propagator::apply_changes(
                                     &changes,
                                     &TermsAdapter::new(&self.terms),
                                 );
                                 for (affected_term_name, affected_updated_term) in all_changes {
                                     self.terms.put(&affected_term_name, affected_updated_term);
+                                }
+
+                                // update the loaded terms
+                                for affected_term_name in
+                                    affected.iter().chain(std::iter::once(&term_name))
+                                {
+                                    if let Some(loaded_term_screen) =
+                                        self.term_tabs.get_mut(&affected_term_name)
+                                    {
+                                        debug!("updating {}", affected_term_name);
+                                        let (pits, current) = loaded_term_screen.get_pits_mut();
+                                        for pit in pits.iter_mut_pits() {
+                                            let with_applied =
+                                                change_propagator::apply_single_changes(
+                                                    &changes,
+                                                    &original,
+                                                    &pit.extract_term(),
+                                                );
+                                            *pit = TermScreenPIT::new(&with_applied, false);
+                                        }
+                                        if let Some(current) = current {
+                                            let with_applied =
+                                                change_propagator::apply_single_changes(
+                                                    &changes,
+                                                    &original,
+                                                    &current.extract_term(),
+                                                );
+                                            *current = TermScreenPIT::new(&with_applied, true);
+                                        }
+                                    }
                                 }
                             }
                         }

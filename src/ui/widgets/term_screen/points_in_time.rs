@@ -2,7 +2,10 @@ use egui::RichText;
 
 use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
 
-use super::{term_screen_pit, Change, TermScreenError};
+use super::{
+    term_screen_pit::{self, TermScreenPIT},
+    Change, TermScreenError,
+};
 
 enum ChangeSource {
     Internal,
@@ -57,6 +60,12 @@ impl PointsInTime {
                 self.original.name()
             }
         })
+    }
+
+    pub(crate) fn iter_mut_pits<'a>(
+        &'a mut self,
+    ) -> impl Iterator<Item = &'a mut TermScreenPIT> + 'a {
+        std::iter::once(&mut self.original).chain(self.points_in_time.iter_mut())
     }
 
     pub(crate) fn original(&self) -> &term_screen_pit::TermScreenPIT {
