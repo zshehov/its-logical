@@ -6,7 +6,9 @@ use tracing::debug;
 use crate::{
     model::fat_term::FatTerm,
     term_knowledge_base::TermsKnowledgeBase,
-    ui::widgets::term_screen::{term_screen_pit::TermScreenPIT, two_phase_commit, TermScreen},
+    ui::widgets::term_screen::{
+        term_screen_pit::TermScreenPIT, two_phase_commit, Change, TermScreen,
+    },
 };
 
 use self::widgets::{
@@ -72,7 +74,7 @@ where
                 match changes {
                     term_screen::Output::Changed(changes) => {
                         let original_term = term_screen.get_pits().original().extract_term();
-                        let affected = change_propagator::get_relevant(&original_term, &changes);
+                        let affected = change_propagator::get_affected(&original_term, &changes);
 
                         debug!(
                             "Changes made for {}. Propagating to: {:?}",
@@ -132,6 +134,15 @@ where
                                             .borrow_mut()
                                             .add_approval_waiter(Rc::clone(&two_phase_commit));
                                     }
+                                }
+
+                                if let Change::Deleted(_) = changes {
+                                    self.term_tabs
+                                        .get_mut(&term_name)
+                                        .unwrap()
+                                        .get_pits_mut()
+                                        .0
+                                        .delete();
                                 }
                             }
                         } else {
@@ -212,9 +223,14 @@ where
                             let approved: Vec<String> =
                                 two_phase_commit.borrow().iter_approved().collect();
 
-                            let latest_term_version = term_screen.extract_term();
-                            *term_screen = TermScreen::new(&latest_term_version, false);
-                            self.terms.put(&term_name, latest_term_version);
+                            if term_screen.get_pits().is_deleted() {
+                                self.terms.delete(&term_name);
+                                self.term_tabs.close(&term_name);
+                            } else {
+                                let latest_term_version = term_screen.extract_term();
+                                *term_screen = TermScreen::new(&latest_term_version, false);
+                                self.terms.put(&term_name, latest_term_version);
+                            }
 
                             for approved_name in approved {
                                 let latest_term_version = self

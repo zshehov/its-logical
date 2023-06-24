@@ -86,17 +86,6 @@ impl Tabs {
         }
     }
 
-    pub(crate) fn force_reload<T: TermsKnowledgeBase>(&mut self, term_name: &str, terms: &T) {
-        if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == term_name) {
-            if self.term_screens[term_idx].in_edit() {
-                // TODO: handle this properly
-            } else {
-                self.term_screens[term_idx] =
-                    TermScreen::new(&terms.get(&term_name).unwrap().clone(), false);
-            }
-        }
-    }
-
     pub(crate) fn push(&mut self, term: &FatTerm) {
         self.term_screens.push(TermScreen::new(term, false));
     }
@@ -129,6 +118,17 @@ impl Tabs {
             return Some(&mut self.term_screens[term_idx]);
         }
         None
+    }
+
+    pub(crate) fn close(&mut self, term_name: &str) {
+        if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == term_name) {
+            if let ChoseTabInternal::Term(current_idx) = self.current_selection {
+                if term_idx == current_idx {
+                    self.current_selection = ChoseTabInternal::Ask;
+                }
+            }
+            self.term_screens.remove(term_idx);
+        }
     }
 
     fn select(&mut self, term_name: &str) {

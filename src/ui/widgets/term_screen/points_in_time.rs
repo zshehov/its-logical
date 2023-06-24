@@ -27,6 +27,7 @@ pub(crate) struct PointsInTime {
     // only relevant during 2-phase-commit
     points_in_time: Vec<term_screen_pit::TermScreenPIT>,
     pit_info: Vec<ChangeSource>,
+    is_deleted: bool,
 }
 
 impl PointsInTime {
@@ -35,6 +36,7 @@ impl PointsInTime {
             original: term_screen_pit::TermScreenPIT::new(&term.clone(), false),
             points_in_time: vec![],
             pit_info: vec![],
+            is_deleted: false,
         }
     }
 
@@ -50,6 +52,14 @@ impl PointsInTime {
             .push(term_screen_pit::TermScreenPIT::new(term, false));
 
         Ok(())
+    }
+
+    pub(crate) fn delete(&mut self) {
+        self.is_deleted = true
+    }
+
+    pub(crate) fn is_deleted(&self) -> bool {
+        self.is_deleted
     }
 
     pub(crate) fn iter_change_sources<'a>(&'a self) -> impl ExactSizeIterator<Item = String> + 'a {
@@ -108,6 +118,15 @@ impl PointsInTime {
         showing_pit: usize,
         terms_knowledge_base: &T,
     ) -> Option<Change> {
+        if self.is_deleted {
+            ui.with_layout(
+                egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+                |ui| {
+                    ui.label("This Term is to be deleted");
+                },
+            );
+            return None;
+        }
         // TODO: make sure these are uneditable
         if showing_pit == 0 {
             return self.original.show(ui, terms_knowledge_base, false, true);

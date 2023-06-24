@@ -8,7 +8,7 @@ use crate::{
         term::{args_binding::ArgsBinding, rule::Rule},
     },
     term_knowledge_base::TermsKnowledgeBase,
-    ui::widgets::drag_and_drop::{DragAndDrop, self},
+    ui::widgets::drag_and_drop::{self, DragAndDrop},
 };
 
 use super::{placeholder, Change};
@@ -153,13 +153,13 @@ impl TermScreenPIT {
             ui.vertical(|ui| {
                 self.term.arguments.show(ui, |s, ui| {
                     ui.horizontal(|ui| {
-                        self.arg_rename |= show_arg(ui, &mut s.name, &mut s.desc, edit_mode);
+                        self.arg_rename |= Self::show_arg(ui, &mut s.name, &mut s.desc, edit_mode);
                     });
                 });
 
                 if edit_mode {
                     ui.horizontal(|ui| {
-                        show_arg(
+                        Self::show_arg(
                             ui,
                             &mut self.arg_placeholder.name,
                             &mut self.arg_placeholder.desc,
@@ -331,39 +331,39 @@ impl TermScreenPIT {
                 )
             });
     }
-}
 
-fn show_arg(
-    ui: &mut egui::Ui,
-    arg_name: &mut String,
-    arg_desc: &mut String,
-    edit_mode: bool,
-) -> bool {
-    // TODO: fix the hardcoded widths
-    let mut changed = false;
-    changed |= ui
-        .add(
-            egui::TextEdit::singleline(arg_name)
-                .clip_text(false)
-                .hint_text("Name")
-                .desired_width(60.0)
-                .frame(edit_mode)
-                .interactive(edit_mode)
-                .font(TextStyle::Body),
-        )
-        .changed();
-    changed |= ui
-        .add(
-            egui::TextEdit::singleline(arg_desc)
-                .clip_text(false)
-                .hint_text("Description")
-                .desired_width(100.0)
-                .frame(edit_mode)
-                .interactive(edit_mode)
-                .font(TextStyle::Small),
-        )
-        .changed();
-    changed
+    fn show_arg(
+        ui: &mut egui::Ui,
+        arg_name: &mut String,
+        arg_desc: &mut String,
+        edit_mode: bool,
+    ) -> bool {
+        // TODO: fix the hardcoded widths
+        let mut changed = false;
+        changed |= ui
+            .add(
+                egui::TextEdit::singleline(arg_name)
+                    .clip_text(false)
+                    .hint_text("Name")
+                    .desired_width(60.0)
+                    .frame(edit_mode)
+                    .interactive(edit_mode)
+                    .font(TextStyle::Body),
+            )
+            .changed();
+        changed |= ui
+            .add(
+                egui::TextEdit::singleline(arg_desc)
+                    .clip_text(false)
+                    .hint_text("Description")
+                    .desired_width(100.0)
+                    .frame(edit_mode)
+                    .interactive(edit_mode)
+                    .font(TextStyle::Small),
+            )
+            .changed();
+        changed
+    }
 }
 
 impl Term {

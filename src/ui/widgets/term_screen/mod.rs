@@ -166,49 +166,57 @@ impl TermScreen {
         }
 
         // show the edit/save buttons
-        match &mut self.current {
-            Some(current) => {
-                if edit_button::show_edit_button(ui, true) {
-                    // one last frame of the term not being editable with the newest state
-                    current.show(ui, terms_knowledge_base, false, false);
-                    let changes = current.finish_changes();
-                    self.current = None;
-                    self.showing_point_in_time = Some(self.points_in_time.len() - 1);
-                    if let Some(changes) = changes {
-                        return Output::Changed(changes);
+        if !self.points_in_time.is_deleted() {
+            match &mut self.current {
+                Some(current) => {
+                    if edit_button::show_edit_button(ui, true) {
+                        // one last frame of the term not being editable with the newest state
+                        current.show(ui, terms_knowledge_base, false, false);
+                        let changes = current.finish_changes();
+                        self.current = None;
+                        self.showing_point_in_time = Some(self.points_in_time.len() - 1);
+                        if let Some(changes) = changes {
+                            return Output::Changed(changes);
+                        }
                     }
                 }
-            }
-            None => {
-                if edit_button::show_edit_button(ui, false) {
-                    self.showing_point_in_time = None;
-                    self.current.insert(term_screen_pit::TermScreenPIT::new(
-                        // TODO: it's a bit weird to extract and recreate, however the current alternative is
-                        // to perform a heavy (a lot stuff will Derive(Clone)) clone
-                        &self.points_in_time.latest().extract_term(),
-                        true,
-                    ));
+                None => {
+                    if edit_button::show_edit_button(ui, false) {
+                        self.showing_point_in_time = None;
+                        self.current.insert(term_screen_pit::TermScreenPIT::new(
+                            // TODO: it's a bit weird to extract and recreate, however the current alternative is
+                            // to perform a heavy (a lot stuff will Derive(Clone)) clone
+                            &self.points_in_time.latest().extract_term(),
+                            true,
+                        ));
+                    }
                 }
-            }
-        };
+            };
+        }
 
         // show the actual content of the currently shown screen (a pit or the edit screen)
         match self.showing_point_in_time {
             Some(showing_pit) => {
                 self.points_in_time
                     .show_pit(ui, showing_pit, terms_knowledge_base);
+                Output::None
             }
             None => {
-                if let Some(changes) = self
+                match self
                     .current
                     .as_mut()
                     .expect("current should always be present if a point in time is not chosen")
                     .show(ui, terms_knowledge_base, true, false)
                 {
-                    return Output::Changed(changes);
+                    Some(Change::Deleted(original_name)) => {
+                        self.current = None;
+                        self.showing_point_in_time = Some(self.points_in_time.len() - 1);
+                        Output::Changed(Change::Deleted(original_name))
+                    }
+                    Some(changes) => Output::Changed(changes),
+                    None => Output::None,
                 }
             }
         }
-        Output::None
     }
 }

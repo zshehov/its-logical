@@ -43,7 +43,7 @@ pub(crate) fn need_confirmation(changes: &Change) -> bool {
     }
 }
 
-pub(crate) fn get_relevant(original: &FatTerm, changes: &Change) -> Vec<String> {
+pub(crate) fn get_affected(original: &FatTerm, changes: &Change) -> Vec<String> {
     let mut related_terms = vec![];
     match changes {
         Change::Changes(changes, original_name, updated_term) => {
@@ -450,7 +450,7 @@ fn test_get_relevant_changes_name_change() {
     let mut with_name_change = original.clone();
     with_name_change.meta.term.name = "new_name".to_string();
 
-    let mut relevant = get_relevant(
+    let mut relevant = get_affected(
         &original.clone(),
         &Change::Changes(vec![], "test".to_string(), with_name_change),
     );
@@ -474,7 +474,7 @@ fn test_get_relevant_changes_description_change() {
     let mut with_descritpion_change = original.clone();
     with_descritpion_change.meta.term.desc = "new description".to_string();
 
-    let relevant = get_relevant(
+    let relevant = get_affected(
         &original.clone(),
         &Change::Changes(
             vec![TermChange::DescriptionChange],
@@ -494,7 +494,7 @@ fn test_get_relevant_changes_facts_change() {
         binding: vec!["SomeArgValue".to_string()],
     });
 
-    let relevant = get_relevant(
+    let relevant = get_affected(
         &original.clone(),
         &Change::Changes(
             vec![TermChange::FactsChange],
@@ -513,7 +513,7 @@ fn test_get_relevant_changes_args_rename() {
     *with_args_rename.meta.args.last_mut().unwrap() =
         NameDescription::new("NewArgName", "New desc");
 
-    let relevant = get_relevant(
+    let relevant = get_affected(
         &original.clone(),
         &Change::Changes(
             vec![TermChange::ArgRename],
@@ -545,7 +545,7 @@ fn test_get_relevant_changes_rules_change() {
     with_rules_change.term.rules.remove(0);
     with_rules_change.term.rules.push(new_rule.clone());
 
-    let mut relevant = get_relevant(
+    let mut relevant = get_affected(
         &original.clone(),
         &Change::Changes(
             vec![TermChange::RuleChanges(vec![
@@ -570,7 +570,7 @@ fn test_get_relevant_changes_arg_changes() {
     let new_arg = NameDescription::new("SomeNewArg", "With some desc");
     with_arg_change.meta.args.push(new_arg.clone());
 
-    let relevant = get_relevant(
+    let relevant = get_affected(
         &original.clone(),
         &Change::Changes(
             vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
@@ -607,7 +607,7 @@ fn test_get_relevant_changes_arg_and_rules_changes() {
     let new_arg = NameDescription::new("SomeNewArg", "With some desc");
     with_changes.meta.args.push(new_arg.clone());
 
-    let mut relevant = get_relevant(
+    let mut relevant = get_affected(
         &original.clone(),
         &Change::Changes(
             vec![
