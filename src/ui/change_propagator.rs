@@ -137,7 +137,7 @@ trait TermsFilter {
 fn apply_changes_internal(changes: &Change, original: &FatTerm, terms: &mut impl TermsFilter) {
     match changes {
         Change::Changes(changes, original_name, updated_term) => {
-            let mut updated_term = updated_term.to_owned();
+            terms.put(&original_name, &updated_term.clone());
             for change in changes {
                 match change {
                     TermChange::DescriptionChange

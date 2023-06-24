@@ -80,7 +80,6 @@ where
                         );
                         if change_propagator::need_confirmation(&changes) {
                             debug!("Changes need confirmation");
-                            // TODO: no need for approval from self
                             let two_phase_commit =
                                 Rc::clone(term_screen.two_phase_commit.get_or_insert(Rc::new(
                                     RefCell::new(TwoPhaseCommit::new(true)),
@@ -137,7 +136,7 @@ where
                             }
                         } else {
                             if let Some(two_phase_commit) = &mut term_screen.two_phase_commit {
-                                if two_phase_commit.borrow().waits_for_approval() {
+                                if two_phase_commit.borrow().waiting_for().len() > 0 {
                                     debug!("NOT ALL ARE CONFIRMED YET");
                                 } else {
                                     debug!("ALL ARE CONFIRMED");
@@ -205,7 +204,7 @@ where
                                 .expect("finishing a commit means that there is a commit"),
                         );
 
-                        if two_phase_commit.borrow().waits_for_approval() {
+                        if two_phase_commit.borrow().waiting_for().len() > 0 {
                             debug!("NOT ALL ARE CONFIRMED YET");
                         } else {
                             debug!("ALL ARE CONFIRMED");

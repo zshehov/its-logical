@@ -45,8 +45,8 @@ impl TwoPhaseCommit {
         self.had_approval_from.iter().cloned()
     }
 
-    pub(crate) fn waits_for_approval(&self) -> bool {
-        self.waiting_for_approval_from.len() > 0
+    pub(crate) fn waiting_for(&self) -> impl ExactSizeIterator<Item = &String> {
+        self.waiting_for_approval_from.iter()
     }
 
     fn approve_from(&mut self, approved: &str) {

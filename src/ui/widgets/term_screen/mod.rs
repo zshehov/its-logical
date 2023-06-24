@@ -132,24 +132,35 @@ impl TermScreen {
         if let Some(two_phase_commit) = &mut self.two_phase_commit {
             let mut two_phase_commit = two_phase_commit.borrow_mut();
 
-            if !two_phase_commit.waits_for_approval() {
-                if two_phase_commit.is_being_waited() {
-                    if ui.button("approve").clicked() {
-                        two_phase_commit.approve_all(&term_name);
-                    }
-                } else if two_phase_commit.is_initiator() {
+            if two_phase_commit.is_being_waited() {
+                if ui.button("approve").clicked() {
+                    two_phase_commit.approve_all(&term_name);
+                }
+            } else if two_phase_commit.is_initiator() {
+                let mut commit_button = egui::Button::new("Finish commit");
+
+                if two_phase_commit.waiting_for().len() == 0 {
                     let approved_by = two_phase_commit
                         .iter_approved()
                         .collect::<Vec<String>>()
                         .join(",");
 
                     if ui
-                        .button("finish commit")
+                        .add(commit_button)
                         .on_hover_text("Approved by: ".to_string() + &approved_by)
                         .clicked()
                     {
                         return Output::FinishTwoPhaseCommit;
                     }
+                } else {
+                    let waiting_for = two_phase_commit
+                        .waiting_for()
+                        .cloned()
+                        .collect::<Vec<String>>()
+                        .join(",");
+
+                    ui.add_enabled(false, commit_button)
+                        .on_disabled_hover_text("Need approval from : ".to_string() + &waiting_for);
                 }
             }
         }
