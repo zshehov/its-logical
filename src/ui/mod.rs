@@ -71,10 +71,8 @@ where
 
                 match changes {
                     term_screen::Output::Changed(changes) => {
-                        let affected = change_propagator::get_relevant(
-                            &term_screen.get_pits().original().extract_term(),
-                            &changes,
-                        );
+                        let original_term = term_screen.get_pits().original().extract_term();
+                        let affected = change_propagator::get_relevant(&original_term, &changes);
 
                         debug!(
                             "Changes made for {}. Propagating to: {:?}",
@@ -110,8 +108,11 @@ where
                                 }
                                 // now all the affected terms are opened in their respective
                                 // screens
-                                let all_changes =
-                                    change_propagator::apply_changes(&changes, &self.term_tabs);
+                                let all_changes = change_propagator::apply_changes(
+                                    &changes,
+                                    &original_term,
+                                    &self.term_tabs,
+                                );
                                 for (affected_term_name, affected_updated_term) in all_changes {
                                     // TODO: change the name of this method
                                     let affected_term =
@@ -153,11 +154,10 @@ where
                                 }
                             } else {
                                 debug!("NOT EVEN A COMMIT AY");
-                                let original = self.terms.get(&term_name).unwrap();
-
                                 // update the persisted terms
                                 let all_changes = change_propagator::apply_changes(
                                     &changes,
+                                    &original_term,
                                     &TermsAdapter::new(&self.terms),
                                 );
                                 for (affected_term_name, affected_updated_term) in all_changes {
@@ -177,7 +177,7 @@ where
                                             let with_applied =
                                                 change_propagator::apply_single_changes(
                                                     &changes,
-                                                    &original,
+                                                    &original_term,
                                                     &pit.extract_term(),
                                                 );
                                             *pit = TermScreenPIT::new(&with_applied, false);
@@ -186,7 +186,7 @@ where
                                             let with_applied =
                                                 change_propagator::apply_single_changes(
                                                     &changes,
-                                                    &original,
+                                                    &original_term,
                                                     &current.extract_term(),
                                                 );
                                             *current = TermScreenPIT::new(&with_applied, true);

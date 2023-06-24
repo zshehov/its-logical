@@ -105,14 +105,14 @@ pub(crate) fn get_relevant(original: &FatTerm, changes: &Change) -> Vec<String> 
     related_terms
 }
 
-pub(crate) fn apply_changes<T: Terms>(changes: &Change, terms: &T) -> HashMap<String, FatTerm> {
+pub(crate) fn apply_changes<T: Terms>(
+    changes: &Change,
+    original: &FatTerm,
+    terms: &T,
+) -> HashMap<String, FatTerm> {
     let mut terms_cache = TermsCache::new(terms);
-    let original = match changes {
-        Change::Changes(_, original_name, _) => terms.get(original_name).unwrap(),
-        Change::Deleted(original_name) => terms.get(&original_name).unwrap(),
-    };
 
-    apply_changes_internal(changes, &original, &mut terms_cache);
+    apply_changes_internal(changes, original, &mut terms_cache);
     terms_cache.all_terms()
 }
 
@@ -151,7 +151,9 @@ fn apply_changes_internal(changes: &Change, original: &FatTerm, terms: &mut impl
                                 apply_arg_changes(term, &original_name, arg_changes.iter());
                             }
                         }
-                        apply_head_arg_changes(&mut updated_term, arg_changes.iter());
+                        if let Some(changed_term) = terms.get(&original_name) {
+                            apply_head_arg_changes(changed_term, arg_changes.iter());
+                        }
                     }
                     TermChange::RuleChanges(_) => {
                         let (new, removed) = changes_in_mentioned_terms(original, &updated_term);
