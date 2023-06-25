@@ -4,10 +4,10 @@ use egui::Context;
 use tracing::debug;
 
 use crate::{
-    model::fat_term::FatTerm,
     term_knowledge_base::TermsKnowledgeBase,
-    ui::widgets::term_screen::{
-        term_screen_pit::TermScreenPIT, two_phase_commit, Change, TermScreen,
+    ui::{
+        change_propagator::terms_filter::{self, TermsFilter},
+        widgets::term_screen::{term_screen_pit::TermScreenPIT, Change, TermScreen},
     },
 };
 
@@ -109,12 +109,17 @@ where
                                 }
                                 // now all the affected terms are opened in their respective
                                 // screens
-                                let all_changes = change_propagator::apply_changes(
+                                let mut terms_cache =
+                                    terms_filter::with_terms_cache(&self.term_tabs);
+                                change_propagator::apply_changes(
                                     &changes,
                                     &original_term,
-                                    &self.term_tabs,
+                                    &mut terms_cache,
                                 );
-                                for (affected_term_name, affected_updated_term) in all_changes {
+
+                                for (affected_term_name, affected_updated_term) in
+                                    terms_cache.all_terms()
+                                {
                                     // TODO: change the name of this method
                                     let affected_term =
                                         self.term_tabs.get_mut(&affected_term_name).unwrap();
@@ -147,30 +152,27 @@ where
                             }
                         } else {
                             if let Some(two_phase_commit) = &mut term_screen.two_phase_commit {
-                                if two_phase_commit.borrow().waiting_for().len() > 0 {
-                                    debug!("NOT ALL ARE CONFIRMED YET");
-                                } else {
-                                    debug!("ALL ARE CONFIRMED");
-                                    // TODO: this should be done recursively
-                                    let approved: Vec<String> =
-                                        two_phase_commit.borrow().iter_approved().collect();
-
-                                    for approved_name in approved {
-                                        self.terms.put(&approved_name,
-                                                       self.term_tabs.get(&approved_name)
-                                                       .expect("all terms part of the 2-phase-commit can't be closed")
-                                                       .extract_term());
-                                    }
-                                }
+                                /* 
+                                let all_changes = change_propagator::apply_changes_all(
+                                    &changes,
+                                    &original_term,
+                                    &self.term_tabs,
+                                );
+                                */
                             } else {
                                 debug!("NOT EVEN A COMMIT AY");
                                 // update the persisted terms
-                                let all_changes = change_propagator::apply_changes(
+                                let adapter = TermsAdapter::new(&self.terms);
+                                let mut terms_cache = terms_filter::with_terms_cache(&adapter);
+                                change_propagator::apply_changes(
                                     &changes,
                                     &original_term,
-                                    &TermsAdapter::new(&self.terms),
+                                    &mut terms_cache,
                                 );
-                                for (affected_term_name, affected_updated_term) in all_changes {
+
+                                for (affected_term_name, affected_updated_term) in
+                                    terms_cache.all_terms()
+                                {
                                     self.terms.put(&affected_term_name, affected_updated_term);
                                 }
 
@@ -184,21 +186,34 @@ where
                                         debug!("updating {}", affected_term_name);
                                         let (pits, current) = loaded_term_screen.get_pits_mut();
                                         for pit in pits.iter_mut_pits() {
-                                            let with_applied =
-                                                change_propagator::apply_single_changes(
-                                                    &changes,
-                                                    &original_term,
-                                                    &pit.extract_term(),
-                                                );
+                                            let mut with_applied =
+                                                terms_filter::with_single_term(&pit.extract_term());
+                                            change_propagator::apply_changes(
+                                                &changes,
+                                                &original_term,
+                                                &mut with_applied,
+                                            );
+                                            let with_applied = with_applied
+                                                .all_terms()
+                                                .get(affected_term_name)
+                                                .unwrap()
+                                                .to_owned();
                                             *pit = TermScreenPIT::new(&with_applied, false);
                                         }
                                         if let Some(current) = current {
-                                            let with_applied =
-                                                change_propagator::apply_single_changes(
-                                                    &changes,
-                                                    &original_term,
-                                                    &current.extract_term(),
-                                                );
+                                            let mut with_applied = terms_filter::with_single_term(
+                                                &current.extract_term(),
+                                            );
+                                            change_propagator::apply_changes(
+                                                &changes,
+                                                &original_term,
+                                                &mut with_applied,
+                                            );
+                                            let with_applied = with_applied
+                                                .all_terms()
+                                                .get(&current.name())
+                                                .unwrap()
+                                                .to_owned();
                                             *current = TermScreenPIT::new(&with_applied, true);
                                         }
                                     }

@@ -18,7 +18,7 @@ pub(crate) enum TermChange {
     FactsChange,
     ArgRename,
     ArgChanges(Vec<drag_and_drop::Change<NameDescription>>),
-    RuleChanges(Vec<drag_and_drop::Change<Rule>>),
+    RuleChanges,
 }
 
 struct Term {
@@ -104,7 +104,7 @@ impl TermScreenPIT {
 
         let rules_changes = self.term.rules.lock();
         if rules_changes.len() > 0 {
-            changes.push(TermChange::RuleChanges(rules_changes));
+            changes.push(TermChange::RuleChanges);
         }
 
         self.rule_placeholder = placeholder::RulePlaceholder::new();
