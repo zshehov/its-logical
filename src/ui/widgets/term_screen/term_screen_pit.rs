@@ -49,14 +49,8 @@ impl TermScreenPIT {
         (&self.term).into()
     }
 
-    pub(crate) fn new(term: &FatTerm, in_edit: bool) -> Self {
-        let mut term: Term = term.into();
-
-        if in_edit {
-            term.arguments.unlock();
-            term.rules.unlock();
-            term.facts.unlock();
-        }
+    pub(crate) fn new(term: &FatTerm) -> Self {
+        let term: Term = term.into();
         let original_name = term.meta.name.clone();
 
         Self {
@@ -137,7 +131,6 @@ impl TermScreenPIT {
         ui: &mut egui::Ui,
         terms_knowledge_base: &T,
         edit_mode: bool,
-        frozen: bool,
     ) {
         ui.horizontal(|ui| {
             ui.add(

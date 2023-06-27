@@ -360,7 +360,7 @@ where
                         .get(affected_term_name)
                         .unwrap()
                         .to_owned();
-                    *pit = TermScreenPIT::new(&with_applied, false);
+                    *pit = TermScreenPIT::new(&with_applied);
                 }
                 if let Some(current) = current {
                     let mut with_applied = changes::propagation::terms_filter::with_single_term(
@@ -377,7 +377,8 @@ where
                         .get(&current.name())
                         .unwrap()
                         .to_owned();
-                    *current = TermScreenPIT::new(&with_applied, true);
+                    *current = TermScreenPIT::new(&with_applied);
+                    current.start_changes();
                 }
             }
         }

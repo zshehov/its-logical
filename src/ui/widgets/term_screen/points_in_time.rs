@@ -32,7 +32,7 @@ pub(crate) struct PointsInTime {
 impl PointsInTime {
     pub(crate) fn new(term: &FatTerm) -> Self {
         Self {
-            original: term_screen_pit::TermScreenPIT::new(&term.clone(), false),
+            original: term_screen_pit::TermScreenPIT::new(&term.clone()),
             points_in_time: vec![],
             pit_info: vec![],
         }
@@ -47,7 +47,7 @@ impl PointsInTime {
         }
 
         self.points_in_time
-            .push(term_screen_pit::TermScreenPIT::new(term, false));
+            .push(term_screen_pit::TermScreenPIT::new(term));
 
         Ok(())
     }
@@ -103,15 +103,10 @@ impl PointsInTime {
     ) {
         // TODO: make sure these are uneditable
         if showing_pit == 0 {
-            return self.original.show(ui, terms_knowledge_base, false, true);
+            return self.original.show(ui, terms_knowledge_base, false);
         }
         if showing_pit <= self.points_in_time.len() {
-            return self.points_in_time[showing_pit - 1].show(
-                ui,
-                terms_knowledge_base,
-                false,
-                true,
-            );
+            return self.points_in_time[showing_pit - 1].show(ui, terms_knowledge_base, false);
         }
         panic!("[bug] requested unknown point in time")
     }

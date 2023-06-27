@@ -48,7 +48,9 @@ impl TermScreen {
         Self {
             points_in_time: PointsInTime::new(term),
             current: if in_edit {
-                Some(TermScreenPIT::new(term, true))
+                let mut editing_screen = TermScreenPIT::new(term);
+                editing_screen.start_changes();
+                Some(editing_screen)
             } else {
                 None
             },
@@ -62,7 +64,11 @@ impl TermScreen {
     pub(crate) fn with_new_term() -> Self {
         Self {
             points_in_time: PointsInTime::new(&FatTerm::default()),
-            current: Some(TermScreenPIT::new(&FatTerm::default(), true)),
+            current: Some({
+                let mut editing_screen = TermScreenPIT::new(&FatTerm::default());
+                editing_screen.start_changes();
+                editing_screen
+            }),
             showing_point_in_time: None,
             two_phase_commit: None,
             delete_confirmation: "".to_string(),
@@ -176,7 +182,7 @@ impl TermScreen {
                 Some(current) => {
                     if edit_button::show_edit_button(ui, true) {
                         // one last frame of the term not being editable with the newest state
-                        current.show(ui, terms_knowledge_base, false, false);
+                        current.show(ui, terms_knowledge_base, false);
                         let changes = current.finish_changes();
                         self.current = None;
                         self.showing_point_in_time = Some(self.points_in_time.len() - 1);
@@ -188,12 +194,13 @@ impl TermScreen {
                 None => {
                     if edit_button::show_edit_button(ui, false) {
                         self.showing_point_in_time = None;
-                        self.current.insert(term_screen_pit::TermScreenPIT::new(
-                            // TODO: it's a bit weird to extract and recreate, however the current alternative is
-                            // to perform a heavy (a lot stuff will Derive(Clone)) clone
-                            &self.points_in_time.latest().extract_term(),
-                            true,
-                        ));
+                        self.current
+                            .insert(term_screen_pit::TermScreenPIT::new(
+                                // TODO: it's a bit weird to extract and recreate, however the current alternative is
+                                // to perform a heavy (a lot stuff will Derive(Clone)) clone
+                                &self.points_in_time.latest().extract_term(),
+                            ))
+                            .start_changes();
                     }
                 }
             };
@@ -218,7 +225,7 @@ impl TermScreen {
                 self.current
                     .as_mut()
                     .expect("current should always be present if a point in time is not chosen")
-                    .show(ui, terms_knowledge_base, true, false);
+                    .show(ui, terms_knowledge_base, true);
 
                 ui.separator();
                 ui.horizontal(|ui| {

@@ -184,11 +184,7 @@ fn changes_in_mentioned_terms(
     );
 }
 
-fn apply_args_changes<'a>(
-    term: &mut FatTerm,
-    term_with_arg_change: &str,
-    changes: &[ArgsChange],
-) {
+fn apply_args_changes<'a>(term: &mut FatTerm, term_with_arg_change: &str, changes: &[ArgsChange]) {
     for rule in &mut term.term.rules {
         for body_term in &mut rule.body {
             if body_term.name == term_with_arg_change {
@@ -534,8 +530,8 @@ mod tests {
             self.terms.insert(name.to_string(), term.to_owned());
         }
 
-        fn all_terms(self) -> HashMap<String, FatTerm> {
-            self.terms
+        fn all_terms(&self) -> HashMap<String, FatTerm> {
+            self.terms.clone()
         }
     }
 
