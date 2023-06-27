@@ -111,6 +111,7 @@ where
 
         // the user doesn't actually finish the updating due to argument
         // changes, so this is done here
+        // TODO: this is not idempotent operation
         changes::propagation::finish_self_term(&mut updated_term, &arg_changes);
 
         let affected = changes::propagation::affected_from_changes(
