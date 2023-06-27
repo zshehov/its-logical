@@ -1,5 +1,6 @@
 use bincode::{config, decode_from_std_read, encode_into_std_write, Encode};
 use bincode_derive::Decode;
+use tracing::debug;
 
 use std::{
     collections::HashMap,
@@ -19,6 +20,7 @@ pub enum KnowledgeBaseError {
 
 pub trait TermsKnowledgeBase {
     fn get(&self, term_name: &str) -> Option<FatTerm>;
+    // the term.meta.term.name takes precedence to the provided term_name
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError>;
     fn keys(&self) -> &Vec<String>;
     fn delete(&mut self, term_name: &str);
@@ -223,7 +225,7 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError> {
         match self.index.get(term_name) {
             Some(&term_idx) => self.edit(term_name, term_idx, &term),
-            None => self.put(term_name, term),
+            None => self.put(&term.meta.term.name.clone(), term),
         }
     }
 

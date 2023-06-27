@@ -7,7 +7,7 @@ use super::Terms;
 pub(crate) trait TermsFilter {
     fn get<'a>(&'a mut self, name: &str) -> Option<&'a mut FatTerm>;
     fn put(&mut self, name: &str, term: &FatTerm);
-    fn all_terms(self) -> HashMap<String, FatTerm>;
+    fn all_terms(&self) -> HashMap<String, FatTerm>;
 }
 
 // will only ever know about a single term
@@ -40,8 +40,8 @@ impl TermsFilter for SingleTerm {
         Some(&mut self.term)
     }
 
-    fn all_terms(self) -> HashMap<String, FatTerm> {
-        HashMap::from([(self.term.meta.term.name.clone(), self.term)])
+    fn all_terms(&self) -> HashMap<String, FatTerm> {
+        HashMap::from([(self.term.meta.term.name.clone(), self.term.clone())])
     }
 
     fn put(&mut self, name: &str, term: &FatTerm) {
@@ -74,8 +74,8 @@ impl<'a, T: Terms> TermsFilter for TermsCache<'a, T> {
         )
     }
 
-    fn all_terms(self) -> HashMap<String, FatTerm> {
-        self.updated_terms
+    fn all_terms(&self) -> HashMap<String, FatTerm> {
+        self.updated_terms.clone()
     }
 
     fn put(&mut self, name: &str, term: &FatTerm) {

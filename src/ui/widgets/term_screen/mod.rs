@@ -1,23 +1,18 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use egui::Color32;
+
 use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
 
 use self::points_in_time::PointsInTime;
-use self::term_screen_pit::TermScreenPIT;
+use self::term_screen_pit::{TermChange, TermScreenPIT};
 use self::two_phase_commit::TwoPhaseCommit;
 
-pub(crate) enum Change {
-    // the sequnce of changes and the resulting FatTerm
-    Changes(Vec<term_screen_pit::TermChange>, String, FatTerm),
-    // a deletion event
-    Deleted(String),
-}
-
 pub(crate) enum Output {
-    Changed(Change),
+    Changes(Vec<TermChange>, FatTerm),
+    Deleted(String),
     FinishTwoPhaseCommit,
-    None,
 }
 
 #[derive(Debug)]
@@ -39,6 +34,8 @@ pub(crate) struct TermScreen {
     points_in_time: PointsInTime,
     showing_point_in_time: Option<usize>,
     current: Option<term_screen_pit::TermScreenPIT>,
+    delete_confirmation: String,
+    in_deletion: bool,
     pub(crate) two_phase_commit: Option<Rc<RefCell<TwoPhaseCommit>>>,
 }
 
@@ -57,6 +54,8 @@ impl TermScreen {
             },
             showing_point_in_time: if in_edit { None } else { Some(0) },
             two_phase_commit: None,
+            delete_confirmation: "".to_string(),
+            in_deletion: false,
         }
     }
 
@@ -66,6 +65,8 @@ impl TermScreen {
             current: Some(TermScreenPIT::new(&FatTerm::default(), true)),
             showing_point_in_time: None,
             two_phase_commit: None,
+            delete_confirmation: "".to_string(),
+            in_deletion: false,
         }
     }
 
@@ -77,6 +78,10 @@ impl TermScreen {
 
     pub(crate) fn extract_term(&self) -> FatTerm {
         self.points_in_time.latest().extract_term()
+    }
+
+    pub(crate) fn in_deletion(&self) -> bool {
+        self.in_deletion
     }
 
     pub(crate) fn get_pits(&self) -> &PointsInTime {
@@ -91,8 +96,8 @@ impl TermScreen {
         if self.current.is_some() {
             return false;
         }
-        if let Some(current_change_origin) = self.points_in_time.change_origin() {
-            if current_change_origin != origin {
+        if let Some(two_phase_commit) = &self.two_phase_commit {
+            if two_phase_commit.borrow().origin() != origin {
                 return false;
             }
         }
@@ -113,7 +118,7 @@ impl TermScreen {
         &mut self,
         ui: &mut egui::Ui,
         terms_knowledge_base: &T,
-    ) -> Output {
+    ) -> Option<Output> {
         // show points in time
         if self.points_in_time.len() > 1 || self.in_edit() {
             ui.horizontal(|ui| {
@@ -150,7 +155,7 @@ impl TermScreen {
                         .on_hover_text("Approved by: ".to_string() + &approved_by)
                         .clicked()
                     {
-                        return Output::FinishTwoPhaseCommit;
+                        return Some(Output::FinishTwoPhaseCommit);
                     }
                 } else {
                     let waiting_for = two_phase_commit
@@ -166,7 +171,7 @@ impl TermScreen {
         }
 
         // show the edit/save buttons
-        if !self.points_in_time.is_deleted() {
+        if !self.in_deletion {
             match &mut self.current {
                 Some(current) => {
                     if edit_button::show_edit_button(ui, true) {
@@ -175,8 +180,8 @@ impl TermScreen {
                         let changes = current.finish_changes();
                         self.current = None;
                         self.showing_point_in_time = Some(self.points_in_time.len() - 1);
-                        if let Some(changes) = changes {
-                            return Output::Changed(changes);
+                        if let Some((changes, updated_term)) = changes {
+                            return Some(Output::Changes(changes, updated_term));
                         }
                     }
                 }
@@ -192,6 +197,14 @@ impl TermScreen {
                     }
                 }
             };
+        } else {
+            ui.with_layout(
+                egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+                |ui| {
+                    ui.label("This Term is to be deleted");
+                },
+            );
+            return None;
         }
 
         // show the actual content of the currently shown screen (a pit or the edit screen)
@@ -199,23 +212,41 @@ impl TermScreen {
             Some(showing_pit) => {
                 self.points_in_time
                     .show_pit(ui, showing_pit, terms_knowledge_base);
-                Output::None
+                None
             }
             None => {
-                match self
-                    .current
+                self.current
                     .as_mut()
                     .expect("current should always be present if a point in time is not chosen")
-                    .show(ui, terms_knowledge_base, true, false)
-                {
-                    Some(Change::Deleted(original_name)) => {
+                    .show(ui, terms_knowledge_base, true, false);
+
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.delete_confirmation)
+                            .clip_text(false)
+                            .hint_text("delete")
+                            .desired_width(60.0),
+                    );
+                    let mut delete_button = egui::Button::new("🗑");
+
+                    let deletion_confirmed = self.delete_confirmation == "delete";
+                    if deletion_confirmed {
+                        delete_button = delete_button.fill(Color32::RED);
+                    }
+                    if ui
+                        .add_enabled(deletion_confirmed, delete_button)
+                        .on_disabled_hover_text("Type \"delete\" in the box to the left")
+                        .clicked()
+                    {
                         self.current = None;
                         self.showing_point_in_time = Some(self.points_in_time.len() - 1);
-                        Output::Changed(Change::Deleted(original_name))
-                    }
-                    Some(changes) => Output::Changed(changes),
-                    None => Output::None,
-                }
+                        self.in_deletion = true;
+                        return Some(Output::Deleted(term_name));
+                    };
+                    None
+                })
+                .inner
             }
         }
     }

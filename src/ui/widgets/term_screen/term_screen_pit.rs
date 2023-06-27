@@ -1,4 +1,4 @@
-use egui::{Color32, RichText, TextStyle};
+use egui::{RichText, TextStyle};
 use tracing::debug;
 
 use crate::{
@@ -11,9 +11,10 @@ use crate::{
     ui::widgets::drag_and_drop::{self, DragAndDrop},
 };
 
-use super::{placeholder, Change};
+use super::placeholder;
 
 pub(crate) enum TermChange {
+    Rename,
     DescriptionChange,
     FactsChange,
     ArgRename,
@@ -35,7 +36,6 @@ pub(crate) struct TermScreenPIT {
     fact_placeholder: placeholder::FactPlaceholder,
     rule_placeholder: placeholder::RulePlaceholder,
     arg_placeholder: NameDescription,
-    delete_confirmation: String,
     arg_rename: bool,
     description_change: bool,
 }
@@ -65,7 +65,6 @@ impl TermScreenPIT {
             fact_placeholder: placeholder::FactPlaceholder::new(),
             rule_placeholder: placeholder::RulePlaceholder::new(),
             arg_placeholder: NameDescription::new("", ""),
-            delete_confirmation: "".to_string(),
             arg_rename: false,
             description_change: false,
         }
@@ -73,17 +72,19 @@ impl TermScreenPIT {
 
     pub(crate) fn start_changes(&mut self) {
         self.original_term_name = self.term.meta.name.clone();
-        self.delete_confirmation = "".to_string();
         self.term.arguments.unlock();
         self.rule_placeholder.unlock();
         self.term.rules.unlock();
         self.term.facts.unlock();
     }
 
-    pub(crate) fn finish_changes(&mut self) -> Option<Change> {
+    pub(crate) fn finish_changes(&mut self) -> Option<(Vec<TermChange>, FatTerm)> {
         let mut result = None;
         let mut changes = vec![];
 
+        if self.original_term_name != self.term.meta.name {
+            changes.push(TermChange::Rename);
+        }
         if self.arg_rename {
             changes.push(TermChange::ArgRename);
             self.arg_rename = false;
@@ -111,7 +112,7 @@ impl TermScreenPIT {
         self.fact_placeholder = placeholder::FactPlaceholder::new();
         self.arg_placeholder = NameDescription::new("", "");
 
-        if changes.len() > 0 || self.original_term_name != self.term.meta.name {
+        if changes.len() > 0 {
             let updated_term: FatTerm = (&self.term).into();
 
             let mut original_name = self.term.meta.name.clone();
@@ -124,7 +125,7 @@ impl TermScreenPIT {
             std::mem::swap(&mut original_name, &mut self.original_term_name);
 
             debug!("made some changes");
-            result = Some(Change::Changes(changes, original_name, updated_term));
+            result = Some((changes, updated_term));
         }
         result
     }
@@ -137,8 +138,7 @@ impl TermScreenPIT {
         terms_knowledge_base: &T,
         edit_mode: bool,
         frozen: bool,
-    ) -> Option<Change> {
-        let mut result = None;
+    ) {
         ui.horizontal(|ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut self.term.meta.name)
@@ -223,32 +223,7 @@ impl TermScreenPIT {
                     },
                 )
             });
-        if edit_mode {
-            ui.separator();
-            ui.horizontal(|ui| {
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.delete_confirmation)
-                        .clip_text(false)
-                        .hint_text("delete")
-                        .desired_width(60.0),
-                );
-                let mut delete_button = egui::Button::new("🗑");
-
-                let deletion_confirmed = self.delete_confirmation == "delete";
-                if deletion_confirmed {
-                    delete_button = delete_button.fill(Color32::RED);
-                }
-                if ui
-                    .add_enabled(deletion_confirmed, delete_button)
-                    .on_disabled_hover_text("Type \"delete\" in the box to the left")
-                    .clicked()
-                {
-                    result = Some(Change::Deleted(self.original_term_name.clone()));
-                };
-            });
-        }
-
-        result
+        if edit_mode {}
     }
 
     fn show_facts_section(&mut self, ui: &mut egui::Ui, edit_mode: bool) {

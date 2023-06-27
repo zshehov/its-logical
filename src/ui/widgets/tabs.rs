@@ -106,6 +106,21 @@ impl Tabs {
         self.current_selection = ChoseTabInternal::Term(self.term_screens.len() - 1);
     }
 
+    pub(crate) fn borrow_mut(&mut self, names: &[String]) -> Vec<&mut TermScreen> {
+        let screens = self
+            .term_screens
+            .iter_mut()
+            .filter(|screen| {
+                if names.contains(&screen.name()) {
+                    return true;
+                }
+                false
+            })
+            .collect();
+
+        screens
+    }
+
     pub(crate) fn get<'a>(&'a self, term_name: &str) -> Option<&'a TermScreen> {
         if let Some(term_idx) = self.term_screens.iter().position(|x| x.name() == term_name) {
             return Some(&self.term_screens[term_idx]);

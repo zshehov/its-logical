@@ -1,6 +1,7 @@
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 pub(crate) struct TwoPhaseCommit {
+    origin: String,
     is_initiator: bool,
     waiting_for_approval_from: HashSet<String>,
     had_approval_from: HashSet<String>,
@@ -8,12 +9,13 @@ pub(crate) struct TwoPhaseCommit {
 }
 
 impl TwoPhaseCommit {
-    pub(crate) fn new(is_initiator: bool) -> Self {
+    pub(crate) fn new(origin: &str, is_initiator: bool) -> Self {
         Self {
             waiting_for_approval_from: HashSet::new(),
             had_approval_from: HashSet::new(),
             awaiting_approval: vec![],
             is_initiator,
+            origin: origin.to_string(),
         }
     }
 
@@ -36,7 +38,7 @@ impl TwoPhaseCommit {
         self.awaiting_approval.push(waiter);
     }
 
-    pub(crate) fn append_approval_from(&mut self, approval_from: &Vec<String>) {
+    pub(crate) fn append_approval_from(&mut self, approval_from: &[String]) {
         self.waiting_for_approval_from
             .extend(approval_from.iter().cloned());
     }
@@ -47,6 +49,10 @@ impl TwoPhaseCommit {
 
     pub(crate) fn waiting_for(&self) -> impl ExactSizeIterator<Item = &String> {
         self.waiting_for_approval_from.iter()
+    }
+
+    pub(crate) fn origin(&self) -> String {
+        self.origin.clone()
     }
 
     fn approve_from(&mut self, approved: &str) {
