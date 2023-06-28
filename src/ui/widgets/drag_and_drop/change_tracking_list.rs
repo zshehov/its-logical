@@ -47,7 +47,7 @@ impl<T: Clone + Eq + Hash> ChangeTrackingVec<T> {
         self.order_has_changed = true;
     }
 
-    pub(crate) fn remove(&mut self, idx: usize) {
+    pub(crate) fn remove(&mut self, idx: usize) -> T {
         if let Some(order_changes) = self.flush_order_changes() {
             self.current_changes.push(Change::Moved(order_changes));
         }
@@ -55,7 +55,9 @@ impl<T: Clone + Eq + Hash> ChangeTrackingVec<T> {
         self.order_changes.remove(idx);
         // order changes before the removal have already been persisted
         self.reset_order();
-        self.current_changes.push(Change::Removed(idx, removed));
+        self.current_changes
+            .push(Change::Removed(idx, removed.clone()));
+        removed
     }
 
     pub(crate) fn iter(&self) -> std::slice::Iter<'_, T> {

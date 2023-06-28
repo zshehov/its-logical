@@ -52,6 +52,11 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
         self.items.iter()
     }
 
+    pub(crate) fn remove(&mut self, idx: usize) -> T {
+        self.bottoms.pop();
+        self.items.remove(idx)
+    }
+
     // TODO: maybe return a Result here, since failures may occur (repeating item id)
     pub(crate) fn push(&mut self, item: T) {
         self.items.push(item);

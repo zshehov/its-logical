@@ -15,12 +15,6 @@ pub(crate) enum Output {
     FinishTwoPhaseCommit,
 }
 
-#[derive(Debug)]
-pub enum TermScreenError {
-    DisconnectedChangeChain,
-    TermInEdit,
-}
-
 mod edit_button;
 mod placeholder;
 mod points_in_time;
@@ -148,7 +142,7 @@ impl TermScreen {
                     two_phase_commit.approve_all(&term_name);
                 }
             } else if two_phase_commit.is_initiator() {
-                let mut commit_button = egui::Button::new("Finish commit");
+                let commit_button = egui::Button::new("Finish commit");
 
                 if two_phase_commit.waiting_for().len() == 0 {
                     let approved_by = two_phase_commit

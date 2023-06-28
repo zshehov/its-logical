@@ -2,10 +2,7 @@ use egui::RichText;
 
 use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
 
-use super::{
-    term_screen_pit::{self, TermScreenPIT},
-    TermScreenError,
-};
+use super::term_screen_pit::{self, TermScreenPIT};
 
 enum ChangeSource {
     Internal,
@@ -38,7 +35,7 @@ impl PointsInTime {
         }
     }
 
-    pub(crate) fn push_pit(&mut self, term: &FatTerm, source: &str) -> Result<(), TermScreenError> {
+    pub(crate) fn push_pit(&mut self, term: &FatTerm, source: &str) {
         if source == self.points_in_time.last().unwrap_or(&self.original).name() {
             self.pit_info.push(ChangeSource::Internal);
         } else {
@@ -48,8 +45,6 @@ impl PointsInTime {
 
         self.points_in_time
             .push(term_screen_pit::TermScreenPIT::new(term));
-
-        Ok(())
     }
 
     pub(crate) fn iter_change_sources<'a>(&'a self) -> impl ExactSizeIterator<Item = String> + 'a {

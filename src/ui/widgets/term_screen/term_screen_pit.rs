@@ -22,6 +22,7 @@ pub(crate) enum TermChange {
     RuleChanges,
 }
 
+// Term respresentation that is convenient to use in the TermScreenPIT
 struct Term {
     meta: NameDescription,
     rules: DragAndDrop<Rule>,
@@ -34,7 +35,9 @@ pub(crate) struct TermScreenPIT {
     original_term_name: String,
     term: Term,
     fact_placeholder: placeholder::FactPlaceholder,
+    fact_editing: Option<placeholder::FactPlaceholder>,
     rule_placeholder: placeholder::RulePlaceholder,
+    rule_editing: Option<placeholder::RulePlaceholder>,
     arg_placeholder: NameDescription,
     arg_rename: bool,
     description_change: bool,
@@ -56,11 +59,13 @@ impl TermScreenPIT {
         Self {
             term,
             original_term_name: original_name,
-            fact_placeholder: placeholder::FactPlaceholder::new(),
+            fact_placeholder: placeholder::FactPlaceholder::new(&[]),
             rule_placeholder: placeholder::RulePlaceholder::new(),
             arg_placeholder: NameDescription::new("", ""),
             arg_rename: false,
             description_change: false,
+            fact_editing: None,
+            rule_editing: None,
         }
     }
 
@@ -103,11 +108,11 @@ impl TermScreenPIT {
         }
 
         self.rule_placeholder = placeholder::RulePlaceholder::new();
-        self.fact_placeholder = placeholder::FactPlaceholder::new();
+        self.fact_placeholder = placeholder::FactPlaceholder::new(&[]);
         self.arg_placeholder = NameDescription::new("", "");
 
         if changes.len() > 0 {
-            let updated_term: FatTerm = (&self.term).into();
+            let updated_term = self.extract_term();
 
             let mut original_name = self.term.meta.name.clone();
             if self.original_term_name == "" {
@@ -227,17 +232,49 @@ impl TermScreenPIT {
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
                         ui.label(RichText::new("Facts").small().italics());
+                        let mut idx = 0;
+                        let mut edited_fact = None;
                         self.term.facts.show(ui, |f, ui| {
                             let arguments_string: String = f.binding.join(", ");
                             ui.label(format!("{} ( {} )", &self.term.meta.name, arguments_string));
+
+                            if edit_mode && self.fact_editing.is_none() {
+                                if ui.small_button(RichText::new("🖊").monospace()).clicked() {
+                                    edited_fact = Some(idx);
+                                }
+                            }
+                            idx += 1;
                         });
 
                         if edit_mode {
+                            if let Some(edited_fact_idx) = edited_fact {
+                                let fact_for_edit = self.term.facts.remove(edited_fact_idx);
+                                self.fact_editing =
+                                    Some(placeholder::FactPlaceholder::new(&fact_for_edit.binding));
+                            }
+                            let mut finished_fact_editing = false;
+                            if let Some(fact_editing) = &mut self.fact_editing {
+                                ui.horizontal(|ui| {
+                                    if let Some(edited_fact) = fact_editing.show(
+                                        ui,
+                                        &self.term.meta.name,
+                                        self.term.arguments.iter(),
+                                        "✔",
+                                    ) {
+                                        self.term.facts.push(edited_fact);
+                                        finished_fact_editing = true;
+                                    }
+                                });
+                            }
+                            if finished_fact_editing {
+                                self.fact_editing = None;
+                            }
                             ui.horizontal(|ui| {
                                 if let Some(new_fact_binding) = self.fact_placeholder.show(
                                     ui,
                                     &self.term.meta.name,
                                     self.term.arguments.iter(),
+                                    "Add fact",
                                 ) {
                                     self.term.facts.push(new_fact_binding);
                                 }
@@ -261,6 +298,8 @@ impl TermScreenPIT {
                     egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                     |ui| {
                         ui.label(RichText::new("Rules").small().italics());
+                        let mut idx = 0;
+                        let mut edited_rule = None;
                         self.term.rules.show(ui, |r, ui| {
                             let arguments_string: String = r.arg_bindings.binding.join(", ");
 
@@ -281,15 +320,46 @@ impl TermScreenPIT {
                                 arguments_string,
                                 body_strings.join(", ")
                             ));
+
+                            if edit_mode && self.rule_editing.is_none() {
+                                if ui.small_button(RichText::new("🖊").monospace()).clicked() {
+                                    edited_rule = Some(idx);
+                                }
+                            }
+                            idx += 1;
                         });
 
                         if edit_mode {
+                            if let Some(edited_rule_idx) = edited_rule {
+                                let rule_for_edit = self.term.rules.remove(edited_rule_idx);
+                                self.rule_editing = Some(rule_for_edit.into());
+                            }
+                            let mut finished_rule_editing = false;
+                            if let Some(rule_editing) = &mut self.rule_editing {
+                                ui.horizontal(|ui| {
+                                    if let Some(edited_rule) = rule_editing.show(
+                                        ui,
+                                        &self.term.meta.name,
+                                        terms_knowledge_base,
+                                        self.term.arguments.iter(),
+                                        "✔",
+                                    ) {
+                                        self.term.rules.push(edited_rule);
+                                        finished_rule_editing = true;
+                                    }
+                                });
+                            }
+                            if finished_rule_editing {
+                                self.rule_editing = None;
+                            }
+
                             ui.horizontal(|ui| {
                                 if let Some(new_rule) = self.rule_placeholder.show(
                                     ui,
                                     &self.term.meta.name,
                                     terms_knowledge_base,
                                     self.term.arguments.iter(),
+                                    "Add rule",
                                 ) {
                                     self.term.rules.push(new_rule);
                                 }

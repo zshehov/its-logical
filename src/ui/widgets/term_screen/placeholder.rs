@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use egui::RichText;
 
 use crate::{
     model::{
@@ -14,8 +14,10 @@ struct HeadPlaceholder {
 }
 
 impl HeadPlaceholder {
-    fn new() -> Self {
-        Self { binding: vec![] }
+    fn new(args: &[String]) -> Self {
+        Self {
+            binding: args.to_vec(),
+        }
     }
 
     fn show<'a>(
@@ -52,9 +54,9 @@ pub(crate) struct FactPlaceholder {
 }
 
 impl FactPlaceholder {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(args: &[String]) -> Self {
         Self {
-            head: HeadPlaceholder::new(),
+            head: HeadPlaceholder::new(args),
         }
     }
     pub(crate) fn show<'a>(
@@ -62,10 +64,14 @@ impl FactPlaceholder {
         ui: &mut egui::Ui,
         term_name: &str,
         template: impl ExactSizeIterator<Item = &'a NameDescription>,
+        finish_button_text: &str,
     ) -> Option<ArgsBinding> {
         self.head.show(ui, term_name, template);
-        if ui.small_button("+").clicked() {
-            let mut empty_fact_placeholder = FactPlaceholder::new();
+        if ui
+            .small_button(RichText::new(finish_button_text).monospace())
+            .clicked()
+        {
+            let mut empty_fact_placeholder = FactPlaceholder::new(&[]);
             // reset the placeholder
             std::mem::swap(&mut empty_fact_placeholder, self);
 
@@ -80,16 +86,14 @@ impl FactPlaceholder {
 pub(crate) struct RulePlaceholder {
     head: HeadPlaceholder,
     body: DragAndDrop<(String, Vec<String>)>,
-    external_terms: HashSet<String>,
 }
 
 impl RulePlaceholder {
     pub(crate) fn new() -> Self {
         Self {
-            head: HeadPlaceholder::new(),
+            head: HeadPlaceholder::new(&[]),
             body: DragAndDrop::new(vec![("".to_string(), vec![])])
                 .with_create_item(Box::new(|| ("".to_string(), vec![]))),
-            external_terms: HashSet::new(),
         }
     }
     pub(crate) fn show<'a, T: TermsKnowledgeBase>(
@@ -98,6 +102,7 @@ impl RulePlaceholder {
         term_name: &str,
         terms_knowledge_base: &T,
         template: impl ExactSizeIterator<Item = &'a NameDescription>,
+        finish_button_text: &str,
     ) -> Option<Rule> {
         self.head.show(ui, term_name, template);
         ui.label(egui::RichText::new("if").weak());
@@ -135,11 +140,11 @@ impl RulePlaceholder {
                 ui.label(egui::RichText::new(")").weak());
             });
         });
-        if let Some(term_added_to_body) = term_added_to_body {
-            self.external_terms.insert(term_added_to_body);
-        }
 
-        if ui.small_button("add rule").clicked() {
+        if ui
+            .small_button(egui::RichText::new(finish_button_text).monospace())
+            .clicked()
+        {
             let mut empty_rule_placeholder = RulePlaceholder::new();
 
             // reset the rule placeholder
@@ -180,6 +185,26 @@ impl From<RulePlaceholder> for Rule {
         Rule {
             arg_bindings: crate::model::term::args_binding::ArgsBinding {
                 binding: head_binding.binding,
+            },
+            body: body_bindings,
+        }
+    }
+}
+impl From<Rule> for RulePlaceholder {
+    fn from(rule: Rule) -> Self {
+        let body_bindings = DragAndDrop::new(
+            rule.body
+                .into_iter()
+                .map(|bound_term| {
+                    let BoundTerm { name, arg_bindings } = bound_term;
+                    (name, arg_bindings.binding)
+                })
+                .collect(),
+        );
+
+        RulePlaceholder {
+            head: HeadPlaceholder {
+                binding: rule.arg_bindings.binding,
             },
             body: body_bindings,
         }
