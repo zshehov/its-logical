@@ -144,6 +144,7 @@ pub(crate) fn apply_deletion(
                 rule.body
                     .retain(|body_term| body_term.name != deleted_term.meta.term.name);
             }
+            term.term.rules.retain(|rule| !rule.body.is_empty());
         }
     }
     terms_cache.all_terms()
