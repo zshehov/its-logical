@@ -1,10 +1,10 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use egui::Context;
 use tracing::debug;
 
 use crate::{
-    changes::{self, propagation::terms_filter::TermsFilter, ArgsChange},
+    changes::{self, ArgsChange},
     model::{comment::name_description::NameDescription, fat_term::FatTerm},
     term_knowledge_base::TermsKnowledgeBase,
     ui::widgets::term_screen::{
@@ -73,7 +73,10 @@ where
                             let original_term = term_screen.get_pits().original().extract_term();
                             self.handle_term_screen_changes(&original_term, &changes, updated_term);
                         }
-                        term_screen::Output::Deleted(_) => todo!(),
+                        term_screen::Output::Deleted(_) => {
+                            let deleted_term = term_screen.get_pits().original().extract_term();
+                            self.handle_term_deletion(&deleted_term);
+                        }
                         term_screen::Output::FinishTwoPhaseCommit => {
                             let two_phase_commit =
                                 Rc::clone(term_screen.two_phase_commit.as_mut().unwrap());
@@ -159,7 +162,21 @@ where
         updated_term: &FatTerm,
         affected: &[String],
     ) {
-        debug!("Changes need confirmation");
+        let mut opened_affected_term_screens =
+            self.handle_with_confirmation(original_term, affected);
+        Self::push_updated_loaded_terms(
+            original_term,
+            arg_changes,
+            updated_term,
+            &mut opened_affected_term_screens,
+        );
+    }
+    fn handle_with_confirmation(
+        &mut self,
+        original_term: &FatTerm,
+        affected: &[String],
+    ) -> OpenedTermScreens<'_> {
+        debug!("Need confirmation");
 
         let two_phase_commit = Rc::clone(
             self.term_tabs
@@ -182,15 +199,8 @@ where
                 affected,
             )
             .unwrap();
-
-        Self::push_updated_loaded_terms(
-            original_term,
-            arg_changes,
-            updated_term,
-            &mut opened_affected_term_screens,
-        );
-
         Self::adjust_two_phase_commits(&two_phase_commit, &mut opened_affected_term_screens);
+        opened_affected_term_screens
     }
 
     fn adjust_two_phase_commits(
@@ -219,34 +229,43 @@ where
         loaded_term_screens: &mut OpenedTermScreens<'_>,
     ) {
         let term_name = original_term.meta.term.name.clone();
-        let mut all_updates = {
-            let mut terms_cache =
-                changes::propagation::terms_filter::with_terms_cache(loaded_term_screens);
+        let mut all_updates = changes::propagation::apply(
+            &original_term,
+            &arg_changes,
+            &updated_term,
+            loaded_term_screens,
+        );
 
-            changes::propagation::apply(
-                &original_term,
-                &arg_changes,
-                &updated_term,
-                &mut terms_cache,
-            );
-            terms_cache.all_terms()
-        };
         all_updates.insert(
             original_term.meta.term.name.clone(),
             updated_term.to_owned(),
         );
+        Self::push_updated_pits(all_updates, &term_name, loaded_term_screens);
+    }
 
-        for opened_affected in loaded_term_screens
+    fn push_updated_with_deletion_loaded_terms(
+        original_term: &FatTerm,
+        loaded_term_screens: &mut OpenedTermScreens<'_>,
+    ) {
+        let term_name = original_term.meta.term.name.clone();
+        let all_updates = changes::propagation::apply_deletion(&original_term, loaded_term_screens);
+        Self::push_updated_pits(all_updates, &term_name, loaded_term_screens);
+    }
+
+    fn push_updated_pits(
+        updates: HashMap<String, FatTerm>,
+        update_source: &str,
+        loaded_term_screens: &mut OpenedTermScreens<'_>,
+    ) {
+        for loaded in loaded_term_screens
             .affected
             .iter_mut()
             .chain(std::iter::once(&mut loaded_term_screens.initiator))
         {
-            let affected_name = opened_affected.name();
-            opened_affected
-                .get_pits_mut()
-                .0
-                .push_pit(&all_updates.get(&affected_name).unwrap(), &term_name);
-            opened_affected.choose_pit(opened_affected.get_pits().len() - 1);
+            if let Some(updated) = updates.get(&loaded.name()) {
+                loaded.get_pits_mut().0.push_pit(&updated, update_source);
+                loaded.choose_pit(loaded.get_pits().len() - 1);
+            }
         }
     }
 
@@ -293,42 +312,25 @@ where
         })
     }
 
-    fn handle_automatic_change_propagation(
+    fn automatic_update_loaded_affected(
         &mut self,
-        original_term: &FatTerm,
-        arg_changes: &[ArgsChange],
-        updated_term: &FatTerm,
         affected: &[String],
+        update_pit: impl Fn(&mut TermScreenPIT),
     ) {
-        let term_name = original_term.meta.term.name.clone();
-        /*
-        if let Some(two_phase_commit) = &mut original_term_screen.two_phase_commit {
-            let all_changes = change_propagator::apply_changes_all(
-                &changes,
-                &original_term,
-                &self.term_tabs,
-            );
-        } else {
-            */
-        debug!("Direct change propagation");
-        // update the persisted terms
-        let all_terms = {
-            let adapter = TermsAdapter::new(&self.terms);
-            let mut lazy_persisted_terms =
-                changes::propagation::terms_filter::with_terms_cache(&adapter);
-            changes::propagation::apply(
-                &original_term,
-                &arg_changes,
-                &updated_term,
-                &mut lazy_persisted_terms,
-            );
-            lazy_persisted_terms.all_terms()
-        };
-
-        for (affected_term_name, affected_updated_term) in all_terms
-            .into_iter()
-            .chain(std::iter::once((term_name.clone(), updated_term.clone())))
-        {
+        for affected_term_name in affected {
+            if let Some(loaded_term_screen) = self.term_tabs.get_mut(&affected_term_name) {
+                debug!("Updating {}", affected_term_name);
+                let (pits, current) = loaded_term_screen.get_pits_mut();
+                pits.iter_mut_pits().for_each(&update_pit);
+                if let Some(current) = current {
+                    update_pit(current);
+                    current.start_changes();
+                }
+            }
+        }
+    }
+    fn automatic_update_persisted_affected(&mut self, updated: HashMap<String, FatTerm>) {
+        for (affected_term_name, affected_updated_term) in updated.into_iter() {
             debug!(
                 "Updating {} {:?}",
                 affected_term_name, affected_updated_term
@@ -337,52 +339,82 @@ where
                 .put(&affected_term_name, affected_updated_term)
                 .expect("writing to persistence layer should not fail");
         }
+    }
+
+    fn handle_automatic_change_propagation(
+        &mut self,
+        original_term: &FatTerm,
+        arg_changes: &[ArgsChange],
+        updated_term: &FatTerm,
+        affected: &[String],
+    ) {
+        let term_name = original_term.meta.term.name.clone();
+        debug!("Direct change propagation");
+        // update the persisted terms
+        let affected_terms = {
+            let adapter = TermsAdapter::new(&self.terms);
+            changes::propagation::apply(&original_term, &arg_changes, &updated_term, &adapter)
+        };
+        // [Thought] Maybe move all these details to changes::propagation as a free-standing func
+        // that just accepts an implementor of Terms trait
+
+        self.automatic_update_persisted_affected(affected_terms);
+        self.terms
+            .put(&term_name, updated_term.to_owned())
+            .expect("writing to persistence layer should not fail");
 
         // update the loaded terms
         let updated_term_tab = self.term_tabs.get_mut(&term_name).unwrap();
         *updated_term_tab = TermScreen::new(&updated_term, false);
 
-        for affected_term_name in affected {
-            if let Some(loaded_term_screen) = self.term_tabs.get_mut(&affected_term_name) {
-                debug!("updating {}", affected_term_name);
-                let (pits, current) = loaded_term_screen.get_pits_mut();
-                for pit in pits.iter_mut_pits() {
-                    let mut with_applied =
-                        changes::propagation::terms_filter::with_single_term(&pit.extract_term());
-                    changes::propagation::apply(
-                        &original_term,
-                        &arg_changes,
-                        &updated_term,
-                        &mut with_applied,
-                    );
-                    let with_applied = with_applied
-                        .all_terms()
-                        .get(affected_term_name)
-                        .unwrap()
-                        .to_owned();
-                    *pit = TermScreenPIT::new(&with_applied);
-                }
-                if let Some(current) = current {
-                    let mut with_applied = changes::propagation::terms_filter::with_single_term(
-                        &current.extract_term(),
-                    );
-                    changes::propagation::apply(
-                        &original_term,
-                        &arg_changes,
-                        &updated_term,
-                        &mut with_applied,
-                    );
-                    let with_applied = with_applied
-                        .all_terms()
-                        .get(&current.name())
-                        .unwrap()
-                        .to_owned();
-                    *current = TermScreenPIT::new(&with_applied);
-                    current.start_changes();
-                }
-            }
-        }
-        //}
+        let update_pit = |pit: &mut TermScreenPIT| {
+            let with_applied = changes::propagation::apply(
+                &original_term,
+                &arg_changes,
+                &updated_term,
+                &SingleTerm {
+                    term: pit.extract_term(),
+                },
+            )
+            .get(&pit.name())
+            .unwrap()
+            .to_owned();
+
+            *pit = TermScreenPIT::new(&with_applied);
+        };
+
+        self.automatic_update_loaded_affected(affected, update_pit);
+    }
+
+    fn handle_automatic_delete_propagation(
+        &mut self,
+        original_term: &FatTerm,
+        affected: &[String],
+    ) {
+        let term_name = original_term.meta.term.name.clone();
+        debug!("Direct delete propagation");
+        // update the persisted terms
+        let affected_terms =
+            changes::propagation::apply_deletion(&original_term, &TermsAdapter::new(&self.terms));
+        self.terms.delete(&term_name);
+        self.automatic_update_persisted_affected(affected_terms);
+
+        // update the loaded terms
+        self.term_tabs.close(&term_name);
+        let update_pit = |pit: &mut TermScreenPIT| {
+            *pit = TermScreenPIT::new(
+                changes::propagation::apply_deletion(
+                    &original_term,
+                    &SingleTerm {
+                        term: pit.extract_term(),
+                    },
+                )
+                .get(&pit.name())
+                .unwrap(),
+            );
+        };
+
+        self.automatic_update_loaded_affected(affected, update_pit);
     }
 
     fn handle_finish_commit(
@@ -413,6 +445,22 @@ where
                 self.terms
                     .put(&latest_term.meta.term.name.clone(), latest_term);
             }
+        }
+    }
+
+    fn handle_term_deletion(&mut self, term: &FatTerm) {
+        if !term.meta.referred_by.is_empty() {
+            let mut opened_affected_term_screens = self.handle_with_confirmation(
+                term,
+                &changes::propagation::affected_from_deletion(term),
+            );
+
+            Self::push_updated_with_deletion_loaded_terms(term, &mut opened_affected_term_screens);
+        } else {
+            self.handle_automatic_delete_propagation(
+                term,
+                &changes::propagation::affected_from_deletion(term),
+            );
         }
     }
 }
@@ -455,6 +503,20 @@ impl<'a, T: TermsKnowledgeBase> TermsAdapter<'a, T> {
 impl<'a, T: TermsKnowledgeBase> changes::propagation::Terms for TermsAdapter<'a, T> {
     fn get(&self, term_name: &str) -> Option<crate::model::fat_term::FatTerm> {
         self.incoming.get(term_name)
+    }
+}
+
+struct SingleTerm {
+    term: FatTerm,
+}
+
+impl changes::propagation::Terms for SingleTerm {
+    fn get(&self, term_name: &str) -> Option<FatTerm> {
+        if term_name == self.term.meta.term.name {
+            Some(self.term.clone())
+        } else {
+            None
+        }
     }
 }
 

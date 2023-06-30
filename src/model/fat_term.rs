@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use nom::{error::VerboseError, IResult};
 
 use super::{
@@ -51,6 +53,17 @@ impl FatTerm {
             return true;
         }
         return false;
+    }
+
+    pub(crate) fn mentioned_terms(&self) -> HashSet<String> {
+        let mut mentioned_terms = HashSet::<String>::new();
+
+        for rule in self.term.rules.iter() {
+            for body_term in &rule.body {
+                mentioned_terms.insert(body_term.name.clone());
+            }
+        }
+        mentioned_terms
     }
 }
 

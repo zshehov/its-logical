@@ -57,9 +57,7 @@ impl PointsInTime {
         })
     }
 
-    pub(crate) fn iter_mut_pits<'a>(
-        &'a mut self,
-    ) -> impl Iterator<Item = &'a mut TermScreenPIT> + 'a {
+    pub(crate) fn iter_mut_pits(&mut self) -> impl Iterator<Item = &mut TermScreenPIT> {
         std::iter::once(&mut self.original).chain(self.points_in_time.iter_mut())
     }
 

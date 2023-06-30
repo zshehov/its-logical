@@ -1,10 +1,12 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use crate::model::{fat_term::FatTerm, term::args_binding::ArgsBinding};
 
+use self::terms_cache::TermsCache;
+
 use super::ArgsChange;
 
-pub(crate) mod terms_filter;
+mod terms_cache;
 
 pub(crate) trait Terms {
     fn get(&self, term_name: &str) -> Option<FatTerm>;
@@ -42,8 +44,8 @@ pub(crate) fn affected_from_changes(
         affected_terms.append(&mut updated.meta.referred_by.clone());
     }
     if include_mentioned {
-        let old_mentioned = get_mentioned_terms(original);
-        let current_mentioned = get_mentioned_terms(updated);
+        let old_mentioned = original.mentioned_terms();
+        let current_mentioned = updated.mentioned_terms();
 
         affected_terms.append(
             &mut old_mentioned
@@ -59,7 +61,7 @@ pub(crate) fn affected_from_changes(
 pub(crate) fn affected_from_deletion(original: &FatTerm) -> Vec<String> {
     let mut affected_terms = vec![];
     // need to remove the term from all the terms' "referred by" field
-    affected_terms.append(&mut get_mentioned_terms(original).into_iter().collect());
+    affected_terms.append(&mut original.mentioned_terms().into_iter().collect());
     // need to remove the term from all the terms' rules that refer to it
     affected_terms.append(&mut original.meta.referred_by.clone());
     affected_terms
@@ -73,11 +75,13 @@ pub(crate) fn apply(
     original: &FatTerm,
     args_changes: &[ArgsChange],
     updated: &FatTerm,
-    terms: &mut impl terms_filter::TermsFilter,
-) {
+    terms: &impl Terms,
+) -> HashMap<String, FatTerm> {
+    let mut terms_cache = TermsCache::new(terms);
+
     if args_changes.len() > 0 {
         for referred_by_term_name in &updated.meta.referred_by {
-            if let Some(term) = terms.get(referred_by_term_name) {
+            if let Some(term) = terms_cache.get(referred_by_term_name) {
                 apply_args_changes(term, &original.meta.term.name, args_changes);
             }
         }
@@ -85,13 +89,13 @@ pub(crate) fn apply(
 
     let (new, removed) = changes_in_mentioned_terms(original, &updated);
     for term_name_with_removed_mention in &removed {
-        if let Some(term) = terms.get(term_name_with_removed_mention) {
+        if let Some(term) = terms_cache.get(term_name_with_removed_mention) {
             term.remove_referred_by(&original.meta.term.name);
         }
     }
 
     for term_name_with_new_mention in &new {
-        if let Some(term) = terms.get(&term_name_with_new_mention) {
+        if let Some(term) = terms_cache.get(&term_name_with_new_mention) {
             term.add_referred_by(&original.meta.term.name);
         }
     }
@@ -100,14 +104,14 @@ pub(crate) fn apply(
     if original.meta.term.name != updated.meta.term.name {
         for rule in updated.term.rules.iter() {
             for body_term in &rule.body {
-                if let Some(term) = terms.get(&body_term.name) {
+                if let Some(term) = terms_cache.get(&body_term.name) {
                     term.rename_referred_by(&original.meta.term.name, &updated.meta.term.name);
                 }
             }
         }
 
         for referred_by_term_name in &updated.meta.referred_by {
-            if let Some(term) = terms.get(referred_by_term_name) {
+            if let Some(term) = terms_cache.get(referred_by_term_name) {
                 for rule in &mut term.term.rules {
                     for body_term in &mut rule.body {
                         if body_term.name == original.meta.term.name {
@@ -118,57 +122,39 @@ pub(crate) fn apply(
             }
         }
     }
+    terms_cache.all_terms()
 }
 
 pub(crate) fn apply_deletion(
     deleted_term: &FatTerm,
-    terms: &mut impl terms_filter::TermsFilter,
-) -> bool {
+    terms: &impl Terms,
+) -> HashMap<String, FatTerm> {
+    let mut terms_cache = TermsCache::new(terms);
     for rule in deleted_term.term.rules.iter() {
         for body_term in &rule.body {
-            if let Some(term) = terms.get(&body_term.name) {
+            if let Some(term) = terms_cache.get(&body_term.name) {
                 term.remove_referred_by(&deleted_term.meta.term.name);
             }
         }
     }
 
-    let mut removed_from_term_body = false;
     for referred_by_term_name in &deleted_term.meta.referred_by {
-        if let Some(term) = terms.get(&referred_by_term_name) {
+        if let Some(term) = terms_cache.get(&referred_by_term_name) {
             for rule in &mut term.term.rules {
-                let before_removal_body_term_count = rule.body.len();
                 rule.body
                     .retain(|body_term| body_term.name != deleted_term.meta.term.name);
-
-                if rule.body.len() < before_removal_body_term_count {
-                    // A confirmation is needed only if actual removing was done. There is the
-                    // case when the user has already confirmed the deletion and this code path
-                    // does not remove anything.
-                    removed_from_term_body = true;
-                }
             }
         }
     }
-    removed_from_term_body
-}
-
-fn get_mentioned_terms(term: &FatTerm) -> HashSet<String> {
-    let mut mentioned_terms = HashSet::<String>::new();
-
-    for rule in term.term.rules.iter() {
-        for body_term in &rule.body {
-            mentioned_terms.insert(body_term.name.clone());
-        }
-    }
-    mentioned_terms
+    terms_cache.all_terms()
 }
 
 fn changes_in_mentioned_terms(
     original_term: &FatTerm,
     term: &FatTerm,
 ) -> (Vec<String>, Vec<String>) {
-    let old_related_terms = get_mentioned_terms(original_term);
-    let related_terms = get_mentioned_terms(term);
+    let old_related_terms = original_term.mentioned_terms();
+    let related_terms = term.mentioned_terms();
 
     return (
         related_terms
@@ -236,14 +222,19 @@ fn apply_head_arg_changes<'a>(term: &mut FatTerm, changes: &[ArgsChange]) {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use super::{terms_filter::TermsFilter, *};
-    use crate::model::{
-        comment::{comment::Comment, name_description::NameDescription},
-        fat_term::FatTerm,
-        term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule, term::Term},
+    use crate::{
+        changes::{
+            propagation::{affected_from_changes, apply},
+            ArgsChange,
+        },
+        model::{
+            comment::{comment::Comment, name_description::NameDescription},
+            fat_term::FatTerm,
+            term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule, term::Term},
+        },
     };
+
+    use super::Terms;
 
     fn create_related_test_term() -> FatTerm {
         FatTerm::new(
@@ -510,28 +501,22 @@ mod tests {
         assert_eq!(affected, expected);
     }
 
-    struct FakeTermsFilter {
-        terms: HashMap<String, FatTerm>,
+    struct FakeTermHolder {
+        term: FatTerm,
     }
 
-    impl FakeTermsFilter {
+    impl FakeTermHolder {
         fn new(term: &FatTerm) -> Self {
-            Self {
-                terms: HashMap::from([(term.meta.term.name.clone(), term.to_owned())]),
-            }
+            Self { term: term.clone() }
         }
     }
-    impl TermsFilter for FakeTermsFilter {
-        fn get<'a>(&'a mut self, name: &str) -> Option<&'a mut FatTerm> {
-            self.terms.get_mut(name)
-        }
-
-        fn put(&mut self, name: &str, term: &FatTerm) {
-            self.terms.insert(name.to_string(), term.to_owned());
-        }
-
-        fn all_terms(&self) -> HashMap<String, FatTerm> {
-            self.terms.clone()
+    impl Terms for FakeTermHolder {
+        fn get(&self, term_name: &str) -> Option<FatTerm> {
+            if term_name == self.term.meta.term.name {
+                Some(self.term.clone())
+            } else {
+                None
+            }
         }
     }
 
@@ -546,13 +531,15 @@ mod tests {
 
         let arg_change = ArgsChange::Pushed(pushed_arg.name);
 
-        let mut filter = FakeTermsFilter::new(&related_term);
-        apply(&original, &vec![arg_change], &after_change, &mut filter);
-        let result = filter
-            .all_terms()
-            .get(&related_term.meta.term.name)
-            .unwrap()
-            .to_owned();
+        let result = apply(
+            &original,
+            &vec![arg_change],
+            &after_change,
+            &FakeTermHolder::new(&related_term),
+        )
+        .get(&related_term.meta.term.name)
+        .unwrap()
+        .to_owned();
 
         let mut expected = related_term.clone();
         let idx = expected.term.rules[1]
@@ -571,18 +558,15 @@ mod tests {
         let original = after_change.clone();
         after_change.meta.args.swap(1, 0);
 
-        let mut filter = FakeTermsFilter::new(&expected);
-        apply(
+        let result = apply(
             &original,
             &vec![ArgsChange::Moved(vec![1, 0])],
             &after_change,
-            &mut filter,
-        );
-        let result = filter
-            .all_terms()
-            .get(&expected.meta.term.name)
-            .unwrap()
-            .to_owned();
+            &FakeTermHolder::new(&expected),
+        )
+        .get(&expected.meta.term.name)
+        .unwrap()
+        .to_owned();
 
         let idx = expected.term.rules[1]
             .body
@@ -605,18 +589,16 @@ mod tests {
 
         let related_term = create_related_test_term();
 
-        let mut filter = FakeTermsFilter::new(&related_term);
-        apply(
+        let result = apply(
             &original,
             &vec![ArgsChange::Removed(0, "whatever".to_string())],
             &after_change,
-            &mut filter,
-        );
-        let result = filter
-            .all_terms()
-            .get(&related_term.meta.term.name)
-            .unwrap()
-            .to_owned();
+            &FakeTermHolder::new(&related_term),
+        )
+        .get(&related_term.meta.term.name)
+        .unwrap()
+        .to_owned();
+
         let mut expected = related_term.clone();
 
         let idx = expected.term.rules[1]
@@ -638,13 +620,15 @@ mod tests {
         let mentioned = create_mentioned_term();
         assert_eq!(mentioned.meta.referred_by, vec!["test"]);
 
-        let mut filter = FakeTermsFilter::new(&mentioned);
-        apply(&original, &vec![], &after_changes, &mut filter);
-        let result = filter
-            .all_terms()
-            .get(&mentioned.meta.term.name)
-            .unwrap()
-            .to_owned();
+        let result = apply(
+            &original,
+            &vec![],
+            &after_changes,
+            &FakeTermHolder::new(&mentioned),
+        )
+        .get(&mentioned.meta.term.name)
+        .unwrap()
+        .to_owned();
         let mut expected = mentioned;
         expected.meta.referred_by.clear();
 
@@ -661,21 +645,20 @@ mod tests {
         assert_eq!(mentioned.meta.referred_by, vec!["test"]);
         let related = create_related_test_term();
 
-        let mut filter = FakeTermsFilter::new(&mentioned);
-        apply(&original, &vec![], &updated, &mut filter);
-        let changed_mentioned = filter
-            .all_terms()
-            .get(&mentioned.meta.term.name)
-            .unwrap()
-            .to_owned();
+        let changed_mentioned = apply(
+            &original,
+            &vec![],
+            &updated,
+            &FakeTermHolder::new(&mentioned),
+        )
+        .get(&mentioned.meta.term.name)
+        .unwrap()
+        .to_owned();
         let mut expected_changed_mentioned = mentioned;
         expected_changed_mentioned.meta.referred_by = vec![updated.meta.term.name.clone()];
         assert_eq!(changed_mentioned, expected_changed_mentioned);
 
-        let mut filter = FakeTermsFilter::new(&related);
-        apply(&original, &vec![], &updated, &mut filter);
-        let changed_related = filter
-            .all_terms()
+        let changed_related = apply(&original, &vec![], &updated, &FakeTermHolder::new(&related))
             .get(&related.meta.term.name)
             .unwrap()
             .to_owned();
