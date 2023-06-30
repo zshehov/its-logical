@@ -96,6 +96,8 @@ pub(crate) fn handle_deletion(
     }
 }
 
+pub(crate) use with_confirmation::commit::finish as finish_commit;
+
 fn convert_args_changes(input: &[Change<NameDescription>]) -> Vec<changes::ArgsChange> {
     input
         .iter()

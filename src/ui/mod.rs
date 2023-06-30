@@ -4,8 +4,7 @@ use egui::Context;
 use tracing::debug;
 
 use crate::{
-    changes, model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase,
-    ui::widgets::term_screen::TermScreen,
+    changes, term_knowledge_base::TermsKnowledgeBase, ui::widgets::term_screen::TermScreen,
 };
 
 use self::widgets::{
@@ -87,7 +86,12 @@ where
                                 Rc::clone(term_screen.two_phase_commit.as_mut().unwrap());
 
                             let is_deleted = term_screen.in_deletion();
-                            self.handle_finish_commit(is_deleted, two_phase_commit);
+                            changes_handling::finish_commit(
+                                &mut self.term_tabs,
+                                &mut self.terms,
+                                is_deleted,
+                                two_phase_commit,
+                            );
                         }
                     }
                 }
@@ -99,43 +103,4 @@ where
             }
         };
     }
-
-    fn handle_finish_commit(
-        &mut self,
-        is_delete: bool,
-        two_phase_commit: Rc<RefCell<TwoPhaseCommit>>,
-    ) {
-        debug!("finished commit");
-
-        if two_phase_commit.borrow().waiting_for().len() > 0 {
-            debug!("NOT ALL ARE CONFIRMED YET");
-        } else {
-            debug!("ALL ARE CONFIRMED");
-            // TODO: this should be done recursively
-            let mut relevant: Vec<String> = two_phase_commit.borrow().iter_approved().collect();
-            let origin = two_phase_commit.borrow().origin();
-
-            if !is_delete {
-                relevant.push(origin);
-            } else {
-                self.terms.delete(&origin);
-                self.term_tabs.close(&origin);
-            }
-
-            for relevant_term_screen in self.term_tabs.borrow_mut(&relevant) {
-                let latest_term = relevant_term_screen.extract_term();
-                *relevant_term_screen = TermScreen::new(&latest_term, false);
-                self.terms
-                    .put(&latest_term.meta.term.name.clone(), latest_term);
-            }
-        }
-    }
 }
-
-// TODO: this does not need to be public and shouldn't be here
-impl changes::propagation::Terms for Tabs {
-    fn get(&self, term_name: &str) -> Option<crate::model::fat_term::FatTerm> {
-        self.get(term_name).and_then(|t| Some(t.extract_term()))
-    }
-}
-

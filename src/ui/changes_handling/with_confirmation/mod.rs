@@ -12,6 +12,7 @@ use super::OpenedTermScreens;
 
 pub(crate) mod change;
 pub(crate) mod deletion;
+pub(crate) mod commit;
 
 fn setup_with_confirmation<'a>(
     tabs: &'a mut Tabs,
