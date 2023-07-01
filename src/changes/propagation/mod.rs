@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::model::{
     fat_term::FatTerm,
-    term::{args_binding::ArgsBinding, rule::Rule},
+    term::{args_binding::ArgsBinding},
 };
 
 use self::terms_cache::TermsCache;

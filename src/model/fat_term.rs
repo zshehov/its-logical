@@ -8,7 +8,6 @@ use super::{
         name_description::NameDescription,
     },
     term::{
-        args_binding::ArgsBinding,
         term::{parse_term, Term},
     },
 };
