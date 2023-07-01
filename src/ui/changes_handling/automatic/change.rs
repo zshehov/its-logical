@@ -21,22 +21,22 @@ pub(crate) fn propagate(
     let term_name = original_term.meta.term.name.clone();
     debug!("Direct change propagation");
     let mut affected_terms = changes::propagation::apply(
-        &original_term,
-        &arg_changes,
-        &updated_term,
+        original_term,
+        arg_changes,
+        updated_term,
         &super::TermsAdapter::new(terms),
     );
     affected_terms.insert(term_name.clone(), updated_term.to_owned());
     super::update_persisted(terms, affected_terms);
 
     let updated_term_tab = tabs.get_mut(&term_name).unwrap();
-    *updated_term_tab = TermScreen::new(&updated_term, false);
+    *updated_term_tab = TermScreen::new(updated_term, false);
 
     let update_pit = |pit: &mut TermScreenPIT| {
         let with_applied = changes::propagation::apply(
-            &original_term,
-            &arg_changes,
-            &updated_term,
+            original_term,
+            arg_changes,
+            updated_term,
             &super::SingleTerm {
                 term: pit.extract_term(),
             },

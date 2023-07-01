@@ -94,17 +94,17 @@ impl TermScreenPIT {
             self.description_change = false;
         }
         let facts_changes = self.term.facts.lock();
-        if facts_changes.len() > 0 {
+        if !facts_changes.is_empty() {
             changes.push(TermChange::FactsChange);
         }
 
         let argument_changes = self.term.arguments.lock();
-        if argument_changes.len() > 0 {
+        if !argument_changes.is_empty() {
             changes.push(TermChange::ArgChanges(argument_changes));
         }
 
         let rules_changes = self.term.rules.lock();
-        if rules_changes.len() > 0 {
+        if !rules_changes.is_empty() {
             changes.push(TermChange::RuleChanges);
         }
 
@@ -112,11 +112,11 @@ impl TermScreenPIT {
         self.fact_placeholder = placeholder::FactPlaceholder::new(&[]);
         self.arg_placeholder = NameDescription::new("", "");
 
-        if changes.len() > 0 {
+        if !changes.is_empty() {
             let updated_term = self.extract_term();
 
             let mut original_name = self.term.meta.name.clone();
-            if self.original_term_name == "" {
+            if self.original_term_name.is_empty() {
                 // maybe the "new term" case can be handled more gracefully than this
                 // if
                 self.original_term_name = self.term.meta.name.clone();
@@ -249,10 +249,8 @@ impl TermScreenPIT {
                             let arguments_string: String = f.binding.join(", ");
                             ui.label(format!("{} ( {} )", &self.term.meta.name, arguments_string));
 
-                            if edit_mode && self.fact_editing.is_none() {
-                                if ui.small_button(RichText::new("🖊").monospace()).clicked() {
-                                    edited_fact = Some(idx);
-                                }
+                            if edit_mode && self.fact_editing.is_none() && ui.small_button(RichText::new("🖊").monospace()).clicked() {
+                                edited_fact = Some(idx);
                             }
                             idx += 1;
                         });
@@ -321,7 +319,7 @@ impl TermScreenPIT {
                                     let arguments_string: String =
                                         c.arg_bindings.binding.join(", ");
 
-                                    return format!("{} ( {} )", c.name, arguments_string);
+                                    format!("{} ( {} )", c.name, arguments_string)
                                 })
                                 .collect();
 
@@ -332,10 +330,8 @@ impl TermScreenPIT {
                                 body_strings.join(", ")
                             ));
 
-                            if edit_mode && self.rule_editing.is_none() {
-                                if ui.small_button(RichText::new("🖊").monospace()).clicked() {
-                                    edited_rule = Some(idx);
-                                }
+                            if edit_mode && self.rule_editing.is_none() && ui.small_button(RichText::new("🖊").monospace()).clicked() {
+                                edited_rule = Some(idx);
                             }
                             idx += 1;
                         });

@@ -16,7 +16,7 @@ pub(crate) fn propagate(
     let term_name = original_term.meta.term.name.clone();
     debug!("Direct delete propagation");
     let affected_terms =
-        changes::propagation::apply_deletion(&original_term, &super::TermsAdapter::new(terms));
+        changes::propagation::apply_deletion(original_term, &super::TermsAdapter::new(terms));
     super::update_persisted(terms, affected_terms);
     terms.delete(&term_name);
 
@@ -24,7 +24,7 @@ pub(crate) fn propagate(
     let update_pit = |pit: &mut TermScreenPIT| {
         *pit = TermScreenPIT::new(
             changes::propagation::apply_deletion(
-                &original_term,
+                original_term,
                 &super::SingleTerm {
                     term: pit.extract_term(),
                 },

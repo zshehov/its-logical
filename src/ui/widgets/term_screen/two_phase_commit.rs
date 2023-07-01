@@ -24,7 +24,7 @@ impl TwoPhaseCommit {
     }
 
     pub(crate) fn is_being_waited(&self) -> bool {
-        self.awaiting_approval.len() > 0
+        !self.awaiting_approval.is_empty()
     }
 
     pub(crate) fn approve_all(&mut self, name: &str) {

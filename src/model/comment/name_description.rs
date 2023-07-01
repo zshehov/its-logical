@@ -23,7 +23,7 @@ impl NameDescription {
         let mut encoded = String::with_capacity(self.name.len() + 1 + self.desc.len());
 
         encoded.push_str(&self.name);
-        encoded.push_str(" ");
+        encoded.push(' ');
         encoded.push_str(&self.desc);
         encoded
     }

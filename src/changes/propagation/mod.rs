@@ -33,13 +33,13 @@ pub(crate) fn affected_from_changes(
         // all mentioned are already included so there's no need to figure out
         // new and old
     } else {
-        let (mut new, mut removed) = changes_in_mentioned_terms(original, &updated);
+        let (mut new, mut removed) = changes_in_mentioned_terms(original, updated);
 
         affected_terms.append(&mut new);
         affected_terms.append(&mut removed);
     }
 
-    if args_changes.len() > 0 {
+    if !args_changes.is_empty() {
         include_referred_by = true;
     }
 
@@ -53,7 +53,6 @@ pub(crate) fn affected_from_changes(
         affected_terms.append(
             &mut old_mentioned
                 .union(&current_mentioned)
-                .into_iter()
                 .cloned()
                 .collect(),
         );
@@ -78,7 +77,7 @@ pub(crate) fn apply(
 ) -> HashMap<String, FatTerm> {
     let mut terms_cache = TermsCache::new(terms);
 
-    if args_changes.len() > 0 {
+    if !args_changes.is_empty() {
         for referred_by_term_name in &updated.meta.referred_by {
             if let Some(term) = terms_cache.get(referred_by_term_name) {
                 apply_args_changes(term, &original.meta.term.name, args_changes);
@@ -86,7 +85,7 @@ pub(crate) fn apply(
         }
     }
 
-    let (new, removed) = changes_in_mentioned_terms(original, &updated);
+    let (new, removed) = changes_in_mentioned_terms(original, updated);
     for term_name_with_removed_mention in &removed {
         if let Some(term) = terms_cache.get(term_name_with_removed_mention) {
             term.remove_referred_by(&original.meta.term.name);
@@ -94,7 +93,7 @@ pub(crate) fn apply(
     }
 
     for term_name_with_new_mention in &new {
-        if let Some(term) = terms_cache.get(&term_name_with_new_mention) {
+        if let Some(term) = terms_cache.get(term_name_with_new_mention) {
             term.add_referred_by(&original.meta.term.name);
         }
     }
@@ -138,7 +137,7 @@ pub(crate) fn apply_deletion(
     }
 
     for referred_by_term_name in &deleted_term.meta.referred_by {
-        if let Some(term) = terms_cache.get(&referred_by_term_name) {
+        if let Some(term) = terms_cache.get(referred_by_term_name) {
             for rule in &mut term.term.rules {
                 rule.body
                     .retain(|body_term| body_term.name != deleted_term.meta.term.name);
@@ -159,12 +158,10 @@ fn changes_in_mentioned_terms(
     return (
         related_terms
             .difference(&old_related_terms)
-            .into_iter()
             .cloned()
             .collect(),
         old_related_terms
             .difference(&related_terms)
-            .into_iter()
             .cloned()
             .collect(),
     );

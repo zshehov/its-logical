@@ -101,7 +101,7 @@ impl TermScreen {
                 return false;
             }
         }
-        return true;
+        true
     }
 
     pub(crate) fn name(&self) -> String {

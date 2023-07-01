@@ -68,8 +68,7 @@ impl PointsInTime {
         let accumulated_args_changes = self
             .pit_info
             .iter()
-            .map(|(_, args_changes)| args_changes)
-            .flatten()
+            .flat_map(|(_, args_changes)| args_changes)
             .cloned()
             .collect();
         return (

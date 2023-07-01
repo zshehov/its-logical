@@ -49,12 +49,10 @@ impl Tabs {
                         ChoseTabInternal::Term(idx),
                         if term.name() == "" {
                             "untitled".to_string()
+                        } else if term.in_edit() {
+                            term.name() + "*"
                         } else {
-                            if term.in_edit() {
-                                term.name() + "*"
-                            } else {
-                                term.name()
-                            }
+                            term.name()
                         },
                     )
                     .secondary_clicked()
@@ -96,7 +94,7 @@ impl Tabs {
             .iter()
             .any(|screen| screen.name() == term_name)
         {
-            self.push(&terms.get(&term_name).unwrap().clone());
+            self.push(&terms.get(term_name).unwrap());
         }
         self.select(term_name);
     }

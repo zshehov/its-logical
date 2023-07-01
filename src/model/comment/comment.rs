@@ -33,7 +33,7 @@ impl Comment {
         }
 
         encoded.push_str("% @see ");
-        encoded.push_str(&self.referred_by.join(",").to_string());
+        encoded.push_str(&self.referred_by.join(","));
         encoded.push_str(NEWLINE);
         encoded
     }

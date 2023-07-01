@@ -35,7 +35,7 @@ impl FatTerm {
             self.meta.referred_by.push(term_name.to_owned());
             return true;
         }
-        return false;
+        false
     }
 
     pub(crate) fn remove_referred_by(&mut self, term_name: &str) -> bool {
@@ -43,7 +43,7 @@ impl FatTerm {
             self.meta.referred_by.remove(idx);
             return true;
         }
-        return false;
+        false
     }
 
     pub(crate) fn rename_referred_by(&mut self, from: &str, to: &str) -> bool {
@@ -51,7 +51,7 @@ impl FatTerm {
             *self.meta.referred_by.get_mut(idx).unwrap() = to.to_owned();
             return true;
         }
-        return false;
+        false
     }
 
     pub(crate) fn mentioned_terms(&self) -> HashSet<String> {

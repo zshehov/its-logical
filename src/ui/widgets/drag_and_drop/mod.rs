@@ -41,7 +41,7 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
 
     pub(crate) fn lock(&mut self) -> Vec<Change<T>> {
         self.active = false;
-        return self.items.get_current_changes();
+        self.items.get_current_changes()
     }
 
     pub(crate) fn len(&self) -> usize {

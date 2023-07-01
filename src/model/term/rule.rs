@@ -23,12 +23,12 @@ pub(crate) fn parse_rule<'a>(i: &'a str) -> IResult<&'a str, Rule, VerboseError<
     )(i);
 
     raw_rule.map(|(leftover, (head, body))| {
-        return (
+        (
             leftover,
             Rule {
                 arg_bindings: head.arg_bindings,
                 body,
             },
-        );
+        )
     })
 }

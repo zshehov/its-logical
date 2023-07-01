@@ -63,7 +63,7 @@ impl TermsKnowledgeBase for InMemoryTerms {
     }
 
     fn keys(&self) -> &Vec<String> {
-        return &self.vec;
+        &self.vec
     }
 }
 
@@ -125,10 +125,7 @@ impl PersistentMemoryTerms {
         };
 
         // TODO: use drain_filter when it's stable
-        descriptor_vec = descriptor_vec
-            .into_iter()
-            .filter(|x| !x.is_deleted)
-            .collect();
+        descriptor_vec.retain(|x| !x.is_deleted);
 
         let mut index = HashMap::new();
         for (entry_idx, entry) in descriptor_vec.iter().enumerate() {
@@ -230,7 +227,7 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
     }
 
     fn keys(&self) -> &Vec<String> {
-        return &self.keys;
+        &self.keys
     }
 
     // delete doesn't delete the descriptor entry for the record - rather it just sets its len to 0

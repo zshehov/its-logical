@@ -17,9 +17,9 @@ pub(crate) fn propagate(
         super::setup_confirmation(term_tabs, terms, original_term, affected);
 
     let updates = changes::propagation::apply(
-        &original_term,
-        &arg_changes,
-        &updated_term,
+        original_term,
+        arg_changes,
+        updated_term,
         &loaded_term_screens,
     );
     let mut updates = super::with_empty_args_changes(updates);

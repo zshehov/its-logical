@@ -30,7 +30,7 @@ fn update_persisted(terms: &mut impl TermsKnowledgeBase, updated: HashMap<String
 /// applies the update_pit fn on each of their Points in time
 fn update_loaded(tabs: &mut Tabs, affected: &[String], update_pit: impl Fn(&mut TermScreenPIT)) {
     for affected_term_name in affected {
-        if let Some(loaded_term_screen) = tabs.get_mut(&affected_term_name) {
+        if let Some(loaded_term_screen) = tabs.get_mut(affected_term_name) {
             debug!("Updating {}", affected_term_name);
             let (pits, current) = loaded_term_screen.get_pits_mut();
             pits.iter_mut_pits().for_each(&update_pit);

@@ -68,7 +68,7 @@ pub(crate) fn add_approvers(
                 false,
             ))))
             .borrow_mut()
-            .add_approval_waiter(Rc::clone(&source_two_phase_commit));
+            .add_approval_waiter(Rc::clone(source_two_phase_commit));
         approvers_names.push(approver.name());
     }
     source_two_phase_commit
@@ -96,8 +96,8 @@ fn validate_two_phase<'a>(
     }
 
     for affected_term_name in affected {
-        if tabs.get(&affected_term_name).is_none() {
-            tabs.push(&terms.get(&affected_term_name).unwrap());
+        if tabs.get(affected_term_name).is_none() {
+            tabs.push(&terms.get(affected_term_name).unwrap());
         }
     }
 
@@ -142,7 +142,7 @@ fn push_updated_pits(
             loaded
                 .get_pits_mut()
                 .0
-                .push_pit(&args_change, &updated, update_source);
+                .push_pit(args_change, updated, update_source);
             loaded.choose_pit(loaded.get_pits().len() - 1);
         }
     }

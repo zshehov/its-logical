@@ -121,7 +121,7 @@ impl RulePlaceholder {
                     // TODO: handle the None here
                     let t = terms_knowledge_base.get(&s.0).unwrap();
                     s.1 = vec!["".to_string(); t.meta.args.len()];
-                    term_added_to_body = Some(t.meta.term.name.to_owned());
+                    term_added_to_body = Some(t.meta.term.name);
                 }
                 let mut added_once = false;
                 ui.label(egui::RichText::new("(").weak());
@@ -169,7 +169,7 @@ impl From<RulePlaceholder> for Rule {
             .iter()
             .filter_map(|(name, args)| {
                 // TODO: maybe do the check that name is not existing here
-                if name == "" {
+                if name.is_empty() {
                     return None;
                 }
 

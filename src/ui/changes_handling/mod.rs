@@ -20,17 +20,17 @@ pub(crate) fn handle_term_screen_changes(
     let original_name = original_term.meta.term.name.clone();
     // only argument changes are tough and need special care
     let arg_changes = term_changes
-        .into_iter()
+        .iter()
         .find_map(|change| {
             if let TermChange::ArgChanges(arg_changes) = change {
-                return Some(arg_changes.into_iter().map(|x| x.into()).collect());
+                return Some(arg_changes.iter().map(|x| x.into()).collect());
             }
             None
         })
         .unwrap_or(vec![]);
 
     let affected =
-        changes::propagation::affected_from_changes(&original_term, &updated_term, &arg_changes);
+        changes::propagation::affected_from_changes(original_term, &updated_term, &arg_changes);
 
     debug!(
         "Changes made for {}. Propagating to: {:?}",
@@ -40,14 +40,14 @@ pub(crate) fn handle_term_screen_changes(
     if
     /* the changes are not worthy of user confirmation */
     arg_changes.is_empty()
-        || /* no other term is affected */ affected.len() == 0
-        || /* a new term */ original_term.meta.term.name == "".to_string()
+        || /* no other term is affected */ affected.is_empty()
+        || /* a new term */ original_term.meta.term.name == *""
     {
         debug!("automatic propagation");
         automatic::change::propagate(
             tabs,
             terms,
-            &original_term,
+            original_term,
             &arg_changes,
             &updated_term,
             &affected,
@@ -131,7 +131,7 @@ fn repeat_ongoing_commit_changes(
             updated_tab
                 .get_pits_mut()
                 .0
-                .push_pit(&vec![], &updated_term, &mentioned_tab.name());
+                .push_pit(&[], &updated_term, &mentioned_tab.name());
 
             // relies on the invariant that there is only ever a single 2phase commit at a time
             with_confirmation::add_approvers(commit, &mut [updated_tab]);

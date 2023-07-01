@@ -16,9 +16,9 @@ impl BoundTerm {
     pub(crate) fn encode(&self) -> String {
         let mut encoded = String::new();
         encoded.push_str(&self.name);
-        encoded.push_str("(");
+        encoded.push('(');
         encoded.push_str(&self.arg_bindings.encode());
-        encoded.push_str(")");
+        encoded.push(')');
         encoded
     }
 }
@@ -34,12 +34,12 @@ pub(crate) fn parse_bound_term<'a>(i: &'a str) -> IResult<&'a str, BoundTerm, Ve
     ))(i);
 
     name_and_args.map(|(leftover, (name, args))| {
-        return (
+        (
             leftover,
             BoundTerm {
                 name: name.to_string(),
                 arg_bindings: args,
             },
-        );
+        )
     })
 }
