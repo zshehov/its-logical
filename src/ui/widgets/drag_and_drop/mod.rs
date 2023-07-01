@@ -52,6 +52,10 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
         self.items.iter()
     }
 
+    pub(crate) fn iter_mut(&mut self) -> std::slice::IterMut<'_, T> {
+        self.items.iter_mut()
+    }
+
     pub(crate) fn remove(&mut self, idx: usize) -> T {
         self.bottoms.pop();
         self.items.remove(idx)
@@ -63,7 +67,12 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
         self.bottoms.push(0.0);
     }
 
-    pub(crate) fn show(&mut self, ui: &mut Ui, mut show_item: impl FnMut(&mut T, &mut Ui)) {
+    pub(crate) fn show(
+        &mut self,
+        ui: &mut Ui,
+        mut show_item: impl FnMut(&mut T, &mut Ui),
+    ) -> Option<Change<T>> {
+        let mut current_change = None;
         let margin = Vec2::splat(4.0);
 
         ui.vertical(|ui| {
@@ -76,9 +85,18 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
             content_ui.vertical(|ui| {
                 match self.active {
                     true => {
-                        self.fix_dragged_item_position(ui);
+                        // TODO: maybe rethink having the moves implemented like that - rather just
+                        // a array of (from, to) pairs
+                        current_change = self.fix_dragged_item_position(ui).map(|single_move| {
+                            let mut moves = Vec::with_capacity(self.items.len());
+                            for idx in 0..self.items.len() {
+                                moves.push(idx);
+                            }
+                            let idx = moves.remove(single_move.0);
+                            moves.insert(single_move.1, idx);
+                            Change::Moved(moves)
+                        });
                         let mut default_item_present = false;
-                        let mut item_for_deletion_idx = None;
                         for (idx, (item, bottom)) in self
                             .items
                             .iter_mut()
@@ -102,7 +120,7 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                                         .response;
                                     show_item(item, ui);
                                     if ui.small_button("-").clicked() {
-                                        item_for_deletion_idx = Some(idx);
+                                        current_change.get_or_insert(Change::Removed(idx));
                                     }
                                     scoped_handle
                                 })
@@ -137,7 +155,7 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                                 }
                             }
                         }
-                        if let Some(item_for_deletion_idx) = item_for_deletion_idx {
+                        if let Some(Change::Removed(item_for_deletion_idx)) = current_change {
                             self.items.remove(item_for_deletion_idx);
                             self.bottoms.pop();
                         }
@@ -147,8 +165,10 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                                 if !default_item_present {
                                     ui.separator();
                                     if ui.button("+").clicked() {
-                                        self.items.push((create_item)());
+                                        let created_item = (create_item)();
+                                        self.items.push(created_item.clone());
                                         self.bottoms.push(0.0);
+                                        current_change = Some(Change::Pushed(created_item));
                                     }
                                 }
                             }
@@ -185,9 +205,10 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                 );
             }
         });
+        current_change
     }
 
-    fn fix_dragged_item_position(&mut self, ui: &mut Ui) {
+    fn fix_dragged_item_position(&mut self, ui: &mut Ui) -> Option<(usize, usize)> {
         let mut dragged_item: Option<usize> = None;
         for (idx, item) in self.items.iter().enumerate() {
             let item_id = Id::new(ID_SOURCE).with(item);
@@ -212,10 +233,12 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
 
                     let dragged_new_idx = min(dragged_new_idx, self.items.len() - 1);
                     if dragged_new_idx != dragged_current_idx {
-                        self.items.move_item(dragged_current_idx, dragged_new_idx)
+                        self.items.move_item(dragged_current_idx, dragged_new_idx);
+                        return Some((dragged_current_idx, dragged_new_idx));
                     }
                 }
             }
         }
+        None
     }
 }

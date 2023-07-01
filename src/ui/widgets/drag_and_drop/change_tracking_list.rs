@@ -1,10 +1,10 @@
 use std::hash::Hash;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub(crate) enum Change<T> {
     Pushed(T),
     Moved(Vec<usize>),
-    Removed(usize, T),
+    Removed(usize),
 }
 
 pub(crate) struct ChangeTrackingVec<T: Clone + Eq + Hash> {
@@ -55,8 +55,7 @@ impl<T: Clone + Eq + Hash> ChangeTrackingVec<T> {
         self.order_changes.remove(idx);
         // order changes before the removal have already been persisted
         self.reset_order();
-        self.current_changes
-            .push(Change::Removed(idx, removed.clone()));
+        self.current_changes.push(Change::Removed(idx));
         removed
     }
 
@@ -137,7 +136,7 @@ fn test_remove() {
     assert_eq!(v.items, vec![1, 3]);
     assert_eq!(v.order_changes.len(), 2);
     assert_eq!(v.current_changes.len(), 1);
-    assert_eq!(v.current_changes[0], Change::Removed(1, 2));
+    assert_eq!(v.current_changes[0], Change::Removed(1));
 }
 
 #[test]
@@ -176,7 +175,7 @@ fn test_remove_after_move() {
     let current_changes = v.get_current_changes();
     assert_eq!(current_changes.len(), 2);
     assert_eq!(current_changes[0], Change::Moved(vec![1, 2, 0]));
-    assert_eq!(current_changes[1], Change::Removed(1, 3));
+    assert_eq!(current_changes[1], Change::Removed(1));
 }
 
 #[test]

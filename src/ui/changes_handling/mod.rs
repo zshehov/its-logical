@@ -1,13 +1,8 @@
 use tracing::debug;
 
-use crate::{
-    changes,
-    model::{comment::name_description::NameDescription, fat_term::FatTerm},
-    term_knowledge_base::TermsKnowledgeBase,
-};
+use crate::{changes, model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
 
 use super::widgets::{
-    drag_and_drop::Change,
     tabs::Tabs,
     term_screen::{term_screen_pit::TermChange, TermScreen},
 };
@@ -20,24 +15,19 @@ pub(crate) fn handle_term_screen_changes(
     terms: &mut impl TermsKnowledgeBase,
     original_term: &FatTerm,
     term_changes: &[TermChange],
-    mut updated_term: FatTerm,
+    updated_term: FatTerm,
 ) {
     let original_name = original_term.meta.term.name.clone();
     // only argument changes are tough and need special care
     let arg_changes = term_changes
-        .iter()
+        .into_iter()
         .find_map(|change| {
             if let TermChange::ArgChanges(arg_changes) = change {
-                return Some(convert_args_changes(&arg_changes));
+                return Some(arg_changes.into_iter().map(|x| x.into()).collect());
             }
             None
         })
         .unwrap_or(vec![]);
-
-    // the user doesn't actually finish the updating due to argument
-    // changes, so this is done here
-    // TODO: this is not idempotent operation
-    changes::propagation::finish_self_term(&mut updated_term, &arg_changes);
 
     let affected =
         changes::propagation::affected_from_changes(&original_term, &updated_term, &arg_changes);
@@ -147,17 +137,6 @@ fn repeat_ongoing_commit_changes(
             with_confirmation::add_approvers(commit, &mut [updated_tab]);
         }
     }
-}
-
-fn convert_args_changes(input: &[Change<NameDescription>]) -> Vec<changes::ArgsChange> {
-    input
-        .iter()
-        .map(|change| match change {
-            Change::Pushed(arg) => changes::ArgsChange::Pushed(arg.name.clone()),
-            Change::Moved(moves) => changes::ArgsChange::Moved(moves.to_owned()),
-            Change::Removed(idx, arg) => changes::ArgsChange::Removed(*idx, arg.name.clone()),
-        })
-        .collect()
 }
 
 pub(crate) struct OpenedTermScreens<'a> {

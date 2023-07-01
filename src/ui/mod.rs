@@ -1,15 +1,12 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 use egui::Context;
-use tracing::debug;
 
-use crate::{
-    changes, term_knowledge_base::TermsKnowledgeBase, ui::widgets::term_screen::TermScreen,
-};
+use crate::term_knowledge_base::TermsKnowledgeBase;
 
 use self::widgets::{
     tabs::{ChosenTab, Tabs},
-    term_screen::{self, two_phase_commit::TwoPhaseCommit},
+    term_screen,
 };
 
 mod changes_handling;

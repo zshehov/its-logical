@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::model::{fat_term::FatTerm, term::args_binding::ArgsBinding};
+use crate::model::{
+    fat_term::FatTerm,
+    term::{args_binding::ArgsBinding, rule::Rule},
+};
 
 use self::terms_cache::TermsCache;
 
@@ -65,10 +68,6 @@ pub(crate) fn affected_from_deletion(original: &FatTerm) -> Vec<String> {
     // need to remove the term from all the terms' rules that refer to it
     affected_terms.append(&mut original.meta.referred_by.clone());
     affected_terms
-}
-
-pub(crate) fn finish_self_term(term: &mut FatTerm, args_changes: &[ArgsChange]) {
-    apply_head_arg_changes(term, args_changes);
 }
 
 pub(crate) fn apply(
@@ -183,7 +182,10 @@ fn apply_args_changes<'a>(term: &mut FatTerm, term_with_arg_change: &str, change
     }
 }
 
-fn apply_binding_change(change: &ArgsChange, binding: &mut ArgsBinding) -> Option<String> {
+pub(crate) fn apply_binding_change(
+    change: &ArgsChange,
+    binding: &mut ArgsBinding,
+) -> Option<String> {
     match change {
         ArgsChange::Pushed(_) => binding.binding.push("_".to_string()),
         ArgsChange::Moved(moves) => {
@@ -194,31 +196,9 @@ fn apply_binding_change(change: &ArgsChange, binding: &mut ArgsBinding) -> Optio
             }
             binding.binding = projected;
         }
-        ArgsChange::Removed(removed_idx, _) => return Some(binding.binding.remove(*removed_idx)),
+        ArgsChange::Removed(removed_idx) => return Some(binding.binding.remove(*removed_idx)),
     }
     None
-}
-
-fn apply_head_arg_changes<'a>(term: &mut FatTerm, changes: &[ArgsChange]) {
-    for change in changes {
-        for rule in &mut term.term.rules {
-            let removed_arg = apply_binding_change(change, &mut rule.arg_bindings);
-
-            if let Some(removed_arg) = removed_arg {
-                for body_term in &mut rule.body {
-                    for bound_arg in &mut body_term.arg_bindings.binding {
-                        if bound_arg == &removed_arg {
-                            *bound_arg = "_".to_string();
-                        }
-                    }
-                }
-            }
-        }
-
-        for fact in &mut term.term.facts {
-            apply_binding_change(change, fact);
-        }
-    }
 }
 
 #[cfg(test)]
@@ -592,7 +572,7 @@ mod tests {
 
         let result = apply(
             &original,
-            &vec![ArgsChange::Removed(0, "whatever".to_string())],
+            &vec![ArgsChange::Removed(0)],
             &after_change,
             &FakeTermHolder::new(&related_term),
         )

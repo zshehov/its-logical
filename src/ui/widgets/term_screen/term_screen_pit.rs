@@ -2,13 +2,14 @@ use egui::{RichText, TextStyle};
 use tracing::debug;
 
 use crate::{
+    changes,
     model::{
         comment::{comment::Comment, name_description::NameDescription},
         fat_term::FatTerm,
         term::{args_binding::ArgsBinding, rule::Rule},
     },
     term_knowledge_base::TermsKnowledgeBase,
-    ui::widgets::drag_and_drop::{self, DragAndDrop},
+    ui::widgets::drag_and_drop::{self, Change, DragAndDrop},
 };
 
 use super::placeholder;
@@ -149,7 +150,7 @@ impl TermScreenPIT {
             );
 
             ui.vertical(|ui| {
-                self.term.arguments.show(ui, |s, ui| {
+                let mut args_change = self.term.arguments.show(ui, |s, ui| {
                     ui.horizontal(|ui| {
                         self.arg_rename |= Self::show_arg(ui, &mut s.name, &mut s.desc, edit_mode);
                     });
@@ -168,9 +169,19 @@ impl TermScreenPIT {
                             // reset the arg placeholder
                             std::mem::swap(&mut self.arg_placeholder, &mut empty_arg_placeholder);
 
-                            self.term.arguments.push(empty_arg_placeholder);
+                            self.term.arguments.push(empty_arg_placeholder.clone());
+                            args_change.get_or_insert(drag_and_drop::Change::Pushed(
+                                empty_arg_placeholder,
+                            ));
                         }
                     });
+                }
+                if let Some(args_change) = args_change {
+                    apply_head_args_change(
+                        self.term.rules.iter_mut(),
+                        self.term.facts.iter_mut(),
+                        (&args_change).into(),
+                    );
                 }
             });
         });
@@ -447,5 +458,40 @@ impl From<&Term> for FatTerm {
                 term.rules.iter().cloned().collect(),
             ),
         )
+    }
+}
+
+fn apply_head_args_change<'a>(
+    rules: impl Iterator<Item = &'a mut Rule>,
+    facts: impl Iterator<Item = &'a mut ArgsBinding>,
+    change: changes::ArgsChange,
+) {
+    for rule in rules {
+        let removed_arg =
+            changes::propagation::apply_binding_change(&change, &mut rule.arg_bindings);
+
+        if let Some(removed_arg) = removed_arg {
+            for body_term in &mut rule.body {
+                for bound_arg in &mut body_term.arg_bindings.binding {
+                    if bound_arg == &removed_arg {
+                        *bound_arg = "_".to_string();
+                    }
+                }
+            }
+        }
+    }
+
+    for fact in facts {
+        changes::propagation::apply_binding_change(&change, fact);
+    }
+}
+
+impl From<&drag_and_drop::Change<NameDescription>> for changes::ArgsChange {
+    fn from(value: &drag_and_drop::Change<NameDescription>) -> Self {
+        match value {
+            Change::Pushed(item) => changes::ArgsChange::Pushed(item.name.clone()),
+            Change::Moved(moves) => changes::ArgsChange::Moved(moves.clone()),
+            Change::Removed(idx) => changes::ArgsChange::Removed(*idx),
+        }
     }
 }
