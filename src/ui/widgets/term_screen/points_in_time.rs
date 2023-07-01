@@ -1,6 +1,8 @@
 use egui::RichText;
 
-use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
+use crate::{
+    changes::ArgsChange, model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase,
+};
 
 use super::term_screen_pit::{self, TermScreenPIT};
 
@@ -23,7 +25,7 @@ pub(crate) struct PointsInTime {
 
     // only relevant during 2-phase-commit
     points_in_time: Vec<term_screen_pit::TermScreenPIT>,
-    pit_info: Vec<ChangeSource>,
+    pit_info: Vec<(ChangeSource, Vec<ArgsChange>)>,
 }
 
 impl PointsInTime {
@@ -35,26 +37,19 @@ impl PointsInTime {
         }
     }
 
-    pub(crate) fn push_pit(&mut self, term: &FatTerm, source: &str) {
+    pub(crate) fn push_pit(&mut self, args_changes: &[ArgsChange], term: &FatTerm, source: &str) {
         if source == self.points_in_time.last().unwrap_or(&self.original).name() {
-            self.pit_info.push(ChangeSource::Internal);
-        } else {
             self.pit_info
-                .push(ChangeSource::External(source.to_owned()));
+                .push((ChangeSource::Internal, args_changes.to_vec()));
+        } else {
+            self.pit_info.push((
+                ChangeSource::External(source.to_owned()),
+                args_changes.to_vec(),
+            ));
         }
 
         self.points_in_time
             .push(term_screen_pit::TermScreenPIT::new(term));
-    }
-
-    pub(crate) fn iter_change_sources<'a>(&'a self) -> impl ExactSizeIterator<Item = String> + 'a {
-        self.pit_info.iter().map(|x| {
-            if let ChangeSource::External(e) = x {
-                e.to_owned()
-            } else {
-                self.original.name()
-            }
-        })
     }
 
     pub(crate) fn iter_mut_pits(&mut self) -> impl Iterator<Item = &mut TermScreenPIT> {
@@ -67,6 +62,21 @@ impl PointsInTime {
 
     pub(crate) fn latest(&self) -> &term_screen_pit::TermScreenPIT {
         self.points_in_time.last().unwrap_or(&self.original)
+    }
+
+    pub(crate) fn accumulated_changes(&self) -> (FatTerm, Vec<ArgsChange>, FatTerm) {
+        let accumulated_args_changes = self
+            .pit_info
+            .iter()
+            .map(|(_, args_changes)| args_changes)
+            .flatten()
+            .cloned()
+            .collect();
+        return (
+            self.original().extract_term(),
+            accumulated_args_changes,
+            self.latest().extract_term(),
+        );
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -84,7 +94,7 @@ impl PointsInTime {
                 Some(pit_idx + 1),
                 RichText::new((pit_idx + 1).to_string() + " →").monospace(),
             )
-            .on_hover_text(info.to_string());
+            .on_hover_text(info.0.to_string());
         }
     }
 

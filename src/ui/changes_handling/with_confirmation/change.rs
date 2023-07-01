@@ -14,18 +14,19 @@ pub(crate) fn propagate(
     affected: &[String],
 ) {
     let mut loaded_term_screens =
-        super::setup_with_confirmation(term_tabs, terms, original_term, affected);
+        super::setup_confirmation(term_tabs, terms, original_term, affected);
 
-    let mut updates = changes::propagation::apply(
+    let updates = changes::propagation::apply(
         &original_term,
         &arg_changes,
         &updated_term,
         &loaded_term_screens,
     );
+    let mut updates = super::with_empty_args_changes(updates);
 
     updates.insert(
         original_term.meta.term.name.clone(),
-        updated_term.to_owned(),
+        (arg_changes.to_vec(), updated_term.to_owned()),
     );
 
     super::push_updated_pits(

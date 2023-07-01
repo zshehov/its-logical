@@ -58,8 +58,14 @@ impl<'a, T: TermsKnowledgeBase> changes::propagation::Terms for TermsAdapter<'a,
     }
 }
 
-struct SingleTerm {
+pub(crate) struct SingleTerm {
     term: FatTerm,
+}
+
+impl SingleTerm {
+    pub(crate) fn new(term: FatTerm) -> Self {
+        Self { term }
+    }
 }
 
 impl changes::propagation::Terms for SingleTerm {

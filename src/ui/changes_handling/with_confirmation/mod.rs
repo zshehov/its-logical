@@ -3,18 +3,22 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use tracing::debug;
 
 use crate::{
+    changes::ArgsChange,
     model::fat_term::FatTerm,
     term_knowledge_base::TermsKnowledgeBase,
-    ui::widgets::{tabs::Tabs, term_screen::two_phase_commit::TwoPhaseCommit},
+    ui::widgets::{
+        tabs::Tabs,
+        term_screen::{two_phase_commit::TwoPhaseCommit, TermScreen},
+    },
 };
 
 use super::OpenedTermScreens;
 
 pub(crate) mod change;
-pub(crate) mod deletion;
 pub(crate) mod commit;
+pub(crate) mod deletion;
 
-fn setup_with_confirmation<'a>(
+fn setup_confirmation<'a>(
     tabs: &'a mut Tabs,
     terms: &impl TermsKnowledgeBase,
     original_term: &FatTerm,
@@ -31,10 +35,7 @@ fn setup_with_confirmation<'a>(
                 true,
             )))),
     );
-    two_phase_commit.borrow_mut().append_approval_from(affected);
 
-    // TODO: Match instead of unwrap here
-    // On failure - remove the two_phase_commit initiated above
     let mut opened_affected_term_screens = validate_two_phase(
         tabs,
         terms,
@@ -43,27 +44,36 @@ fn setup_with_confirmation<'a>(
         affected,
     )
     .unwrap();
-    adjust_two_phase_commits(&two_phase_commit, &mut opened_affected_term_screens);
+
+    add_approvers(
+        &two_phase_commit,
+        &mut opened_affected_term_screens.affected,
+    );
     opened_affected_term_screens
 }
 
-fn adjust_two_phase_commits(
-    two_phase_commit: &Rc<RefCell<TwoPhaseCommit>>,
-    loaded_related_terms: &mut OpenedTermScreens<'_>,
+pub(crate) fn add_approvers(
+    source_two_phase_commit: &Rc<RefCell<TwoPhaseCommit>>,
+    approvers: &mut [&mut TermScreen],
 ) {
-    let origin_name = two_phase_commit.borrow().origin();
+    let origin_name = source_two_phase_commit.borrow().origin();
 
-    for opened_affected in &mut loaded_related_terms.affected {
-        debug!("Adding affected {}", opened_affected.name());
-        opened_affected
+    let mut approvers_names = Vec::with_capacity(approvers.len());
+    for approver in approvers {
+        debug!("Adding approver {}", approver.name());
+        approver
             .two_phase_commit
             .get_or_insert(Rc::new(RefCell::new(TwoPhaseCommit::new(
                 &origin_name,
                 false,
             ))))
             .borrow_mut()
-            .add_approval_waiter(Rc::clone(&two_phase_commit));
+            .add_approval_waiter(Rc::clone(&source_two_phase_commit));
+        approvers_names.push(approver.name());
     }
+    source_two_phase_commit
+        .borrow_mut()
+        .append_approval_from(&approvers_names);
 }
 
 fn validate_two_phase<'a>(
@@ -109,10 +119,17 @@ fn validate_two_phase<'a>(
     })
 }
 
-/// push_updated_pits goes through the `loaded_term_screens` and pushes the updated Point in time
-/// if it's present in the `updates` HashMap
+fn with_empty_args_changes(
+    initial: HashMap<String, FatTerm>,
+) -> HashMap<String, (Vec<ArgsChange>, FatTerm)> {
+    initial
+        .into_iter()
+        .map(|(name, term)| (name, (vec![], term)))
+        .collect()
+}
+
 fn push_updated_pits(
-    updates: HashMap<String, FatTerm>,
+    updates: HashMap<String, (Vec<ArgsChange>, FatTerm)>,
     update_source: &str,
     loaded_term_screens: &mut OpenedTermScreens<'_>,
 ) {
@@ -121,8 +138,11 @@ fn push_updated_pits(
         .iter_mut()
         .chain(std::iter::once(&mut loaded_term_screens.initiator))
     {
-        if let Some(updated) = updates.get(&loaded.name()) {
-            loaded.get_pits_mut().0.push_pit(&updated, update_source);
+        if let Some((args_change, updated)) = updates.get(&loaded.name()) {
+            loaded
+                .get_pits_mut()
+                .0
+                .push_pit(&args_change, &updated, update_source);
             loaded.choose_pit(loaded.get_pits().len() - 1);
         }
     }

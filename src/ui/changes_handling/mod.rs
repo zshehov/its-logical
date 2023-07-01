@@ -22,6 +22,7 @@ pub(crate) fn handle_term_screen_changes(
     term_changes: &[TermChange],
     mut updated_term: FatTerm,
 ) {
+    let original_name = original_term.meta.term.name.clone();
     // only argument changes are tough and need special care
     let arg_changes = term_changes
         .iter()
@@ -41,24 +42,18 @@ pub(crate) fn handle_term_screen_changes(
     let affected =
         changes::propagation::affected_from_changes(&original_term, &updated_term, &arg_changes);
 
-    if original_term.meta.term.name == "".to_string() {
-        // That's a new term - directly apply
-        return automatic::change::propagate(
-            tabs,
-            terms,
-            &original_term,
-            &arg_changes,
-            &updated_term,
-            &affected,
-        );
-    }
-
     debug!(
         "Changes made for {}. Propagating to: {:?}",
-        original_term.meta.term.name, affected
+        original_name, affected
     );
 
-    if arg_changes.is_empty() || affected.len() == 0 {
+    if
+    /* the changes are not worthy of user confirmation */
+    arg_changes.is_empty()
+        || /* no other term is affected */ affected.len() == 0
+        || /* a new term */ original_term.meta.term.name == "".to_string()
+    {
+        debug!("automatic propagation");
         automatic::change::propagate(
             tabs,
             terms,
@@ -68,6 +63,7 @@ pub(crate) fn handle_term_screen_changes(
             &affected,
         );
     } else {
+        debug!("2 phase commit propagation");
         with_confirmation::change::propagate(
             tabs,
             terms,
@@ -77,6 +73,9 @@ pub(crate) fn handle_term_screen_changes(
             &affected,
         );
     }
+    // if there is an ongoing 2phase commit among one of `updated_term`'s newly mentioned terms,
+    // all the changes in the commit need to be applied on `updated_term`
+    repeat_ongoing_commit_changes(tabs, original_term, updated_term);
 }
 
 pub(crate) fn handle_deletion(
@@ -97,6 +96,58 @@ pub(crate) fn handle_deletion(
 }
 
 pub(crate) use with_confirmation::commit::finish as finish_commit;
+
+fn repeat_ongoing_commit_changes(
+    tabs: &mut Tabs,
+    original_term: &FatTerm,
+    mut updated_term: FatTerm,
+) {
+    let updated_term_name = updated_term.meta.term.name.clone();
+    let previously_mentioned_terms = original_term.mentioned_terms();
+    let currently_mentioned_terms = updated_term.mentioned_terms();
+
+    let newly_mentioned_terms = currently_mentioned_terms.difference(&previously_mentioned_terms);
+
+    let mut relevant_tabs = tabs.borrow_mut(
+        &newly_mentioned_terms
+            .into_iter()
+            .cloned()
+            .chain(std::iter::once(updated_term_name.clone()))
+            .collect::<Vec<String>>(),
+    );
+
+    let updated_tab = relevant_tabs.swap_remove(
+        relevant_tabs
+            .iter()
+            .position(|tab| tab.name() == updated_term_name)
+            .expect("just updated term must have a tab"),
+    );
+
+    for mentioned_tab in relevant_tabs {
+        if let Some(commit) = &mentioned_tab.two_phase_commit {
+            let (original_mentioned, mentioned_args_changes, updated_mentioned) =
+                mentioned_tab.get_pits().accumulated_changes();
+
+            updated_term = changes::propagation::apply(
+                &original_mentioned,
+                &mentioned_args_changes,
+                &updated_mentioned,
+                &automatic::SingleTerm::new(updated_term),
+            )
+            .get(&updated_term_name)
+            .unwrap()
+            .clone();
+
+            updated_tab
+                .get_pits_mut()
+                .0
+                .push_pit(&vec![], &updated_term, &mentioned_tab.name());
+
+            // relies on the invariant that there is only ever a single 2phase commit at a time
+            with_confirmation::add_approvers(commit, &mut [updated_tab]);
+        }
+    }
+}
 
 fn convert_args_changes(input: &[Change<NameDescription>]) -> Vec<changes::ArgsChange> {
     input

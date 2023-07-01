@@ -4,7 +4,7 @@ use crate::{
 };
 
 pub(crate) fn propagate(tabs: &mut Tabs, terms: &impl TermsKnowledgeBase, term: &FatTerm) {
-    let mut loaded_term_screens = super::setup_with_confirmation(
+    let mut loaded_term_screens = super::setup_confirmation(
         tabs,
         terms,
         term,
@@ -12,5 +12,9 @@ pub(crate) fn propagate(tabs: &mut Tabs, terms: &impl TermsKnowledgeBase, term: 
     );
 
     let updates = changes::propagation::apply_deletion(term, &loaded_term_screens);
-    super::push_updated_pits(updates, &term.meta.term.name, &mut loaded_term_screens);
+    super::push_updated_pits(
+        super::with_empty_args_changes(updates),
+        &term.meta.term.name,
+        &mut loaded_term_screens,
+    );
 }
