@@ -137,6 +137,7 @@ fn repeat_ongoing_commit_changes(
             with_confirmation::add_approvers(commit, &mut [updated_tab]);
         }
     }
+    updated_tab.choose_pit(updated_tab.get_pits().len() - 1);
 }
 
 pub(crate) struct OpenedTermScreens<'a> {
