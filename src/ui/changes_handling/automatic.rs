@@ -46,7 +46,7 @@ pub(crate) fn propagate(
         .to_owned()
     };
 
-    loaded.update_with(&term_name, update_fn);
+    loaded.update_with(&term_name, |_| updated_term.clone());
     for affected_term_name in affected {
         loaded.update_with(&affected_term_name, update_fn);
     }

@@ -21,7 +21,6 @@ pub(crate) fn finish(
     if two_phase_commit.borrow().waiting_for().len() > 0 {
         debug!("NOT ALL ARE CONFIRMED YET");
     } else {
-        debug!("ALL ARE CONFIRMED");
         // TODO: this should be done recursively
         let mut relevant: Vec<String> = two_phase_commit.borrow().iter_approved().collect();
         let origin = two_phase_commit.borrow().origin();
