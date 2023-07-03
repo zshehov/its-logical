@@ -1,7 +1,6 @@
 use bincode::{config, decode_from_std_read, encode_into_std_write, Encode};
 use bincode_derive::Decode;
 
-
 use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
@@ -175,7 +174,8 @@ impl PersistentMemoryTerms {
         self.index.remove(term_name);
         self.index
             .insert(updated.meta.term.name.to_string(), term_idx);
-        self.keys[term_idx] = updated.meta.term.name.to_string();
+        let keys_idx = self.keys.iter().position(|name| name == term_name).unwrap();
+        self.keys[keys_idx] = updated.meta.term.name.to_string();
 
         Ok(())
     }
@@ -256,6 +256,8 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
             desriptor_entry.offset = adjusted_offset as usize;
         }
         self.index.remove(term_name);
-        self.keys.remove(deleted_entry_idx);
+
+        let keys_idx = self.keys.iter().position(|name| name == term_name).unwrap();
+        self.keys.remove(keys_idx);
     }
 }
