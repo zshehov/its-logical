@@ -7,9 +7,7 @@ use super::{
         comment::{parse_comment, Comment},
         name_description::NameDescription,
     },
-    term::{
-        term::{parse_term, Term},
-    },
+    term::term::{parse_term, Term},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -82,12 +80,16 @@ pub(crate) fn parse_fat_term<'a>(i: &'a str) -> IResult<&'a str, FatTerm, Verbos
     Ok((leftover, FatTerm::new(meta, term)))
 }
 
-#[test]
-fn test_parse_encode() {
-    use crate::model::term::bound_term::BoundTerm;
-    use crate::model::term::rule::Rule;
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::model::term::args_binding::ArgsBinding;
+    #[test]
+    fn test_parse_encode() {
+        use crate::model::term::bound_term::BoundTerm;
+        use crate::model::term::rule::Rule;
 
-    let input = r"%! father a father is a parent that's male
+        let input = r"%! father a father is a parent that's male
 % @arg FatherName the name of the father
 % @arg ChildName the name of the child
 % @see parent,male
@@ -95,48 +97,49 @@ father(stefan,petko).
 father(hristo,stoichko).
 father(Father,Child):-parent(Father,Child),male(Father)
 ";
-    let parsed = parse_fat_term(input);
+        let parsed = parse_fat_term(input);
 
-    let expected = FatTerm::new(
-        Comment::new(
-            NameDescription::new("father", "a father is a parent that's male"),
-            vec![
-                NameDescription::new("FatherName", "the name of the father"),
-                NameDescription::new("ChildName", "the name of the child"),
-            ],
-            vec!["parent".to_string(), "male".to_string()],
-        ),
-        Term::new(
-            vec![
-                ArgsBinding {
-                    binding: vec!["stefan".to_string(), "petko".to_string()],
-                },
-                ArgsBinding {
-                    binding: vec!["hristo".to_string(), "stoichko".to_string()],
-                },
-            ],
-            vec![Rule {
-                arg_bindings: ArgsBinding {
-                    binding: vec!["Father".to_string(), "Child".to_string()],
-                },
-                body: vec![
-                    BoundTerm {
-                        name: "parent".to_string(),
-                        arg_bindings: ArgsBinding {
-                            binding: vec!["Father".to_string(), "Child".to_string()],
-                        },
+        let expected = FatTerm::new(
+            Comment::new(
+                NameDescription::new("father", "a father is a parent that's male"),
+                vec![
+                    NameDescription::new("FatherName", "the name of the father"),
+                    NameDescription::new("ChildName", "the name of the child"),
+                ],
+                vec!["parent".to_string(), "male".to_string()],
+            ),
+            Term::new(
+                vec![
+                    ArgsBinding {
+                        binding: vec!["stefan".to_string(), "petko".to_string()],
                     },
-                    BoundTerm {
-                        name: "male".to_string(),
-                        arg_bindings: ArgsBinding {
-                            binding: vec!["Father".to_string()],
-                        },
+                    ArgsBinding {
+                        binding: vec!["hristo".to_string(), "stoichko".to_string()],
                     },
                 ],
-            }],
-        ),
-    );
-    let encoded = expected.encode();
-    assert_eq!(encoded, input);
-    assert_eq!(parsed, Ok(("", expected)));
+                vec![Rule {
+                    arg_bindings: ArgsBinding {
+                        binding: vec!["Father".to_string(), "Child".to_string()],
+                    },
+                    body: vec![
+                        BoundTerm {
+                            name: "parent".to_string(),
+                            arg_bindings: ArgsBinding {
+                                binding: vec!["Father".to_string(), "Child".to_string()],
+                            },
+                        },
+                        BoundTerm {
+                            name: "male".to_string(),
+                            arg_bindings: ArgsBinding {
+                                binding: vec!["Father".to_string()],
+                            },
+                        },
+                    ],
+                }],
+            ),
+        );
+        let encoded = expected.encode();
+        assert_eq!(encoded, input);
+        assert_eq!(parsed, Ok(("", expected)));
+    }
 }

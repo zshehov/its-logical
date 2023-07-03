@@ -1,9 +1,9 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use tracing::debug;
 
 use crate::{
-    changes::ArgsChange,
+    changes::{self, ArgsChange},
     model::fat_term::FatTerm,
     term_knowledge_base::TermsKnowledgeBase,
     ui::widgets::{
@@ -12,45 +12,7 @@ use crate::{
     },
 };
 
-use super::OpenedTermScreens;
-
-pub(crate) mod change;
 pub(crate) mod commit;
-pub(crate) mod deletion;
-
-fn setup_confirmation<'a>(
-    tabs: &'a mut Tabs,
-    terms: &impl TermsKnowledgeBase,
-    original_term: &FatTerm,
-    affected: &[String],
-) -> OpenedTermScreens<'a> {
-    debug!("Need confirmation");
-
-    let two_phase_commit = Rc::clone(
-        tabs.get_mut(&original_term.meta.term.name)
-            .expect("a change is coming from an opened term screen")
-            .two_phase_commit
-            .get_or_insert(Rc::new(RefCell::new(TwoPhaseCommit::new(
-                &original_term.meta.term.name,
-                true,
-            )))),
-    );
-
-    let mut opened_affected_term_screens = validate_two_phase(
-        tabs,
-        terms,
-        &two_phase_commit.borrow(),
-        &original_term.meta.term.name,
-        affected,
-    )
-    .unwrap();
-
-    add_approvers(
-        &two_phase_commit,
-        &mut opened_affected_term_screens.affected,
-    );
-    opened_affected_term_screens
-}
 
 pub(crate) fn add_approvers(
     source_two_phase_commit: &Rc<RefCell<TwoPhaseCommit>>,
@@ -76,13 +38,136 @@ pub(crate) fn add_approvers(
         .append_approval_from(&approvers_names);
 }
 
+pub(crate) trait TermHolder {
+    fn get(&self) -> FatTerm;
+    fn put(&mut self, source: &str, args_changes: &[ArgsChange], term: &FatTerm);
+}
+
+pub(crate) trait Loaded {
+    type TermHolder: TermHolder;
+    fn borrow_mut(
+        &mut self,
+        initiator_name: &str,
+        term_names: &[String],
+    ) -> Result<(&mut Self::TermHolder, Vec<&mut Self::TermHolder>), &'static str>;
+}
+
+pub(crate) fn propagate(
+    mut loaded: impl Loaded,
+    original_term: &FatTerm,
+    arg_changes: &[ArgsChange],
+    updated_term: &FatTerm,
+    affected: &[String],
+) {
+    let (initiator, affected) = loaded
+        .borrow_mut(&original_term.meta.term.name, affected)
+        .expect("[TODO] inability to load is not handled");
+
+    let updates =
+        changes::propagation::apply(original_term, arg_changes, updated_term, &affected.as_ref());
+
+    initiator.put(&updated_term.meta.term.name, arg_changes, updated_term);
+    for affected_term in affected {
+        if let Some(updated) = updates.get(&affected_term.get().meta.term.name) {
+            affected_term.put(&updated_term.meta.term.name, &vec![], updated);
+        }
+    }
+}
+
+pub(crate) fn propagate_deletion(mut loaded: impl Loaded, term: &FatTerm) {
+    let (_, affected) = loaded
+        .borrow_mut(
+            &term.meta.term.name,
+            &changes::propagation::affected_from_deletion(term),
+        )
+        .expect("[TODO] inability to load is not handled");
+
+    let updates = changes::propagation::apply_deletion(term, &affected.as_ref());
+
+    for affected_term in affected {
+        if let Some(updated) = updates.get(&affected_term.get().meta.term.name) {
+            affected_term.put(&term.meta.term.name, &vec![], updated);
+        }
+    }
+}
+
+impl<H> changes::propagation::Terms for &[&mut H]
+where
+    H: TermHolder,
+{
+    fn get(&self, term_name: &str) -> Option<FatTerm> {
+        for term in self.iter() {
+            let term = term.get();
+            if term.meta.term.name == term_name {
+                return Some(term.clone());
+            }
+        }
+        None
+    }
+}
+
+impl TermHolder for TermScreen {
+    fn get(&self) -> FatTerm {
+        self.get_pits().latest().extract_term()
+    }
+
+    fn put(&mut self, source: &str, args_changes: &[ArgsChange], term: &FatTerm) {
+        self.get_pits_mut().0.push_pit(args_changes, term, source);
+        self.choose_pit(self.get_pits().len() - 1);
+    }
+}
+
+pub(crate) struct TabsWithLoading<'a, T: TermsKnowledgeBase> {
+    tabs: &'a mut Tabs,
+    load_source: &'a T,
+}
+
+impl<'a, T: TermsKnowledgeBase> TabsWithLoading<'a, T> {
+    pub(crate) fn new(tabs: &'a mut Tabs, load_source: &'a T) -> Self {
+        Self { tabs, load_source }
+    }
+}
+
+impl<'a, T: TermsKnowledgeBase> Loaded for TabsWithLoading<'a, T> {
+    type TermHolder = TermScreen;
+
+    fn borrow_mut<'b>(
+        &'b mut self,
+        initiator_name: &str,
+        term_names: &[String],
+    ) -> Result<(&'b mut Self::TermHolder, Vec<&mut Self::TermHolder>), &'static str> {
+        let two_phase_commit = Rc::clone(
+            self.tabs
+                .get_mut(initiator_name)
+                .expect("a change is coming from an opened term screen")
+                .two_phase_commit
+                .get_or_insert(Rc::new(RefCell::new(TwoPhaseCommit::new(
+                    initiator_name,
+                    true,
+                )))),
+        );
+
+        let (mut affected, initiator) = validate_two_phase(
+            self.tabs,
+            self.load_source,
+            &two_phase_commit.borrow(),
+            initiator_name,
+            term_names,
+        )
+        .unwrap();
+
+        add_approvers(&two_phase_commit, &mut affected);
+        Ok((initiator, affected))
+    }
+}
+
 fn validate_two_phase<'a>(
     tabs: &'a mut Tabs,
     terms: &impl TermsKnowledgeBase,
     two_phase_commit: &TwoPhaseCommit,
     initiator: &str,
     affected: &[String],
-) -> Option<OpenedTermScreens<'a>> {
+) -> Option<(Vec<&'a mut TermScreen>, &'a mut TermScreen)> {
     if affected
         .iter()
         .any(|affected_name| match tabs.get(affected_name) {
@@ -112,38 +197,5 @@ fn validate_two_phase<'a>(
             .position(|x| x.name() == initiator)
             .unwrap(),
     );
-
-    Some(OpenedTermScreens {
-        affected: all_term_screens,
-        initiator,
-    })
-}
-
-fn with_empty_args_changes(
-    initial: HashMap<String, FatTerm>,
-) -> HashMap<String, (Vec<ArgsChange>, FatTerm)> {
-    initial
-        .into_iter()
-        .map(|(name, term)| (name, (vec![], term)))
-        .collect()
-}
-
-fn push_updated_pits(
-    updates: HashMap<String, (Vec<ArgsChange>, FatTerm)>,
-    update_source: &str,
-    loaded_term_screens: &mut OpenedTermScreens<'_>,
-) {
-    for loaded in loaded_term_screens
-        .affected
-        .iter_mut()
-        .chain(std::iter::once(&mut loaded_term_screens.initiator))
-    {
-        if let Some((args_change, updated)) = updates.get(&loaded.name()) {
-            loaded
-                .get_pits_mut()
-                .0
-                .push_pit(args_change, updated, update_source);
-            loaded.choose_pit(loaded.get_pits().len() - 1);
-        }
-    }
+    Some((all_term_screens, initiator))
 }

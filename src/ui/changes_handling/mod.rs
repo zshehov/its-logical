@@ -2,10 +2,9 @@ use tracing::debug;
 
 use crate::{changes, model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
 
-use super::widgets::{
-    tabs::Tabs,
-    term_screen::{term_screen_pit::TermChange, TermScreen},
-};
+use self::with_confirmation::TabsWithLoading;
+
+use super::widgets::{tabs::Tabs, term_screen::term_screen_pit::TermChange};
 
 mod automatic;
 mod with_confirmation;
@@ -44,9 +43,9 @@ pub(crate) fn handle_term_screen_changes(
         || /* a new term */ original_term.meta.term.name == *""
     {
         debug!("automatic propagation");
-        automatic::change::propagate(
+        automatic::propagate(
+            &mut TermsKnowledgeBaseAdapter { source: terms },
             tabs,
-            terms,
             original_term,
             &arg_changes,
             &updated_term,
@@ -54,9 +53,8 @@ pub(crate) fn handle_term_screen_changes(
         );
     } else {
         debug!("2 phase commit propagation");
-        with_confirmation::change::propagate(
-            tabs,
-            terms,
+        with_confirmation::propagate(
+            TabsWithLoading::new(tabs, terms),
             original_term,
             &arg_changes,
             &updated_term,
@@ -68,20 +66,39 @@ pub(crate) fn handle_term_screen_changes(
     repeat_ongoing_commit_changes(tabs, original_term, updated_term);
 }
 
+struct TermsKnowledgeBaseAdapter<'a, T: TermsKnowledgeBase> {
+    source: &'a mut T,
+}
+
+impl<'a, T: TermsKnowledgeBase> automatic::PersistentTerms for TermsKnowledgeBaseAdapter<'a, T> {
+    fn put(
+        &mut self,
+        term_name: &str,
+        term: FatTerm,
+    ) -> Result<(), crate::term_knowledge_base::KnowledgeBaseError> {
+        self.source.put(term_name, term)
+    }
+
+    fn get(&self, term_name: &str) -> Option<FatTerm> {
+        self.source.get(term_name)
+    }
+}
+
 pub(crate) fn handle_deletion(
     tabs: &mut Tabs,
     terms: &mut impl TermsKnowledgeBase,
     original_term: &FatTerm,
 ) {
     if !original_term.meta.referred_by.is_empty() {
-        with_confirmation::deletion::propagate(tabs, terms, original_term);
+        with_confirmation::propagate_deletion(TabsWithLoading::new(tabs, terms), original_term);
     } else {
-        automatic::deletion::propagate(
+        automatic::propagate_deletion(
+            &mut TermsKnowledgeBaseAdapter { source: terms },
             tabs,
-            terms,
             original_term,
-            &changes::propagation::affected_from_deletion(original_term),
         );
+        terms.delete(&original_term.meta.term.name);
+        tabs.close(&original_term.meta.term.name);
     }
 }
 
@@ -140,21 +157,183 @@ fn repeat_ongoing_commit_changes(
     updated_tab.choose_pit(updated_tab.get_pits().len() - 1);
 }
 
-pub(crate) struct OpenedTermScreens<'a> {
-    initiator: &'a mut TermScreen,
-    affected: Vec<&'a mut TermScreen>,
-}
+#[cfg(test)]
+mod tests {
+    use crate::ui::widgets::drag_and_drop;
 
-impl<'a> changes::propagation::Terms for OpenedTermScreens<'a> {
-    fn get(&self, term_name: &str) -> Option<crate::model::fat_term::FatTerm> {
-        if term_name == self.initiator.name() {
-            return Some(self.initiator.extract_term());
-        }
-        for screen in &self.affected {
-            if screen.name() == term_name {
-                return Some(screen.extract_term());
+    use super::*;
+    use std::cell::RefCell;
+
+    struct MockAutomaticPropagator {
+        propagate_called: RefCell<bool>,
+    }
+    impl MockAutomaticPropagator {
+        fn new() -> Self {
+            Self {
+                propagate_called: RefCell::new(false),
             }
         }
-        None
+    }
+    struct MockConfirmationPropagator {
+        propagate_called: RefCell<bool>,
+    }
+    impl MockConfirmationPropagator {
+        fn new() -> Self {
+            Self {
+                propagate_called: RefCell::new(false),
+            }
+        }
+    }
+
+    impl Propagator for &MockAutomaticPropagator {
+        fn propagate(
+            &self,
+            _tabs: &mut Tabs,
+            _terms: &mut impl TermsKnowledgeBase,
+            _original_term: &FatTerm,
+            _arg_changes: &[ArgsChange],
+            _updated_term: &FatTerm,
+            _affected: &[String],
+        ) {
+            *self.propagate_called.borrow_mut() = true;
+        }
+    }
+    impl WithConfirmationPropagator for &MockConfirmationPropagator {
+        fn propagate(
+            &self,
+            _tabs: &mut Tabs,
+            _terms: &impl TermsKnowledgeBase,
+            _original_term: &FatTerm,
+            _arg_changes: &[ArgsChange],
+            _updated_term: &FatTerm,
+            _affected: &[String],
+        ) {
+            *self.propagate_called.borrow_mut() = true;
+        }
+    }
+
+    struct MockTermsKnowledge {
+        emtpy_vec: Vec<String>,
+    }
+    impl MockTermsKnowledge {
+        fn new() -> Self {
+            Self { emtpy_vec: vec![] }
+        }
+    }
+    impl TermsKnowledgeBase for MockTermsKnowledge {
+        fn get(&self, _: &str) -> Option<FatTerm> {
+            None
+        }
+
+        fn put(
+            &mut self,
+            _: &str,
+            _: FatTerm,
+        ) -> Result<(), crate::term_knowledge_base::KnowledgeBaseError> {
+            Ok(())
+        }
+
+        fn keys(&self) -> &Vec<String> {
+            &self.emtpy_vec
+        }
+
+        fn delete(&mut self, _: &str) {}
+    }
+
+    /* handle_term_screen_changes_internal */
+
+    fn setup_handle_term_screen_changes_internal(
+        original_term: &FatTerm,
+        term_changes: &[TermChange],
+        updated_term: FatTerm,
+    ) -> (MockAutomaticPropagator, MockConfirmationPropagator) {
+        let mut tabs = Tabs::default();
+        let mut terms = MockTermsKnowledge::new();
+
+        let automatic_propagator = MockAutomaticPropagator::new();
+        let with_confirmation_propagator = MockConfirmationPropagator::new();
+
+        handle_term_screen_changes_internal(
+            original_term,
+            term_changes,
+            updated_term,
+            &automatic_propagator,
+            &with_confirmation_propagator,
+        );
+        (automatic_propagator, with_confirmation_propagator)
+    }
+
+    #[test]
+    fn when_empty_args_changes_with_affected_not_new() {
+        let mut original_term = FatTerm::default();
+        original_term.meta.referred_by = vec!["some_other_term".to_string()];
+        original_term.meta.term.name = "bla".to_string();
+        let updated_term = original_term.clone();
+
+        let term_changes = vec![
+            TermChange::RuleChanges,
+            TermChange::FactsChange,
+            TermChange::DescriptionChange,
+        ];
+
+        let (auto, with_confirmation) =
+            setup_handle_term_screen_changes_internal(&original_term, &term_changes, updated_term);
+
+        assert!(*auto.propagate_called.borrow());
+        assert!(!*with_confirmation.propagate_called.borrow());
+    }
+    #[test]
+    fn when_args_changes_and_no_affected_not_new() {
+        let mut original_term = FatTerm::default();
+        original_term.meta.term.name = "bla".to_string();
+        let updated_term = original_term.clone();
+
+        // with arg change
+        let term_changes = vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
+            crate::model::comment::name_description::NameDescription::new("some", "arg"),
+        )])];
+
+        let (auto, with_confirmation) =
+            setup_handle_term_screen_changes_internal(&original_term, &term_changes, updated_term);
+
+        assert!(*auto.propagate_called.borrow());
+        assert!(!*with_confirmation.propagate_called.borrow());
+    }
+    #[test]
+    fn when_args_changes_and_affected_and_new() {
+        let original_term = FatTerm::default();
+        let mut updated_term = original_term.clone();
+        updated_term.meta.term.name = "new_term".to_string();
+        updated_term.meta.referred_by = vec!["some_other_term".to_string()];
+
+        // with arg change
+        let term_changes = vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
+            crate::model::comment::name_description::NameDescription::new("some", "arg"),
+        )])];
+
+        let (auto, with_confirmation) =
+            setup_handle_term_screen_changes_internal(&original_term, &term_changes, updated_term);
+
+        assert!(*auto.propagate_called.borrow());
+        assert!(!*with_confirmation.propagate_called.borrow());
+    }
+
+    #[test]
+    fn when_args_changes_and_affected_and_not_new() {
+        let mut original_term = FatTerm::default();
+        original_term.meta.term.name = "not_new_term".to_string();
+        original_term.meta.referred_by = vec!["some_other_term".to_string()];
+        let updated_term = original_term.clone();
+
+        // with arg change
+        let term_changes = vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
+            crate::model::comment::name_description::NameDescription::new("some", "arg"),
+        )])];
+
+        let (auto, with_confirmation) =
+            setup_handle_term_screen_changes_internal(&original_term, &term_changes, updated_term);
+
+        assert!(!*auto.propagate_called.borrow());
+        assert!(*with_confirmation.propagate_called.borrow());
     }
 }
