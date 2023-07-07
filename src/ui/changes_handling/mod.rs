@@ -1,6 +1,10 @@
 use tracing::debug;
 
-use crate::{changes, model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
+use crate::{
+    changes,
+    model::fat_term::FatTerm,
+    term_knowledge_base::{GetKnowledgeBase, PutKnowledgeBase, TermsKnowledgeBase},
+};
 
 use self::with_confirmation::TabsWithLoading;
 
@@ -11,7 +15,7 @@ mod with_confirmation;
 
 pub(crate) fn handle_changes(
     tabs: &mut Tabs,
-    terms: &mut impl TermsKnowledgeBase,
+    terms: &mut (impl GetKnowledgeBase + PutKnowledgeBase),
     original_term: &FatTerm,
     term_changes: &[TermChange],
     updated_term: FatTerm,
@@ -44,7 +48,7 @@ pub(crate) fn handle_changes(
     {
         debug!("automatic propagation");
         automatic::propagate(
-            &mut TermsKnowledgeBaseAdapter { source: terms },
+            terms,
             tabs,
             original_term,
             &arg_changes,
@@ -66,24 +70,6 @@ pub(crate) fn handle_changes(
     repeat_ongoing_commit_changes(tabs, original_term, updated_term);
 }
 
-struct TermsKnowledgeBaseAdapter<'a, T: TermsKnowledgeBase> {
-    source: &'a mut T,
-}
-
-impl<'a, T: TermsKnowledgeBase> automatic::PersistentTerms for TermsKnowledgeBaseAdapter<'a, T> {
-    fn put(
-        &mut self,
-        term_name: &str,
-        term: FatTerm,
-    ) -> Result<(), crate::term_knowledge_base::KnowledgeBaseError> {
-        self.source.put(term_name, term)
-    }
-
-    fn get(&self, term_name: &str) -> Option<FatTerm> {
-        self.source.get(term_name)
-    }
-}
-
 pub(crate) fn handle_deletion(
     tabs: &mut Tabs,
     terms: &mut impl TermsKnowledgeBase,
@@ -92,11 +78,7 @@ pub(crate) fn handle_deletion(
     if !original_term.meta.referred_by.is_empty() {
         with_confirmation::propagate_deletion(TabsWithLoading::new(tabs, terms), original_term);
     } else {
-        automatic::propagate_deletion(
-            &mut TermsKnowledgeBaseAdapter { source: terms },
-            tabs,
-            original_term,
-        );
+        automatic::propagate_deletion(terms, tabs, original_term);
         terms.delete(&original_term.meta.term.name);
         tabs.close(&original_term.meta.term.name);
     }

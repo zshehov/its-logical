@@ -17,12 +17,25 @@ pub enum KnowledgeBaseError {
     //TODO:  InvalidTerm,
 }
 
-pub trait TermsKnowledgeBase {
+pub trait GetKnowledgeBase {
     fn get(&self, term_name: &str) -> Option<FatTerm>;
+}
+pub trait PutKnowledgeBase {
     // the term.meta.term.name takes precedence to the provided term_name
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError>;
+}
+
+pub trait KeysKnowledgeBase {
     fn keys(&self) -> &Vec<String>;
+}
+
+pub trait DeleteKnowledgeBase {
     fn delete(&mut self, term_name: &str);
+}
+
+pub trait TermsKnowledgeBase:
+    GetKnowledgeBase + PutKnowledgeBase + KeysKnowledgeBase + DeleteKnowledgeBase
+{
 }
 
 pub struct InMemoryTerms {
@@ -36,12 +49,13 @@ impl InMemoryTerms {
         Self { map, vec }
     }
 }
-
-impl TermsKnowledgeBase for InMemoryTerms {
+impl GetKnowledgeBase for InMemoryTerms {
     fn get(&self, term_name: &str) -> Option<FatTerm> {
         self.map.get(term_name).cloned()
     }
+}
 
+impl PutKnowledgeBase for InMemoryTerms {
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError> {
         match self.map.entry(term_name.to_string()) {
             std::collections::hash_map::Entry::Occupied(mut e) => {
@@ -54,17 +68,23 @@ impl TermsKnowledgeBase for InMemoryTerms {
 
         Ok(())
     }
+}
 
+impl DeleteKnowledgeBase for InMemoryTerms {
     fn delete(&mut self, term_name: &str) {
         self.map.remove(term_name);
         let pos = self.vec.iter().position(|t| t == term_name).unwrap();
         self.vec.swap_remove(pos);
     }
+}
 
+impl KeysKnowledgeBase for InMemoryTerms {
     fn keys(&self) -> &Vec<String> {
         &self.vec
     }
 }
+
+impl TermsKnowledgeBase for InMemoryTerms {}
 
 const PAGE_NAME: &str = "page.pl";
 const DESCRIPTOR_NAME: &str = "descriptor";
@@ -204,8 +224,7 @@ impl PersistentMemoryTerms {
         Ok(())
     }
 }
-
-impl TermsKnowledgeBase for PersistentMemoryTerms {
+impl GetKnowledgeBase for PersistentMemoryTerms {
     fn get(&self, term_name: &str) -> Option<FatTerm> {
         match self.index.get(term_name) {
             Some(offset) => {
@@ -218,18 +237,22 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
             None => None,
         }
     }
+}
 
+impl PutKnowledgeBase for PersistentMemoryTerms {
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError> {
         match self.index.get(term_name) {
             Some(&term_idx) => self.edit(term_name, term_idx, &term),
             None => self.put(&term.meta.term.name.clone(), term),
         }
     }
-
+}
+impl KeysKnowledgeBase for PersistentMemoryTerms {
     fn keys(&self) -> &Vec<String> {
         &self.keys
     }
-
+}
+impl DeleteKnowledgeBase for PersistentMemoryTerms {
     // delete doesn't delete the descriptor entry for the record - rather it just sets its len to 0
     fn delete(&mut self, term_name: &str) {
         let deleted_entry_idx = self.index.get(term_name).unwrap().to_owned();
@@ -261,3 +284,5 @@ impl TermsKnowledgeBase for PersistentMemoryTerms {
         self.keys.remove(keys_idx);
     }
 }
+
+impl TermsKnowledgeBase for PersistentMemoryTerms {}

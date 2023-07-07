@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::model::{
-    fat_term::FatTerm,
-    term::{args_binding::ArgsBinding},
+use crate::{
+    model::{fat_term::FatTerm, term::args_binding::ArgsBinding},
+    term_knowledge_base::GetKnowledgeBase,
 };
 
 use self::terms_cache::TermsCache;
@@ -10,10 +10,6 @@ use self::terms_cache::TermsCache;
 use super::ArgsChange;
 
 mod terms_cache;
-
-pub(crate) trait Terms {
-    fn get(&self, term_name: &str) -> Option<FatTerm>;
-}
 
 pub(crate) fn affected_from_changes(
     original: &FatTerm,
@@ -50,12 +46,7 @@ pub(crate) fn affected_from_changes(
         let old_mentioned = original.mentioned_terms();
         let current_mentioned = updated.mentioned_terms();
 
-        affected_terms.append(
-            &mut old_mentioned
-                .union(&current_mentioned)
-                .cloned()
-                .collect(),
-        );
+        affected_terms.append(&mut old_mentioned.union(&current_mentioned).cloned().collect());
     }
     affected_terms
 }
@@ -73,7 +64,7 @@ pub(crate) fn apply(
     original: &FatTerm,
     args_changes: &[ArgsChange],
     updated: &FatTerm,
-    terms: &impl Terms,
+    terms: &impl GetKnowledgeBase,
 ) -> HashMap<String, FatTerm> {
     let mut terms_cache = TermsCache::new(terms);
 
@@ -125,7 +116,7 @@ pub(crate) fn apply(
 
 pub(crate) fn apply_deletion(
     deleted_term: &FatTerm,
-    terms: &impl Terms,
+    terms: &impl GetKnowledgeBase,
 ) -> HashMap<String, FatTerm> {
     let mut terms_cache = TermsCache::new(terms);
     for rule in deleted_term.term.rules.iter() {
@@ -210,9 +201,8 @@ mod tests {
             fat_term::FatTerm,
             term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule, term::Term},
         },
+        term_knowledge_base::GetKnowledgeBase,
     };
-
-    use super::Terms;
 
     fn create_related_test_term() -> FatTerm {
         FatTerm::new(
@@ -488,7 +478,7 @@ mod tests {
             Self { term: term.clone() }
         }
     }
-    impl Terms for FakeTermHolder {
+    impl GetKnowledgeBase for FakeTermHolder {
         fn get(&self, term_name: &str) -> Option<FatTerm> {
             if term_name == self.term.meta.term.name {
                 Some(self.term.clone())

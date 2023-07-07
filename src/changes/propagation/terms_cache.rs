@@ -1,15 +1,13 @@
 use std::collections::HashMap;
 
-use crate::model::fat_term::FatTerm;
+use crate::{model::fat_term::FatTerm, term_knowledge_base::GetKnowledgeBase};
 
-use super::Terms;
-
-pub(crate) struct TermsCache<'a, T: Terms> {
+pub(crate) struct TermsCache<'a, T: GetKnowledgeBase> {
     updated_terms: HashMap<String, FatTerm>,
     terms: &'a T,
 }
 
-impl<'a, T: Terms> TermsCache<'a, T> {
+impl<'a, T: GetKnowledgeBase> TermsCache<'a, T> {
     pub(crate) fn new(terms: &'a T) -> Self {
         Self {
             updated_terms: HashMap::new(),
@@ -40,7 +38,7 @@ mod tests {
         terms: HashMap<String, FatTerm>,
     }
 
-    impl Terms for MockTerms {
+    impl GetKnowledgeBase for MockTerms {
         fn get(&self, term_name: &str) -> Option<FatTerm> {
             self.terms.get(term_name).cloned()
         }

@@ -5,7 +5,7 @@ use tracing::debug;
 use crate::{
     changes::{self, ArgsChange},
     model::fat_term::FatTerm,
-    term_knowledge_base::TermsKnowledgeBase,
+    term_knowledge_base::GetKnowledgeBase,
     ui::widgets::{
         tabs::Tabs,
         term_screen::{two_phase_commit::TwoPhaseCommit, TermScreen},
@@ -91,7 +91,7 @@ pub(crate) fn propagate_deletion(mut loaded: impl Loaded, term: &FatTerm) {
     }
 }
 
-impl<H> changes::propagation::Terms for &[&mut H]
+impl<H> GetKnowledgeBase for &[&mut H]
 where
     H: TermHolder,
 {
@@ -117,18 +117,18 @@ impl TermHolder for TermScreen {
     }
 }
 
-pub(crate) struct TabsWithLoading<'a, T: TermsKnowledgeBase> {
+pub(crate) struct TabsWithLoading<'a, T: GetKnowledgeBase> {
     tabs: &'a mut Tabs,
     load_source: &'a T,
 }
 
-impl<'a, T: TermsKnowledgeBase> TabsWithLoading<'a, T> {
+impl<'a, T: GetKnowledgeBase> TabsWithLoading<'a, T> {
     pub(crate) fn new(tabs: &'a mut Tabs, load_source: &'a T) -> Self {
         Self { tabs, load_source }
     }
 }
 
-impl<'a, T: TermsKnowledgeBase> Loaded for TabsWithLoading<'a, T> {
+impl<'a, T: GetKnowledgeBase> Loaded for TabsWithLoading<'a, T> {
     type TermHolder = TermScreen;
 
     fn borrow_mut<'b>(
@@ -163,7 +163,7 @@ impl<'a, T: TermsKnowledgeBase> Loaded for TabsWithLoading<'a, T> {
 
 fn validate_two_phase<'a>(
     tabs: &'a mut Tabs,
-    terms: &impl TermsKnowledgeBase,
+    terms: &impl GetKnowledgeBase,
     two_phase_commit: &TwoPhaseCommit,
     initiator: &str,
     affected: &[String],
