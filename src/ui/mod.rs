@@ -62,7 +62,7 @@ where
                     match screen_output {
                         term_screen::Output::Changes(changes, updated_term) => {
                             let original_term = term_screen.get_pits().original().extract_term();
-                            changes_handling::handle_term_screen_changes(
+                            changes_handling::handle_changes(
                                 &mut self.term_tabs,
                                 &mut self.terms,
                                 &original_term,

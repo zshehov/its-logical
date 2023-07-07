@@ -9,7 +9,7 @@ use super::widgets::{tabs::Tabs, term_screen::term_screen_pit::TermChange};
 mod automatic;
 mod with_confirmation;
 
-pub(crate) fn handle_term_screen_changes(
+pub(crate) fn handle_changes(
     tabs: &mut Tabs,
     terms: &mut impl TermsKnowledgeBase,
     original_term: &FatTerm,
