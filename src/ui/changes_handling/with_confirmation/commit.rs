@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use tracing::debug;
 
 use crate::{
-    term_knowledge_base::TermsKnowledgeBase,
+    term_knowledge_base::{DeleteKnowledgeBase, PutKnowledgeBase},
     ui::widgets::{
         tabs::Tabs,
         term_screen::{two_phase_commit::TwoPhaseCommit, TermScreen},
@@ -12,7 +12,7 @@ use crate::{
 
 pub(crate) fn finish(
     tabs: &mut Tabs,
-    terms: &mut impl TermsKnowledgeBase,
+    terms: &mut (impl PutKnowledgeBase + DeleteKnowledgeBase),
     is_delete: bool,
     two_phase_commit: Rc<RefCell<TwoPhaseCommit>>,
 ) {

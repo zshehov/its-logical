@@ -3,7 +3,11 @@ use crate::{
     ui::widgets::{tabs::Tabs, term_screen::term_screen_pit::TermScreenPIT},
 };
 
-use super::Loaded;
+// Loaded trait represents a container with currently loaded Terms that can be updated with a given
+// closure
+pub(crate) trait Loaded {
+    fn update_with(&mut self, term_name: &str, updator: impl Fn(&FatTerm) -> FatTerm);
+}
 
 impl Loaded for Tabs {
     fn update_with(&mut self, term_name: &str, updator: impl Fn(&FatTerm) -> FatTerm) {

@@ -3,10 +3,10 @@ use tracing::debug;
 use crate::{
     changes,
     model::fat_term::FatTerm,
-    term_knowledge_base::{GetKnowledgeBase, PutKnowledgeBase, TermsKnowledgeBase},
+    term_knowledge_base::{DeleteKnowledgeBase, GetKnowledgeBase, PutKnowledgeBase},
 };
 
-use self::with_confirmation::TabsWithLoading;
+use self::with_confirmation::loaded::TabsWithLoading;
 
 use super::widgets::{tabs::Tabs, term_screen::term_screen_pit::TermChange};
 
@@ -72,7 +72,7 @@ pub(crate) fn handle_changes(
 
 pub(crate) fn handle_deletion(
     tabs: &mut Tabs,
-    terms: &mut impl TermsKnowledgeBase,
+    terms: &mut (impl GetKnowledgeBase + PutKnowledgeBase + DeleteKnowledgeBase),
     original_term: &FatTerm,
 ) {
     if !original_term.meta.referred_by.is_empty() {
@@ -121,7 +121,7 @@ fn repeat_ongoing_commit_changes(
                 &original_mentioned,
                 &mentioned_args_changes,
                 &updated_mentioned,
-                &automatic::SingleTerm::new(updated_term),
+                &updated_term,
             )
             .get(&updated_term_name)
             .unwrap()
