@@ -57,14 +57,10 @@ impl GetKnowledgeBase for InMemoryTerms {
 
 impl PutKnowledgeBase for InMemoryTerms {
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError> {
-        match self.map.entry(term_name.to_string()) {
-            std::collections::hash_map::Entry::Occupied(mut e) => {
-                *e.get_mut() = term;
-            }
-            std::collections::hash_map::Entry::Vacant(e) => {
-                e.insert(term);
-            }
+        if self.map.contains_key(term_name) {
+            self.map.remove(term_name);
         }
+        self.map.insert(term.meta.term.name.clone(), term);
 
         Ok(())
     }
