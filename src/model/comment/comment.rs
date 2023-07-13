@@ -40,13 +40,13 @@ impl Comment {
 
     pub(crate) fn new(
         term: NameDescription,
-        args: Vec<NameDescription>,
-        referred_by: Vec<String>,
+        args: &[NameDescription],
+        referred_by: &[String],
     ) -> Self {
         Self {
             term,
-            args,
-            referred_by,
+            args: args.to_vec(),
+            referred_by: referred_by.to_vec(),
         }
     }
 }

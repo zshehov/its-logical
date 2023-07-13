@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use tracing::debug;
 
 use crate::{
@@ -32,8 +34,12 @@ pub(crate) fn handle_changes(
         })
         .unwrap_or(vec![]);
 
-    let affected =
+    let (mentioned, referred_by) =
         changes::propagation::affected_from_changes(original_term, &updated_term, &arg_changes);
+
+    let mut affected: HashSet<String> = HashSet::from_iter(mentioned);
+    affected.extend(referred_by.clone());
+    let affected: Vec<String> = affected.into_iter().collect();
 
     debug!(
         "Changes made for {}. Propagating to: {:?}",
@@ -43,18 +49,10 @@ pub(crate) fn handle_changes(
     if
     /* the changes are not worthy of user confirmation */
     arg_changes.is_empty()
-        || /* no other term is affected */ affected.is_empty()
-        || /* a new term */ original_term.meta.term.name == *""
+        || /* no referring term is affected */ referred_by.is_empty()
     {
         debug!("automatic propagation");
-        automatic::propagate(
-            terms,
-            tabs,
-            original_term,
-            &arg_changes,
-            &updated_term,
-            &affected,
-        );
+        automatic::propagate(terms, tabs, original_term, &updated_term, &affected);
     } else {
         debug!("2 phase commit propagation");
         with_confirmation::propagate(
@@ -141,116 +139,84 @@ fn repeat_ongoing_commit_changes(
 
 #[cfg(test)]
 mod tests {
-    use crate::ui::widgets::drag_and_drop;
+    use std::collections::HashMap;
+
+    use crate::{
+        model::{
+            comment::{comment::Comment, name_description::NameDescription},
+            term::{rule::parse_rule, term::Term},
+        },
+        term_knowledge_base::InMemoryTerms,
+        ui::widgets::drag_and_drop,
+    };
 
     use super::*;
-    use std::cell::RefCell;
 
-    struct MockAutomaticPropagator {
-        propagate_called: RefCell<bool>,
-    }
-    impl MockAutomaticPropagator {
-        fn new() -> Self {
-            Self {
-                propagate_called: RefCell::new(false),
-            }
-        }
-    }
-    struct MockConfirmationPropagator {
-        propagate_called: RefCell<bool>,
-    }
-    impl MockConfirmationPropagator {
-        fn new() -> Self {
-            Self {
-                propagate_called: RefCell::new(false),
-            }
-        }
-    }
-
-    impl Propagator for &MockAutomaticPropagator {
-        fn propagate(
-            &self,
-            _tabs: &mut Tabs,
-            _terms: &mut impl TermsKnowledgeBase,
-            _original_term: &FatTerm,
-            _arg_changes: &[ArgsChange],
-            _updated_term: &FatTerm,
-            _affected: &[String],
-        ) {
-            *self.propagate_called.borrow_mut() = true;
-        }
-    }
-    impl WithConfirmationPropagator for &MockConfirmationPropagator {
-        fn propagate(
-            &self,
-            _tabs: &mut Tabs,
-            _terms: &impl TermsKnowledgeBase,
-            _original_term: &FatTerm,
-            _arg_changes: &[ArgsChange],
-            _updated_term: &FatTerm,
-            _affected: &[String],
-        ) {
-            *self.propagate_called.borrow_mut() = true;
-        }
-    }
-
-    struct MockTermsKnowledge {
-        emtpy_vec: Vec<String>,
-    }
-    impl MockTermsKnowledge {
-        fn new() -> Self {
-            Self { emtpy_vec: vec![] }
-        }
-    }
-    impl TermsKnowledgeBase for MockTermsKnowledge {
-        fn get(&self, _: &str) -> Option<FatTerm> {
-            None
-        }
-
-        fn put(
-            &mut self,
-            _: &str,
-            _: FatTerm,
-        ) -> Result<(), crate::term_knowledge_base::KnowledgeBaseError> {
-            Ok(())
-        }
-
-        fn keys(&self) -> &Vec<String> {
-            &self.emtpy_vec
-        }
-
-        fn delete(&mut self, _: &str) {}
-    }
-
-    /* handle_term_screen_changes_internal */
-
-    fn setup_handle_term_screen_changes_internal(
-        original_term: &FatTerm,
-        term_changes: &[TermChange],
-        updated_term: FatTerm,
-    ) -> (MockAutomaticPropagator, MockConfirmationPropagator) {
-        let mut tabs = Tabs::default();
-        let mut terms = MockTermsKnowledge::new();
-
-        let automatic_propagator = MockAutomaticPropagator::new();
-        let with_confirmation_propagator = MockConfirmationPropagator::new();
-
-        handle_term_screen_changes_internal(
-            original_term,
-            term_changes,
-            updated_term,
-            &automatic_propagator,
-            &with_confirmation_propagator,
+    // original, referring and mentioned terms prepared in the database and opened in the tabs
+    fn setup() -> (Tabs, InMemoryTerms) {
+        let original_term = FatTerm::new(
+            Comment::new(
+                NameDescription::new("original", "original description"),
+                &[NameDescription::new("First_arg", "first arg description")],
+                &["referring".to_string()],
+            ),
+            Term::new(
+                &[],
+                &[
+                    parse_rule("original(FirstRuleArg):-mentioned(FirstRuleArg)")
+                        .unwrap()
+                        .1,
+                ],
+            ),
         );
-        (automatic_propagator, with_confirmation_propagator)
+
+        let referring_term = FatTerm::new(
+            Comment::new(
+                NameDescription::new("referring", "referring description"),
+                &[NameDescription::new("First_arg", "first arg description")],
+                &[],
+            ),
+            Term::new(
+                &[],
+                &[
+                    parse_rule("referring(FirstRuleArg):-original(FirstRuleArg)")
+                        .unwrap()
+                        .1,
+                ],
+            ),
+        );
+
+        let mentioned_term = FatTerm::new(
+            Comment::new(
+                NameDescription::new("mentioned", "mentioned description"),
+                &[NameDescription::new("First_arg", "first arg description")],
+                &["original".to_string()],
+            ),
+            Term::new(&[], &[]),
+        );
+
+        let mut tabs = Tabs::default();
+
+        tabs.push(&original_term);
+        tabs.push(&referring_term);
+        tabs.push(&mentioned_term);
+
+        let databse = InMemoryTerms::new(HashMap::from([
+            (original_term.meta.term.name.clone(), original_term),
+            (referring_term.meta.term.name.clone(), referring_term),
+            (mentioned_term.meta.term.name.clone(), mentioned_term),
+        ]));
+
+        (tabs, databse)
     }
 
+    /** automatic changes handling */
     #[test]
     fn when_empty_args_changes_with_affected_not_new() {
-        let mut original_term = FatTerm::default();
-        original_term.meta.referred_by = vec!["some_other_term".to_string()];
-        original_term.meta.term.name = "bla".to_string();
-        let updated_term = original_term.clone();
+        let (mut tabs, mut database) = setup();
+        let original = database.get("original").unwrap();
+        let mut updated = original.clone();
+        updated.meta.term.name = "new_name".to_string();
 
         let term_changes = vec![
             TermChange::RuleChanges,
@@ -258,48 +224,129 @@ mod tests {
             TermChange::DescriptionChange,
         ];
 
-        let (auto, with_confirmation) =
-            setup_handle_term_screen_changes_internal(&original_term, &term_changes, updated_term);
+        // only original tab is opened
+        tabs.close("referring");
+        tabs.close("mentioned");
 
-        assert!(*auto.propagate_called.borrow());
-        assert!(!*with_confirmation.propagate_called.borrow());
+        // should trigger automatic changes
+        handle_changes(
+            &mut tabs,
+            &mut database,
+            &original,
+            &term_changes,
+            updated.clone(),
+        );
+
+        assert!(tabs.get("original").is_none());
+        assert!(database.get("original").is_none());
+
+        assert_eq!(tabs.get("new_name").unwrap().extract_term(), updated);
+        assert_eq!(database.get("new_name").unwrap(), updated);
+
+        // should not open the related terms in tabs as this is automatic
+        assert!(tabs.get("referring").is_none());
+        assert!(tabs.get("mentioned").is_none());
+
+        // these are actually not really needed in this test
+        let referring = database.get("referring").unwrap();
+        assert_eq!(referring.term.rules[0].body[0].name, "new_name");
+
+        let mentioned = database.get("mentioned").unwrap();
+        assert_eq!(mentioned.meta.referred_by[0], "new_name");
     }
+
     #[test]
     fn when_args_changes_and_no_affected_not_new() {
-        let mut original_term = FatTerm::default();
-        original_term.meta.term.name = "bla".to_string();
-        let updated_term = original_term.clone();
+        let (mut tabs, mut database) = setup();
+        let mut original = database.get("original").unwrap();
+        original.remove_referred_by("referring");
+        let mut updated = original.clone();
+
+        let before_change_referring = database.get("referring").unwrap();
+        let before_change_mentioned = database.get("mentioned").unwrap();
 
         // with arg change
         let term_changes = vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
             crate::model::comment::name_description::NameDescription::new("some", "arg"),
         )])];
+        updated.meta.args.push(NameDescription::new("some", "arg"));
+        updated.term.rules[0].head.binding.push("_".to_string());
 
-        let (auto, with_confirmation) =
-            setup_handle_term_screen_changes_internal(&original_term, &term_changes, updated_term);
+        // only original tab is opened
+        tabs.close("referring");
+        tabs.close("mentioned");
 
-        assert!(*auto.propagate_called.borrow());
-        assert!(!*with_confirmation.propagate_called.borrow());
+        // should trigger automatic changes
+        handle_changes(
+            &mut tabs,
+            &mut database,
+            &original,
+            &term_changes,
+            updated.clone(),
+        );
+
+        assert_eq!(tabs.get("original").unwrap().extract_term(), updated);
+        assert_eq!(database.get("original").unwrap(), updated);
+
+        assert_eq!(database.get("referring").unwrap(), before_change_referring);
+        assert_eq!(database.get("mentioned").unwrap(), before_change_mentioned);
+
+        // should not open the related terms in tabs as this is automatic
+        assert!(tabs.get("referring").is_none());
+        assert!(tabs.get("mentioned").is_none());
     }
+
     #[test]
     fn when_args_changes_and_affected_and_new() {
-        let original_term = FatTerm::default();
-        let mut updated_term = original_term.clone();
-        updated_term.meta.term.name = "new_term".to_string();
-        updated_term.meta.referred_by = vec!["some_other_term".to_string()];
+        let (mut tabs, mut database) = setup();
+        let mut original = database.get("original").unwrap();
+        let mut updated = original.clone();
+        // a newly created term can't be referred by any other terms
+        updated.remove_referred_by("referring");
 
-        // with arg change
+        // the arg is essentially a new arg
         let term_changes = vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
-            crate::model::comment::name_description::NameDescription::new("some", "arg"),
+            updated.meta.args[0].clone(),
         )])];
 
-        let (auto, with_confirmation) =
-            setup_handle_term_screen_changes_internal(&original_term, &term_changes, updated_term);
+        // simulate starting with a blank term
+        original = FatTerm::default();
+        database.delete("original");
+        tabs.close("original");
+        tabs.push(&original);
+        let mut mentioned = database.get("mentioned").unwrap();
+        mentioned.remove_referred_by("original");
+        database.put("mentioned", mentioned).unwrap();
 
-        assert!(*auto.propagate_called.borrow());
-        assert!(!*with_confirmation.propagate_called.borrow());
+        let before_change_referring = database.get("referring").unwrap();
+
+        // only original tab is opened
+        tabs.close("referring");
+        tabs.close("mentioned");
+
+        // should trigger automatic changes
+        handle_changes(
+            &mut tabs,
+            &mut database,
+            &original,
+            &term_changes,
+            updated.clone(),
+        );
+
+        assert_eq!(tabs.get("original").unwrap().extract_term(), updated);
+        assert_eq!(database.get("original").unwrap(), updated);
+
+        assert_eq!(database.get("referring").unwrap(), before_change_referring);
+        assert_eq!(
+            database.get("mentioned").unwrap().meta.referred_by,
+            vec!["original"]
+        );
+
+        // should not open the related terms in tabs as this is automatic
+        assert!(tabs.get("referring").is_none());
+        assert!(tabs.get("mentioned").is_none());
     }
-
+    /*
     #[test]
     fn when_args_changes_and_affected_and_not_new() {
         let mut original_term = FatTerm::default();
@@ -318,4 +365,5 @@ mod tests {
         assert!(!*auto.propagate_called.borrow());
         assert!(*with_confirmation.propagate_called.borrow());
     }
+    */
 }

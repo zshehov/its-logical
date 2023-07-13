@@ -22,19 +22,13 @@ pub(crate) fn propagate(
     persistent: &mut (impl GetKnowledgeBase + PutKnowledgeBase),
     loaded: &mut impl loaded::Loaded,
     original_term: &FatTerm,
-    arg_changes: &[ArgsChange],
     updated_term: &FatTerm,
     affected: &[String],
 ) {
     let term_name = original_term.meta.term.name.clone();
     debug!("Direct change propagation");
-    let mut affected_terms = changes::propagation::apply(
-        original_term,
-        arg_changes,
-        updated_term,
-        // TODO: reuse the trait impl from with_confirmation
-        persistent,
-    );
+    let mut affected_terms =
+        changes::propagation::apply(original_term, &[], updated_term, persistent);
     affected_terms.insert(term_name.clone(), updated_term.to_owned());
 
     for (affected_term_name, affected_updated_term) in affected_terms.into_iter() {
@@ -44,7 +38,7 @@ pub(crate) fn propagate(
     }
 
     let update_fn = |in_term: &FatTerm| -> FatTerm {
-        changes::propagation::apply(original_term, arg_changes, updated_term, in_term)
+        changes::propagation::apply(original_term, &[], updated_term, in_term)
             .get(&in_term.meta.term.name)
             .unwrap()
             .to_owned()

@@ -183,7 +183,7 @@ impl From<RulePlaceholder> for Rule {
             .collect();
 
         Rule {
-            arg_bindings: crate::model::term::args_binding::ArgsBinding {
+            head: crate::model::term::args_binding::ArgsBinding {
                 binding: head_binding.binding,
             },
             body: body_bindings,
@@ -204,7 +204,7 @@ impl From<Rule> for RulePlaceholder {
 
         RulePlaceholder {
             head: HeadPlaceholder {
-                binding: rule.arg_bindings.binding,
+                binding: rule.head.binding,
             },
             body: body_bindings,
         }

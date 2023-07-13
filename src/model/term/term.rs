@@ -22,8 +22,11 @@ const END_OF_FACT: &str = r").
 const END_OF_RULE_HEAD: &str = r"):-";
 
 impl Term {
-    pub(crate) fn new(facts: Vec<ArgsBinding>, rules: Vec<Rule>) -> Self {
-        Self { facts, rules }
+    pub(crate) fn new(facts: &[ArgsBinding], rules: &[Rule]) -> Self {
+        Self {
+            facts: facts.to_vec(),
+            rules: rules.to_vec(),
+        }
     }
 
     pub(crate) fn encode(&self, term_name: &str) -> String {
@@ -39,7 +42,7 @@ impl Term {
         for rule in &self.rules {
             encoded.push_str(&term_name_prefix);
 
-            encoded.push_str(&rule.arg_bindings.encode());
+            encoded.push_str(&rule.head.encode());
             encoded.push_str(END_OF_RULE_HEAD);
 
             let body_entries: Vec<String> = rule.body.iter().map(|b| b.encode()).collect();
@@ -107,7 +110,7 @@ parent(X,Y):-strong_match_in_dna(X,Y),older(X,Y)
                     }
                 ],
                 rules: vec![Rule {
-                    arg_bindings: ArgsBinding {
+                    head: ArgsBinding {
                         binding: vec!["X".to_string(), "Y".to_string()],
                     },
                     body: vec![
@@ -142,7 +145,7 @@ fn test_encode_term() {
             },
         ],
         rules: vec![Rule {
-            arg_bindings: ArgsBinding {
+            head: ArgsBinding {
                 binding: vec!["X".to_string(), "Y".to_string()],
             },
             body: vec![

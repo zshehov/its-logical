@@ -67,8 +67,8 @@ impl FatTerm {
 impl Default for FatTerm {
     fn default() -> Self {
         FatTerm::new(
-            Comment::new(NameDescription::new("", ""), vec![], vec![]),
-            Term::new(vec![], vec![]),
+            Comment::new(NameDescription::new("", ""), &[], &[]),
+            Term::new(&[], &[]),
         )
     }
 }
@@ -102,14 +102,14 @@ father(Father,Child):-parent(Father,Child),male(Father)
         let expected = FatTerm::new(
             Comment::new(
                 NameDescription::new("father", "a father is a parent that's male"),
-                vec![
+                &[
                     NameDescription::new("FatherName", "the name of the father"),
                     NameDescription::new("ChildName", "the name of the child"),
                 ],
-                vec!["parent".to_string(), "male".to_string()],
+                &["parent".to_string(), "male".to_string()],
             ),
             Term::new(
-                vec![
+                &[
                     ArgsBinding {
                         binding: vec!["stefan".to_string(), "petko".to_string()],
                     },
@@ -117,8 +117,8 @@ father(Father,Child):-parent(Father,Child),male(Father)
                         binding: vec!["hristo".to_string(), "stoichko".to_string()],
                     },
                 ],
-                vec![Rule {
-                    arg_bindings: ArgsBinding {
+                &[Rule {
+                    head: ArgsBinding {
                         binding: vec!["Father".to_string(), "Child".to_string()],
                     },
                     body: vec![

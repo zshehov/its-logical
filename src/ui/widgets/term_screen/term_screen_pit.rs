@@ -249,7 +249,10 @@ impl TermScreenPIT {
                             let arguments_string: String = f.binding.join(", ");
                             ui.label(format!("{} ( {} )", &self.term.meta.name, arguments_string));
 
-                            if edit_mode && self.fact_editing.is_none() && ui.small_button(RichText::new("🖊").monospace()).clicked() {
+                            if edit_mode
+                                && self.fact_editing.is_none()
+                                && ui.small_button(RichText::new("🖊").monospace()).clicked()
+                            {
                                 edited_fact = Some(idx);
                             }
                             idx += 1;
@@ -310,7 +313,7 @@ impl TermScreenPIT {
                         let mut idx = 0;
                         let mut edited_rule = None;
                         self.term.rules.show(ui, |r, ui| {
-                            let arguments_string: String = r.arg_bindings.binding.join(", ");
+                            let arguments_string: String = r.head.binding.join(", ");
 
                             let body_strings: Vec<String> = r
                                 .body
@@ -330,7 +333,10 @@ impl TermScreenPIT {
                                 body_strings.join(", ")
                             ));
 
-                            if edit_mode && self.rule_editing.is_none() && ui.small_button(RichText::new("🖊").monospace()).clicked() {
+                            if edit_mode
+                                && self.rule_editing.is_none()
+                                && ui.small_button(RichText::new("🖊").monospace()).clicked()
+                            {
                                 edited_rule = Some(idx);
                             }
                             idx += 1;
@@ -446,12 +452,12 @@ impl From<&Term> for FatTerm {
         Self::new(
             Comment::new(
                 term.meta.to_owned(),
-                term.arguments.iter().cloned().collect(),
-                term.related.clone(),
+                term.arguments.iter().as_slice(),
+                term.related.as_slice(),
             ),
             crate::model::term::term::Term::new(
-                term.facts.iter().cloned().collect(),
-                term.rules.iter().cloned().collect(),
+                term.facts.iter().as_slice(),
+                term.rules.iter().as_slice(),
             ),
         )
     }
@@ -464,7 +470,7 @@ fn apply_head_args_change<'a>(
 ) {
     for rule in rules {
         let removed_arg =
-            changes::propagation::apply_binding_change(&change, &mut rule.arg_bindings);
+            changes::propagation::apply_binding_change(&change, &mut rule.head);
 
         if let Some(removed_arg) = removed_arg {
             for body_term in &mut rule.body {

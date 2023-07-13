@@ -15,8 +15,9 @@ pub(crate) fn affected_from_changes(
     original: &FatTerm,
     updated: &FatTerm,
     args_changes: &[ArgsChange],
-) -> Vec<String> {
-    let mut affected_terms = vec![];
+) -> (Vec<String>, Vec<String>) {
+    let mut mentioned = vec![];
+    let mut referred_by = vec![];
     let mut include_referred_by = false;
     let mut include_mentioned = false;
 
@@ -31,8 +32,8 @@ pub(crate) fn affected_from_changes(
     } else {
         let (mut new, mut removed) = changes_in_mentioned_terms(original, updated);
 
-        affected_terms.append(&mut new);
-        affected_terms.append(&mut removed);
+        mentioned.append(&mut new);
+        mentioned.append(&mut removed);
     }
 
     if !args_changes.is_empty() {
@@ -40,15 +41,15 @@ pub(crate) fn affected_from_changes(
     }
 
     if include_referred_by {
-        affected_terms.append(&mut updated.meta.referred_by.clone());
+        referred_by.append(&mut updated.meta.referred_by.clone());
     }
     if include_mentioned {
         let old_mentioned = original.mentioned_terms();
         let current_mentioned = updated.mentioned_terms();
 
-        affected_terms.append(&mut old_mentioned.union(&current_mentioned).cloned().collect());
+        mentioned.append(&mut old_mentioned.union(&current_mentioned).cloned().collect());
     }
-    affected_terms
+    (mentioned, referred_by)
 }
 
 pub(crate) fn affected_from_deletion(original: &FatTerm) -> Vec<String> {
@@ -191,6 +192,8 @@ pub(crate) fn apply_binding_change(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::{
         changes::{
             propagation::{affected_from_changes, apply},
@@ -208,16 +211,16 @@ mod tests {
         FatTerm::new(
             Comment::new(
                 NameDescription::new("first_related", "related description"),
-                vec![NameDescription::new("FirstArg", "First arg's description")],
-                vec![],
+                &[NameDescription::new("FirstArg", "First arg's description")],
+                &[],
             ),
             Term::new(
-                vec![ArgsBinding {
+                &[ArgsBinding {
                     binding: vec!["fact_value".to_string()],
                 }],
-                vec![
+                &[
                     Rule {
-                        arg_bindings: ArgsBinding {
+                        head: ArgsBinding {
                             binding: vec!["FirstHeadArg".to_string()],
                         },
                         body: vec![
@@ -236,7 +239,7 @@ mod tests {
                         ],
                     },
                     Rule {
-                        arg_bindings: ArgsBinding {
+                        head: ArgsBinding {
                             binding: vec!["FirstHeadArg2".to_string()],
                         },
                         body: vec![
@@ -263,10 +266,10 @@ mod tests {
         FatTerm::new(
             Comment::new(
                 NameDescription::new("first_body_term", "first body term description"),
-                vec![NameDescription::new("FirstArg", "First arg's description")],
-                vec!["test".to_string()],
+                &[NameDescription::new("FirstArg", "First arg's description")],
+                &["test".to_string()],
             ),
-            Term::new(vec![], vec![]),
+            Term::new(&[], &[]),
         )
     }
 
@@ -274,16 +277,16 @@ mod tests {
         FatTerm::new(
             Comment::new(
                 NameDescription::new("test", "test description"),
-                vec![NameDescription::new("FirstArg", "First arg's description")],
-                vec!["first_related".to_string()],
+                &[NameDescription::new("FirstArg", "First arg's description")],
+                &["first_related".to_string()],
             ),
             Term::new(
-                vec![ArgsBinding {
+                &[ArgsBinding {
                     binding: vec!["fact_value".to_string()],
                 }],
-                vec![
+                &[
                     Rule {
-                        arg_bindings: ArgsBinding {
+                        head: ArgsBinding {
                             binding: vec!["FirstHeadArg".to_string()],
                         },
                         body: vec![
@@ -302,7 +305,7 @@ mod tests {
                         ],
                     },
                     Rule {
-                        arg_bindings: ArgsBinding {
+                        head: ArgsBinding {
                             binding: vec!["FirstHeadArg2".to_string()],
                         },
                         body: vec![
@@ -332,7 +335,11 @@ mod tests {
         let mut with_name_change = original.clone();
         with_name_change.meta.term.name = "new_name".to_string();
 
-        let mut affected = affected_from_changes(&original, &with_name_change, &[]);
+        let (mentioned, referred_by) = affected_from_changes(&original, &with_name_change, &[]);
+        let mut affected: Vec<String> =
+            HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
+                .into_iter()
+                .collect();
 
         affected.sort();
         let mut expected = vec![
@@ -354,7 +361,12 @@ mod tests {
         let mut with_descritpion_change = original.clone();
         with_descritpion_change.meta.term.desc = "new description".to_string();
 
-        let affected = affected_from_changes(&original.clone(), &with_descritpion_change, &[]);
+        let (mentioned, referred_by) =
+            affected_from_changes(&original.clone(), &with_descritpion_change, &[]);
+        let affected: Vec<String> =
+            HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
+                .into_iter()
+                .collect();
         assert_eq!(affected.len(), 0);
     }
 
@@ -367,7 +379,13 @@ mod tests {
             binding: vec!["SomeArgValue".to_string()],
         });
 
-        let affected = affected_from_changes(&original.clone(), &with_facts_change, &[]);
+        let (mentioned, referred_by) =
+            affected_from_changes(&original.clone(), &with_facts_change, &[]);
+        let affected: Vec<String> =
+            HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
+                .into_iter()
+                .collect();
+
         assert_eq!(affected.len(), 0);
     }
 
@@ -379,7 +397,12 @@ mod tests {
         *with_args_rename.meta.args.last_mut().unwrap() =
             NameDescription::new("NewArgName", "New desc");
 
-        let affected = affected_from_changes(&original.clone(), &with_args_rename, &[]);
+        let (mentioned, referred_by) =
+            affected_from_changes(&original.clone(), &with_args_rename, &[]);
+        let mut affected: Vec<String> =
+            HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
+                .into_iter()
+                .collect();
         assert_eq!(affected.len(), 0);
     }
 
@@ -389,7 +412,7 @@ mod tests {
 
         let mut with_rules_change = original.clone();
         let new_rule = Rule {
-            arg_bindings: ArgsBinding {
+            head: ArgsBinding {
                 binding: vec!["Arg".to_string()],
             },
             body: vec![BoundTerm {
@@ -404,7 +427,13 @@ mod tests {
         with_rules_change.term.rules.remove(0);
         with_rules_change.term.rules.push(new_rule.clone());
 
-        let mut affected = affected_from_changes(&original.clone(), &with_rules_change, &[]);
+        let (mentioned, referred_by) =
+            affected_from_changes(&original.clone(), &with_rules_change, &[]);
+        let mut affected: Vec<String> =
+            HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
+                .into_iter()
+                .collect();
+
         affected.sort();
         let mut expected = vec!["first_body_term", "second_body_term", "new_rule_body_term"];
         expected.sort();
@@ -420,11 +449,15 @@ mod tests {
         let new_arg = NameDescription::new("SomeNewArg", "With some desc");
         with_arg_change.meta.args.push(new_arg.clone());
 
-        let affected = affected_from_changes(
+        let (mentioned, referred_by) = affected_from_changes(
             &original.clone(),
             &with_arg_change,
             &[ArgsChange::Pushed(new_arg.name)],
         );
+        let affected: Vec<String> =
+            HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
+                .into_iter()
+                .collect();
         assert_eq!(affected, vec!["first_related".to_string()]);
     }
 
@@ -434,7 +467,7 @@ mod tests {
 
         let mut with_changes = original.clone();
         let new_rule = Rule {
-            arg_bindings: ArgsBinding {
+            head: ArgsBinding {
                 binding: vec!["Arg".to_string()],
             },
             body: vec![BoundTerm {
@@ -452,11 +485,15 @@ mod tests {
         let new_arg = NameDescription::new("SomeNewArg", "With some desc");
         with_changes.meta.args.push(new_arg.clone());
 
-        let mut affected = affected_from_changes(
+        let (mentioned, referred_by) = affected_from_changes(
             &original.clone(),
             &with_changes,
             &[ArgsChange::Pushed(new_arg.name)],
         );
+        let mut affected: Vec<String> =
+            HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
+                .into_iter()
+                .collect();
         affected.sort();
 
         let mut expected = vec![

@@ -10,7 +10,7 @@ use super::{
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub(crate) struct Rule {
-    pub(crate) arg_bindings: ArgsBinding,
+    pub(crate) head: ArgsBinding,
     pub(crate) body: Vec<BoundTerm>,
 }
 
@@ -26,7 +26,7 @@ pub(crate) fn parse_rule<'a>(i: &'a str) -> IResult<&'a str, Rule, VerboseError<
         (
             leftover,
             Rule {
-                arg_bindings: head.arg_bindings,
+                head: head.arg_bindings,
                 body,
             },
         )
