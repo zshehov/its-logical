@@ -84,11 +84,7 @@ pub(crate) fn handle_deletion(
 
 pub(crate) use with_confirmation::commit::finish as finish_commit;
 
-fn repeat_ongoing_commit_changes(
-    tabs: &mut Tabs,
-    original_term: &FatTerm,
-    updated_term: FatTerm,
-) {
+fn repeat_ongoing_commit_changes(tabs: &mut Tabs, original_term: &FatTerm, updated_term: FatTerm) {
     let updated_term_name = updated_term.meta.term.name.clone();
     let previously_mentioned_terms = original_term.mentioned_terms();
     let currently_mentioned_terms = updated_term.mentioned_terms();
@@ -138,7 +134,7 @@ fn repeat_ongoing_commit_changes(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap};
+    use std::collections::HashMap;
 
     use crate::{
         model::{
@@ -401,50 +397,139 @@ mod tests {
         // there is no actual change to mentioned so it doesn't need to be opened
         assert!(tabs.get("mentioned").is_none());
 
-        // referring needs to confirm the change so it must be opened
-        let referring_tab = tabs.get("referring");
-        assert!(referring_tab.is_some());
-        let referring_tab = referring_tab.unwrap();
+        {
+            // referring needs to confirm the change so it must be opened
+            let referring_tab = tabs.get("referring");
+            assert!(referring_tab.is_some());
+            let referring_tab = referring_tab.unwrap();
 
-        // there's a newly mentioned term that will be changed due to this change
-        let newly_mentioned_tab = tabs.get("newly_mentioned");
-        assert!(newly_mentioned_tab.is_some());
-        let newly_mentioned_tab = newly_mentioned_tab.unwrap();
+            // there's a newly mentioned term that will be changed due to this change
+            let newly_mentioned_tab = tabs.get("newly_mentioned");
+            assert!(newly_mentioned_tab.is_some());
+            let newly_mentioned_tab = newly_mentioned_tab.unwrap();
 
-        let original_tab = tabs.get("original").unwrap();
+            let original_tab = tabs.get("original").unwrap();
 
-        // 2-phase-commit must be setup
-        assert!(original_tab.two_phase_commit.is_some());
-        assert!(referring_tab.two_phase_commit.is_some());
-        assert!(newly_mentioned_tab.two_phase_commit.is_some());
+            // 2-phase-commit must be setup
+            assert!(original_tab.two_phase_commit.is_some());
+            assert!(referring_tab.two_phase_commit.is_some());
+            assert!(newly_mentioned_tab.two_phase_commit.is_some());
 
-        let original_two_phase_commit = original_tab.two_phase_commit.as_ref().unwrap().borrow();
+            let original_two_phase_commit =
+                original_tab.two_phase_commit.as_ref().unwrap().borrow();
 
-        let mut original_awaiting_for: Vec<String> =
-            original_two_phase_commit.waiting_for().cloned().collect();
+            let mut original_awaiting_for: Vec<String> =
+                original_two_phase_commit.waiting_for().cloned().collect();
 
-        original_awaiting_for.sort();
-        let mut expected_awaitng_for = vec!["referring", "newly_mentioned"];
-        expected_awaitng_for.sort();
-        assert_eq!(original_awaiting_for, expected_awaitng_for);
-        assert_eq!(original_two_phase_commit.origin(), "original");
-        assert!(original_two_phase_commit.is_initiator());
-        assert!(!original_two_phase_commit.is_being_waited());
+            original_awaiting_for.sort();
+            let mut expected_awaitng_for = vec!["referring", "newly_mentioned"];
+            expected_awaitng_for.sort();
+            assert_eq!(original_awaiting_for, expected_awaitng_for);
+            assert_eq!(original_two_phase_commit.origin(), "original");
+            assert!(original_two_phase_commit.is_initiator());
+            assert!(!original_two_phase_commit.is_being_waited());
 
-        let check_approvers = |approver_tab: &crate::ui::widgets::term_screen::TermScreen| {
-            let approver_two_phase_commit =
-                approver_tab.two_phase_commit.as_ref().unwrap().borrow();
+            let check_approvers = |approver_tab: &crate::ui::widgets::term_screen::TermScreen| {
+                let approver_two_phase_commit =
+                    approver_tab.two_phase_commit.as_ref().unwrap().borrow();
 
-            let approver_awaiting_for: Vec<String> =
-                approver_two_phase_commit.waiting_for().cloned().collect();
+                let approver_awaiting_for: Vec<String> =
+                    approver_two_phase_commit.waiting_for().cloned().collect();
 
-            assert!(approver_awaiting_for.is_empty());
-            assert_eq!(approver_two_phase_commit.origin(), "original");
-            assert!(!approver_two_phase_commit.is_initiator());
-            assert!(approver_two_phase_commit.is_being_waited());
-        };
+                assert!(approver_awaiting_for.is_empty());
+                assert_eq!(approver_two_phase_commit.origin(), "original");
+                assert!(!approver_two_phase_commit.is_initiator());
+                assert!(approver_two_phase_commit.is_being_waited());
+            };
 
-        check_approvers(referring_tab);
-        check_approvers(newly_mentioned_tab);
+            check_approvers(referring_tab);
+            check_approvers(newly_mentioned_tab);
+        }
+
+        // now test what happpens when the newly mentioned is changed while the 2-phase-commit is
+        // in process
+        let term_changes = vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
+            NameDescription::new("new_arg", "description"),
+        )])];
+        let newly_mentioned = tabs.get("newly_mentioned").unwrap().extract_term();
+        let mut updated = newly_mentioned.clone();
+
+        updated
+            .meta
+            .args
+            .push(NameDescription::new("new_arg", "description"));
+
+        // should trigger with_confirmation changes and wait for approval from "original"
+        handle_changes(
+            &mut tabs,
+            &mut database,
+            &newly_mentioned,
+            &term_changes,
+            updated,
+        );
+
+        {
+            // referring needs to confirm the change so it must be opened
+            let referring_tab = tabs.get("referring");
+            assert!(referring_tab.is_some());
+            let referring_tab = referring_tab.unwrap();
+
+            let newly_mentioned_tab = tabs.get("newly_mentioned");
+            assert!(newly_mentioned_tab.is_some());
+            let newly_mentioned_tab = newly_mentioned_tab.unwrap();
+
+            let original_tab = tabs.get("original").unwrap();
+
+            // 2-phase-commit must still be setup
+            assert!(original_tab.two_phase_commit.is_some());
+            assert!(referring_tab.two_phase_commit.is_some());
+            assert!(newly_mentioned_tab.two_phase_commit.is_some());
+
+            let original_two_phase_commit =
+                original_tab.two_phase_commit.as_ref().unwrap().borrow();
+
+            let mut original_awaiting_for: Vec<String> =
+                original_two_phase_commit.waiting_for().cloned().collect();
+
+            original_awaiting_for.sort();
+            let mut expected_awaitng_for = vec!["referring", "newly_mentioned"];
+            expected_awaitng_for.sort();
+            assert_eq!(original_awaiting_for, expected_awaitng_for);
+            assert_eq!(original_two_phase_commit.origin(), "original");
+            assert!(original_two_phase_commit.is_initiator());
+            // because of the change in newly_mentioned
+            assert!(original_two_phase_commit.is_being_waited());
+
+            let check_approvers = |approver_tab: &crate::ui::widgets::term_screen::TermScreen| {
+                let approver_two_phase_commit =
+                    approver_tab.two_phase_commit.as_ref().unwrap().borrow();
+
+                assert_eq!(approver_two_phase_commit.origin(), "original");
+                assert!(!approver_two_phase_commit.is_initiator());
+                assert!(approver_two_phase_commit.is_being_waited());
+            };
+
+            check_approvers(referring_tab);
+            check_approvers(newly_mentioned_tab);
+
+            let reffering_two_phase_commit =
+                referring_tab.two_phase_commit.as_ref().unwrap().borrow();
+
+            let referring_waiting_for: Vec<String> =
+                reffering_two_phase_commit.waiting_for().cloned().collect();
+            assert!(referring_waiting_for.is_empty());
+
+            let newly_mentioned_two_phase_commit = newly_mentioned_tab
+                .two_phase_commit
+                .as_ref()
+                .unwrap()
+                .borrow();
+
+            let newly_mentioned_waiting_for: Vec<String> = newly_mentioned_two_phase_commit
+                .waiting_for()
+                .cloned()
+                .collect();
+            assert_eq!(newly_mentioned_waiting_for, &["original"]);
+        }
     }
 }
