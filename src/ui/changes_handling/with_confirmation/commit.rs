@@ -1,4 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashSet, VecDeque},
+    rc::Rc,
+};
 
 use tracing::debug;
 
@@ -21,17 +25,37 @@ pub(crate) fn finish(
     if two_phase_commit.borrow().waiting_for().len() > 0 {
         debug!("NOT ALL ARE CONFIRMED YET");
     } else {
-        // TODO: this should be done recursively
-        let mut relevant: Vec<String> = two_phase_commit.borrow().iter_approved().collect();
+        let mut relevant: HashSet<String> =
+            HashSet::from_iter(two_phase_commit.borrow().iter_approved());
+        let mut queue: VecDeque<String> = VecDeque::from_iter(relevant.iter().cloned());
+
+        // BFS through all approved related terms
+        while let Some(entry) = queue.pop_front() {
+            let new_entries: Vec<String> = tabs
+                .get(&entry)
+                .expect("relevant terms must be opened in the tabs")
+                .two_phase_commit
+                .as_ref()
+                .expect("relevant terms must be a part of the two phase commit")
+                .borrow()
+                .iter_approved()
+                .filter(|term| !relevant.contains(term))
+                .collect();
+
+            queue.extend(new_entries.clone());
+            relevant.extend(new_entries);
+        }
+
         let origin = two_phase_commit.borrow().origin();
 
         if !is_delete {
-            relevant.push(origin);
+            relevant.insert(origin);
         } else {
             terms.delete(&origin);
             tabs.close(&origin);
         }
 
+        let relevant: Vec<String> = relevant.into_iter().collect();
         for relevant_term_screen in tabs.borrow_mut(&relevant) {
             let latest_term = relevant_term_screen.extract_term();
             *relevant_term_screen = TermScreen::new(&latest_term, false);
