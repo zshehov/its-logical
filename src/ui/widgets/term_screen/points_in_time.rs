@@ -103,7 +103,6 @@ impl PointsInTime {
         showing_pit: usize,
         terms_knowledge_base: &T,
     ) {
-        // TODO: make sure these are uneditable
         if showing_pit == 0 {
             return self.original.show(ui, terms_knowledge_base, false);
         }
