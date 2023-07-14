@@ -11,6 +11,9 @@ use super::ArgsChange;
 
 mod terms_cache;
 
+// returned "mentioned" terms are ones that actually are changed (newly mentioned/not mentioned
+// any longer or in case of name change each mentioned term will have its "referred by" field
+// changed)
 pub(crate) fn affected_from_changes(
     original: &FatTerm,
     updated: &FatTerm,

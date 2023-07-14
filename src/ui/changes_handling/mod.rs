@@ -115,23 +115,22 @@ fn repeat_ongoing_commit_changes(
             let (original_mentioned, mentioned_args_changes, updated_mentioned) =
                 mentioned_tab.get_pits().accumulated_changes();
 
-            updated_term = changes::propagation::apply(
+            if let Some(new_pit) = changes::propagation::apply(
                 &original_mentioned,
                 &mentioned_args_changes,
                 &updated_mentioned,
                 &updated_term,
             )
             .get(&updated_term_name)
-            .unwrap()
-            .clone();
+            {
+                updated_tab
+                    .get_pits_mut()
+                    .0
+                    .push_pit(&[], new_pit, &mentioned_tab.name());
 
-            updated_tab
-                .get_pits_mut()
-                .0
-                .push_pit(&[], &updated_term, &mentioned_tab.name());
-
-            // relies on the invariant that there is only ever a single 2phase commit at a time
-            with_confirmation::add_approvers(commit, &mut [updated_tab]);
+                // relies on the invariant that there is only ever a single 2phase commit at a time
+                with_confirmation::add_approvers(commit, &mut [updated_tab]);
+            }
         }
     }
     updated_tab.choose_pit(updated_tab.get_pits().len() - 1);
@@ -139,12 +138,14 @@ fn repeat_ongoing_commit_changes(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{borrow::BorrowMut, collections::HashMap};
 
     use crate::{
         model::{
             comment::{comment::Comment, name_description::NameDescription},
-            term::{rule::parse_rule, term::Term},
+            term::{
+                args_binding::ArgsBinding, bound_term::BoundTerm, rule::parse_rule, term::Term,
+            },
         },
         term_knowledge_base::InMemoryTerms,
         ui::widgets::drag_and_drop,
@@ -346,24 +347,104 @@ mod tests {
         assert!(tabs.get("referring").is_none());
         assert!(tabs.get("mentioned").is_none());
     }
-    /*
+
     #[test]
     fn when_args_changes_and_affected_and_not_new() {
-        let mut original_term = FatTerm::default();
-        original_term.meta.term.name = "not_new_term".to_string();
-        original_term.meta.referred_by = vec!["some_other_term".to_string()];
-        let updated_term = original_term.clone();
+        let (mut tabs, mut database) = setup();
+        let original = database.get("original").unwrap();
+        let mut updated = original.clone();
+
+        let before_change_referring = database.get("referring").unwrap();
+        let before_change_mentioned = database.get("mentioned").unwrap();
+
+        let mut newly_mentioned = before_change_mentioned.clone();
+        newly_mentioned.meta.term.name = "newly_mentioned".to_string();
+        database
+            .put("newly_mentioned", newly_mentioned.clone())
+            .unwrap();
 
         // with arg change
-        let term_changes = vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
-            crate::model::comment::name_description::NameDescription::new("some", "arg"),
-        )])];
+        let term_changes = vec![
+            TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(NameDescription::new(
+                "new_arg",
+                "description",
+            ))]),
+            TermChange::RuleChanges,
+        ];
+        updated.meta.args[0] = NameDescription::new("new_arg", "description");
+        updated.term.rules[0].head.binding.push("_".to_string());
+        updated.term.rules[0].body.push(BoundTerm {
+            name: "newly_mentioned".to_string(),
+            arg_bindings: ArgsBinding {
+                binding: vec!["woah".to_string()],
+            },
+        });
 
-        let (auto, with_confirmation) =
-            setup_handle_term_screen_changes_internal(&original_term, &term_changes, updated_term);
+        // only original tab is opened
+        tabs.close("referring");
+        tabs.close("mentioned");
 
-        assert!(!*auto.propagate_called.borrow());
-        assert!(*with_confirmation.propagate_called.borrow());
+        // should trigger with_confirmation changes
+        handle_changes(
+            &mut tabs,
+            &mut database,
+            &original,
+            &term_changes,
+            updated.clone(),
+        );
+
+        assert_eq!(database.get("original").unwrap(), original);
+        assert_eq!(database.get("referring").unwrap(), before_change_referring);
+        assert_eq!(database.get("mentioned").unwrap(), before_change_mentioned);
+        assert_eq!(database.get("newly_mentioned").unwrap(), newly_mentioned);
+
+        // there is no actual change to mentioned so it doesn't need to be opened
+        assert!(tabs.get("mentioned").is_none());
+
+        // referring needs to confirm the change so it must be opened
+        let referring_tab = tabs.get("referring");
+        assert!(referring_tab.is_some());
+        let referring_tab = referring_tab.unwrap();
+
+        // there's a newly mentioned term that will be changed due to this change
+        let newly_mentioned_tab = tabs.get("newly_mentioned");
+        assert!(newly_mentioned_tab.is_some());
+        let newly_mentioned_tab = newly_mentioned_tab.unwrap();
+
+        let original_tab = tabs.get("original").unwrap();
+
+        // 2-phase-commit must be setup
+        assert!(original_tab.two_phase_commit.is_some());
+        assert!(referring_tab.two_phase_commit.is_some());
+        assert!(newly_mentioned_tab.two_phase_commit.is_some());
+
+        let original_two_phase_commit = original_tab.two_phase_commit.as_ref().unwrap().borrow();
+
+        let mut original_awaiting_for: Vec<String> =
+            original_two_phase_commit.waiting_for().cloned().collect();
+
+        original_awaiting_for.sort();
+        let mut expected_awaitng_for = vec!["referring", "newly_mentioned"];
+        expected_awaitng_for.sort();
+        assert_eq!(original_awaiting_for, expected_awaitng_for);
+        assert_eq!(original_two_phase_commit.origin(), "original");
+        assert!(original_two_phase_commit.is_initiator());
+        assert!(!original_two_phase_commit.is_being_waited());
+
+        let check_approvers = |approver_tab: &crate::ui::widgets::term_screen::TermScreen| {
+            let approver_two_phase_commit =
+                approver_tab.two_phase_commit.as_ref().unwrap().borrow();
+
+            let approver_awaiting_for: Vec<String> =
+                approver_two_phase_commit.waiting_for().cloned().collect();
+
+            assert!(approver_awaiting_for.is_empty());
+            assert_eq!(approver_two_phase_commit.origin(), "original");
+            assert!(!approver_two_phase_commit.is_initiator());
+            assert!(approver_two_phase_commit.is_being_waited());
+        };
+
+        check_approvers(referring_tab);
+        check_approvers(newly_mentioned_tab);
     }
-    */
 }
