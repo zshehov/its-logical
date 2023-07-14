@@ -119,7 +119,7 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                                         })
                                         .response;
                                     show_item(item, ui);
-                                    if ui.small_button("-").clicked() {
+                                    if ui.small_button("❌").clicked() {
                                         current_change.get_or_insert(Change::Removed(idx));
                                     }
                                     scoped_handle
@@ -164,7 +164,7 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                             if let Some(create_item) = &self.create_item {
                                 if !default_item_present {
                                     ui.separator();
-                                    if ui.button("+").clicked() {
+                                    if ui.button("➕").clicked() {
                                         let created_item = (create_item)();
                                         self.items.push(created_item.clone());
                                         self.bottoms.push(0.0);

@@ -164,7 +164,7 @@ impl TermScreenPIT {
                             &mut self.arg_placeholder.desc,
                             edit_mode,
                         );
-                        if ui.small_button("+").clicked() {
+                        if ui.small_button("➕").clicked() {
                             let mut empty_arg_placeholder = NameDescription::new("", "");
                             // reset the arg placeholder
                             std::mem::swap(&mut self.arg_placeholder, &mut empty_arg_placeholder);
