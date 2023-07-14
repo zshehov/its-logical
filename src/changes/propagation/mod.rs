@@ -365,7 +365,7 @@ mod tests {
         with_descritpion_change.meta.term.desc = "new description".to_string();
 
         let (mentioned, referred_by) =
-            affected_from_changes(&original.clone(), &with_descritpion_change, &[]);
+            affected_from_changes(&original, &with_descritpion_change, &[]);
         let affected: Vec<String> =
             HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
                 .into_iter()
@@ -383,7 +383,7 @@ mod tests {
         });
 
         let (mentioned, referred_by) =
-            affected_from_changes(&original.clone(), &with_facts_change, &[]);
+            affected_from_changes(&original, &with_facts_change, &[]);
         let affected: Vec<String> =
             HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
                 .into_iter()
@@ -401,8 +401,8 @@ mod tests {
             NameDescription::new("NewArgName", "New desc");
 
         let (mentioned, referred_by) =
-            affected_from_changes(&original.clone(), &with_args_rename, &[]);
-        let mut affected: Vec<String> =
+            affected_from_changes(&original, &with_args_rename, &[]);
+        let affected: Vec<String> =
             HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
                 .into_iter()
                 .collect();
@@ -428,10 +428,10 @@ mod tests {
 
         // remove the first and add another
         with_rules_change.term.rules.remove(0);
-        with_rules_change.term.rules.push(new_rule.clone());
+        with_rules_change.term.rules.push(new_rule);
 
         let (mentioned, referred_by) =
-            affected_from_changes(&original.clone(), &with_rules_change, &[]);
+            affected_from_changes(&original, &with_rules_change, &[]);
         let mut affected: Vec<String> =
             HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
                 .into_iter()
@@ -453,7 +453,7 @@ mod tests {
         with_arg_change.meta.args.push(new_arg.clone());
 
         let (mentioned, referred_by) = affected_from_changes(
-            &original.clone(),
+            &original,
             &with_arg_change,
             &[ArgsChange::Pushed(new_arg.name)],
         );
@@ -483,13 +483,13 @@ mod tests {
 
         // remove the first add another
         with_changes.term.rules.remove(0);
-        with_changes.term.rules.push(new_rule.clone());
+        with_changes.term.rules.push(new_rule);
 
         let new_arg = NameDescription::new("SomeNewArg", "With some desc");
         with_changes.meta.args.push(new_arg.clone());
 
         let (mentioned, referred_by) = affected_from_changes(
-            &original.clone(),
+            &original,
             &with_changes,
             &[ArgsChange::Pushed(new_arg.name)],
         );
@@ -541,7 +541,7 @@ mod tests {
 
         let result = apply(
             &original,
-            &vec![arg_change],
+            &[arg_change],
             &after_change,
             &FakeTermHolder::new(&related_term),
         )
@@ -549,7 +549,7 @@ mod tests {
         .unwrap()
         .to_owned();
 
-        let mut expected = related_term.clone();
+        let mut expected = related_term;
         let idx = expected.term.rules[1]
             .body
             .iter_mut()
@@ -568,7 +568,7 @@ mod tests {
 
         let result = apply(
             &original,
-            &vec![ArgsChange::Moved(vec![1, 0])],
+            &[ArgsChange::Moved(vec![1, 0])],
             &after_change,
             &FakeTermHolder::new(&expected),
         )
@@ -599,7 +599,7 @@ mod tests {
 
         let result = apply(
             &original,
-            &vec![ArgsChange::Removed(0)],
+            &[ArgsChange::Removed(0)],
             &after_change,
             &FakeTermHolder::new(&related_term),
         )
@@ -607,7 +607,7 @@ mod tests {
         .unwrap()
         .to_owned();
 
-        let mut expected = related_term.clone();
+        let mut expected = related_term;
 
         let idx = expected.term.rules[1]
             .body
@@ -630,7 +630,7 @@ mod tests {
 
         let result = apply(
             &original,
-            &vec![],
+            &[],
             &after_changes,
             &FakeTermHolder::new(&mentioned),
         )
@@ -655,7 +655,7 @@ mod tests {
 
         let changed_mentioned = apply(
             &original,
-            &vec![],
+            &[],
             &updated,
             &FakeTermHolder::new(&mentioned),
         )
@@ -666,7 +666,7 @@ mod tests {
         expected_changed_mentioned.meta.referred_by = vec![updated.meta.term.name.clone()];
         assert_eq!(changed_mentioned, expected_changed_mentioned);
 
-        let changed_related = apply(&original, &vec![], &updated, &FakeTermHolder::new(&related))
+        let changed_related = apply(&original, &[], &updated, &FakeTermHolder::new(&related))
             .get(&related.meta.term.name)
             .unwrap()
             .to_owned();

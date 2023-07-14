@@ -30,7 +30,7 @@ pub(crate) fn propagate(
     initiator.put(&updated_term.meta.term.name, arg_changes, updated_term);
     for affected_term in affected {
         if let Some(updated) = updates.get(&affected_term.get().meta.term.name) {
-            affected_term.put(&updated_term.meta.term.name, &vec![], updated);
+            affected_term.put(&updated_term.meta.term.name, &[], updated);
         }
     }
 }
@@ -47,7 +47,7 @@ pub(crate) fn propagate_deletion(mut loaded: impl loaded::Loaded, term: &FatTerm
 
     for affected_term in affected {
         if let Some(updated) = updates.get(&affected_term.get().meta.term.name) {
-            affected_term.put(&term.meta.term.name, &vec![], updated);
+            affected_term.put(&term.meta.term.name, &[], updated);
         }
     }
 }
@@ -84,7 +84,7 @@ where
         for term in self.iter() {
             let term = term.get();
             if term.meta.term.name == term_name {
-                return Some(term.clone());
+                return Some(term);
             }
         }
         None

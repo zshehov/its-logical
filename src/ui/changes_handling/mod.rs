@@ -87,7 +87,7 @@ pub(crate) use with_confirmation::commit::finish as finish_commit;
 fn repeat_ongoing_commit_changes(
     tabs: &mut Tabs,
     original_term: &FatTerm,
-    mut updated_term: FatTerm,
+    updated_term: FatTerm,
 ) {
     let updated_term_name = updated_term.meta.term.name.clone();
     let previously_mentioned_terms = original_term.mentioned_terms();
@@ -138,7 +138,7 @@ fn repeat_ongoing_commit_changes(
 
 #[cfg(test)]
 mod tests {
-    use std::{borrow::BorrowMut, collections::HashMap};
+    use std::{collections::HashMap};
 
     use crate::{
         model::{

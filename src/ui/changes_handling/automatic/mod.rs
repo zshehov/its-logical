@@ -1,7 +1,7 @@
 use tracing::debug;
 
 use crate::{
-    changes::{self, ArgsChange},
+    changes,
     model::fat_term::FatTerm,
     term_knowledge_base::{GetKnowledgeBase, PutKnowledgeBase},
 };
@@ -46,7 +46,7 @@ pub(crate) fn propagate(
 
     loaded.update_with(&term_name, |_| updated_term.clone());
     for affected_term_name in affected {
-        loaded.update_with(&affected_term_name, update_fn);
+        loaded.update_with(affected_term_name, update_fn);
     }
 }
 
