@@ -15,7 +15,6 @@ mod edit_button;
 mod placeholder;
 mod points_in_time;
 pub(crate) mod term_screen_pit;
-pub(crate) mod two_phase_commit;
 
 // TermScreen owns the state
 // - for the different points in time of a term

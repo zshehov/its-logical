@@ -5,8 +5,8 @@ use tracing::debug;
 use crate::{
     term_knowledge_base::{DeleteKnowledgeBase, PutKnowledgeBase},
     ui::widgets::{
-        tabs::term_tabs::TermTabs,
-        term_screen::{two_phase_commit::TwoPhaseCommit, TermScreen},
+        tabs::{commit_tabs::two_phase_commit::TwoPhaseCommit, term_tabs::TermTabs},
+        term_screen::TermScreen,
     },
 };
 

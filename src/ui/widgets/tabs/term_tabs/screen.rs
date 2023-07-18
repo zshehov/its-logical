@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     model::fat_term::FatTerm,
-    ui::widgets::term_screen::{two_phase_commit::TwoPhaseCommit, TermScreen},
+    ui::widgets::{tabs::commit_tabs::two_phase_commit::TwoPhaseCommit, term_screen::TermScreen},
 };
 
 pub(crate) trait Screen {

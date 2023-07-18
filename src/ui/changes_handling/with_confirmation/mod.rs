@@ -5,8 +5,7 @@ use tracing::debug;
 use crate::{
     changes::{self, ArgsChange},
     model::fat_term::FatTerm,
-    term_knowledge_base::GetKnowledgeBase,
-    ui::widgets::term_screen::two_phase_commit::TwoPhaseCommit,
+    term_knowledge_base::GetKnowledgeBase, ui::widgets::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit,
 };
 
 pub(crate) mod commit;

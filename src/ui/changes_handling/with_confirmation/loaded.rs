@@ -4,10 +4,7 @@ use crate::{
     changes::ArgsChange,
     model::fat_term::FatTerm,
     term_knowledge_base::GetKnowledgeBase,
-    ui::widgets::{
-        tabs::term_tabs::TermTabs,
-        term_screen::{two_phase_commit::TwoPhaseCommit, TermScreen},
-    },
+    ui::widgets::{tabs::{term_tabs::TermTabs, commit_tabs::two_phase_commit::TwoPhaseCommit}, term_screen::TermScreen},
 };
 
 use super::add_approvers;

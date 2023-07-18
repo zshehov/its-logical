@@ -2,16 +2,15 @@ use std::{cell::RefCell, rc::Rc};
 
 use term_tabs::TermTabs;
 
-
 use crate::{
     model::fat_term::FatTerm,
     term_knowledge_base::{DeleteKnowledgeBase, GetKnowledgeBase, PutKnowledgeBase},
     ui::changes_handling,
 };
 
-use commit_tabs::CommitTabs;
+use commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs};
 
-use super::term_screen::{self, two_phase_commit::TwoPhaseCommit, TermScreen};
+use super::term_screen::{self, TermScreen};
 
 const ASK_TAB_NAME: &str = "Ask";
 

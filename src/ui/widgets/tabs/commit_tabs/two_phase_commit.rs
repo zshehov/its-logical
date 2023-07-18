@@ -1,8 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::term_knowledge_base::GetKnowledgeBase;
-
-use super::{Output, TermScreen};
+use crate::{
+    term_knowledge_base::GetKnowledgeBase,
+    ui::widgets::term_screen::{Output, TermScreen},
+};
 
 pub(crate) struct TwoPhaseCommit {
     depending_on: Vec<(Rc<RefCell<TwoPhaseCommit>>, Rc<RefCell<bool>>)>,

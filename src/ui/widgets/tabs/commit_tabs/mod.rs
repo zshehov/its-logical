@@ -1,8 +1,10 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::ui::widgets::term_screen::two_phase_commit::TwoPhaseCommit;
+use two_phase_commit::TwoPhaseCommit;
 
 use super::term_tabs::TermTabs;
+
+pub(crate) mod two_phase_commit;
 
 pub(crate) enum CommitTabsOutput<'a> {
     Selected(&'a mut Rc<RefCell<TwoPhaseCommit>>),
