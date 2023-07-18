@@ -25,7 +25,6 @@ pub(crate) struct TermScreen {
     current: Option<term_screen_pit::TermScreenPIT>,
     delete_confirmation: String,
     in_deletion: bool,
-    //pub(crate) two_phase_commit: Option<Rc<RefCell<TwoPhaseCommit>>>,
 }
 
 // TermScreen behaviour:
@@ -42,22 +41,6 @@ impl TermScreen {
                 None
             },
             showing_point_in_time: if in_edit { None } else { Some(0) },
-            //       two_phase_commit: None,
-            delete_confirmation: "".to_string(),
-            in_deletion: false,
-        }
-    }
-
-    pub(crate) fn with_new_term() -> Self {
-        Self {
-            points_in_time: PointsInTime::new(&FatTerm::default()),
-            current: Some({
-                let mut editing_screen = TermScreenPIT::new(&FatTerm::default());
-                editing_screen.start_changes();
-                editing_screen
-            }),
-            showing_point_in_time: None,
-            //      two_phase_commit: None,
             delete_confirmation: "".to_string(),
             in_deletion: false,
         }
@@ -85,17 +68,10 @@ impl TermScreen {
         (&mut self.points_in_time, self.current.as_mut())
     }
 
-    pub(crate) fn is_ready_for_change(&self, origin: &str) -> bool {
+    pub(crate) fn is_ready_for_change(&self) -> bool {
         if self.current.is_some() {
             return false;
         }
-        /*
-        if let Some(two_phase_commit) = &self.two_phase_commit {
-            if two_phase_commit.borrow().origin() != origin {
-                return false;
-            }
-        }
-        */
         true
     }
 

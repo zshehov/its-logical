@@ -90,7 +90,7 @@ impl<T: Screen> TermTabs<T> {
                 *current_idx = min(*current_idx, self.screens.len() - 1 - 1);
             }
         }
-        return Some(self.screens.remove(idx));
+        Some(self.screens.remove(idx))
     }
 }
 

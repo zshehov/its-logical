@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use term_tabs::TermTabs;
-use tracing::debug;
+
 
 use crate::{
     model::fat_term::FatTerm,

@@ -46,7 +46,6 @@ pub(crate) struct TabsWithLoading<'a, T: GetKnowledgeBase> {
     source_tabs: &'a mut TermTabs<TermScreen>,
     commit_tabs: &'a mut TermTabs<Rc<RefCell<TwoPhaseCommit>>>,
     load_source: &'a T,
-    origin: String,
 }
 
 impl<'a, T: GetKnowledgeBase> TabsWithLoading<'a, T> {
@@ -59,7 +58,6 @@ impl<'a, T: GetKnowledgeBase> TabsWithLoading<'a, T> {
             source_tabs,
             commit_tabs,
             load_source,
-            origin: "TODO".to_string(),
         }
     }
 }
@@ -75,9 +73,7 @@ impl<'a, T: GetKnowledgeBase> Loaded for TabsWithLoading<'a, T> {
         if term_names
             .iter()
             .any(|affected_name| match self.source_tabs.get(affected_name) {
-                Some(affected_term_screen) => {
-                    !affected_term_screen.is_ready_for_change(&self.origin)
-                }
+                Some(affected_term_screen) => !affected_term_screen.is_ready_for_change(),
                 None => false,
             })
         {

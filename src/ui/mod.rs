@@ -48,6 +48,6 @@ where
             }
         });
 
-        return self.term_tabs.show(ctx, &mut self.terms);
+        self.term_tabs.show(ctx, &mut self.terms)
     }
 }

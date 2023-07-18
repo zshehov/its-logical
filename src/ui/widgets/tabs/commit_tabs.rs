@@ -32,6 +32,6 @@ impl CommitTabs {
             output = Some(CommitTabsOutput::FinishedCommit);
         }
 
-        output.or(self.tabs.show(ui).map(|x| CommitTabsOutput::Selected(x)))
+        output.or(self.tabs.show(ui).map(CommitTabsOutput::Selected))
     }
 }

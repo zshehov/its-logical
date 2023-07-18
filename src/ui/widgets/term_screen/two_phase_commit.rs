@@ -61,13 +61,10 @@ impl TwoPhaseCommit {
         ui: &mut egui::Ui,
         terms_knowledge_base: &impl GetKnowledgeBase,
     ) -> Option<Output> {
-        let term_name = self.term.name();
         // if this term is a part of a 2-phase-commit and should approve a change show the approve
         // button
-        if self.is_being_waited() {
-            if ui.button("approve").clicked() {
-                self.approve_all();
-            }
+        if self.is_being_waited() && ui.button("approve").clicked() {
+            self.approve_all();
         }
         self.term.show(ui, terms_knowledge_base)
     }
