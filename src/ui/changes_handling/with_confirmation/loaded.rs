@@ -5,7 +5,7 @@ use crate::{
     model::fat_term::FatTerm,
     term_knowledge_base::GetKnowledgeBase,
     ui::widgets::{
-        tabs::Tabs,
+        tabs::term_tabs::TermTabs,
         term_screen::{two_phase_commit::TwoPhaseCommit, TermScreen},
     },
 };
@@ -26,96 +26,102 @@ pub(crate) trait Loaded {
     ) -> Result<(&mut Self::TermHolder, Vec<&mut Self::TermHolder>), &'static str>;
 }
 
-impl TermHolder for TermScreen {
+impl TermHolder for Rc<RefCell<TwoPhaseCommit>> {
     fn get(&self) -> FatTerm {
-        self.get_pits().latest().extract_term()
+        self.borrow().term.get_pits().latest().extract_term()
     }
 
     fn put(&mut self, source: &str, args_changes: &[ArgsChange], term: &FatTerm) {
-        self.get_pits_mut().0.push_pit(args_changes, term, source);
-        self.choose_pit(self.get_pits().len() - 1);
+        self.borrow_mut()
+            .term
+            .get_pits_mut()
+            .0
+            .push_pit(args_changes, term, source);
+        let pits_count = self.borrow().term.get_pits().len();
+        self.borrow_mut().term.choose_pit(pits_count - 1);
     }
 }
 
 pub(crate) struct TabsWithLoading<'a, T: GetKnowledgeBase> {
-    tabs: &'a mut Tabs,
+    source_tabs: &'a mut TermTabs<TermScreen>,
+    commit_tabs: &'a mut TermTabs<Rc<RefCell<TwoPhaseCommit>>>,
     load_source: &'a T,
+    origin: String,
 }
 
 impl<'a, T: GetKnowledgeBase> TabsWithLoading<'a, T> {
-    pub(crate) fn new(tabs: &'a mut Tabs, load_source: &'a T) -> Self {
-        Self { tabs, load_source }
+    pub(crate) fn new(
+        source_tabs: &'a mut TermTabs<TermScreen>,
+        commit_tabs: &'a mut TermTabs<Rc<RefCell<TwoPhaseCommit>>>,
+        load_source: &'a T,
+    ) -> Self {
+        Self {
+            source_tabs,
+            commit_tabs,
+            load_source,
+            origin: "TODO".to_string(),
+        }
     }
 }
 
 impl<'a, T: GetKnowledgeBase> Loaded for TabsWithLoading<'a, T> {
-    type TermHolder = TermScreen;
+    type TermHolder = Rc<RefCell<TwoPhaseCommit>>;
 
     fn borrow_mut<'b>(
         &'b mut self,
         initiator_name: &str,
         term_names: &[String],
     ) -> Result<(&'b mut Self::TermHolder, Vec<&mut Self::TermHolder>), &'static str> {
-        let two_phase_commit = Rc::clone(
-            self.tabs
-                .get_mut(initiator_name)
-                .expect("a change is coming from an opened term screen")
-                .two_phase_commit
-                .get_or_insert(Rc::new(RefCell::new(TwoPhaseCommit::new(
-                    initiator_name,
-                    true,
-                )))),
+        if term_names
+            .iter()
+            .any(|affected_name| match self.source_tabs.get(affected_name) {
+                Some(affected_term_screen) => {
+                    !affected_term_screen.is_ready_for_change(&self.origin)
+                }
+                None => false,
+            })
+        {
+            return Err(
+                "There is a term screens that is not ready to be included in a 2 phase commit",
+            );
+        }
+
+        if self.commit_tabs.get(initiator_name).is_none() {
+            // move the ownership from the term_screen tabs to the two_phase_commit tabs
+            let initiator = self
+                .source_tabs
+                .close(initiator_name)
+                .expect("initiator must be opened");
+            self.commit_tabs.push(&initiator.extract_term());
+        }
+
+        for t in term_names {
+            if self.commit_tabs.get(t).is_none() {
+                self.commit_tabs.push(
+                    &self
+                        .source_tabs
+                        .close(t)
+                        .map(|x| x.extract_term())
+                        .unwrap_or_else(|| self.load_source.get(t).unwrap()),
+                );
+            }
+        }
+        // a bit of UI touch:
+        self.commit_tabs.select(initiator_name);
+
+        let mut with_initiator: Vec<String> = Vec::with_capacity(term_names.len() + 1);
+        with_initiator.extend_from_slice(term_names);
+        with_initiator.push(initiator_name.to_owned());
+
+        let mut all_term_screens = self.commit_tabs.borrow_mut(&with_initiator);
+        let initiator = all_term_screens.swap_remove(
+            all_term_screens
+                .iter()
+                .position(|x| x.borrow().term.name() == initiator_name)
+                .unwrap(),
         );
 
-        let (mut affected, initiator) = open_affected_in_two_phase_commit(
-            self.tabs,
-            self.load_source,
-            &two_phase_commit.borrow(),
-            initiator_name,
-            term_names,
-        )
-        .unwrap();
-
-        add_approvers(&two_phase_commit, &mut affected);
-        Ok((initiator, affected))
+        add_approvers(initiator, &mut all_term_screens);
+        Ok((initiator, all_term_screens))
     }
-}
-
-fn open_affected_in_two_phase_commit<'a>(
-    tabs: &'a mut Tabs,
-    terms: &impl GetKnowledgeBase,
-    two_phase_commit: &TwoPhaseCommit,
-    initiator: &str,
-    affected: &[String],
-) -> Option<(Vec<&'a mut TermScreen>, &'a mut TermScreen)> {
-    if affected
-        .iter()
-        .any(|affected_name| match tabs.get(affected_name) {
-            Some(affected_term_screen) => {
-                !affected_term_screen.is_ready_for_change(&two_phase_commit.origin())
-            }
-            None => false,
-        })
-    {
-        return None;
-    }
-
-    for affected_term_name in affected {
-        if tabs.get(affected_term_name).is_none() {
-            tabs.push(&terms.get(affected_term_name).unwrap());
-        }
-    }
-
-    let mut with_initiator: Vec<String> = Vec::with_capacity(affected.len() + 1);
-    with_initiator.extend_from_slice(affected);
-    with_initiator.push(initiator.to_owned());
-
-    let mut all_term_screens = tabs.borrow_mut(&with_initiator);
-    let initiator = all_term_screens.swap_remove(
-        all_term_screens
-            .iter()
-            .position(|x| x.name() == initiator)
-            .unwrap(),
-    );
-    Some((all_term_screens, initiator))
 }

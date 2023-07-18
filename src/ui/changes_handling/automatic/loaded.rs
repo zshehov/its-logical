@@ -11,7 +11,7 @@ pub(crate) trait Loaded {
 
 impl Loaded for Tabs {
     fn update_with(&mut self, term_name: &str, updator: impl Fn(&FatTerm) -> FatTerm) {
-        if let Some(loaded_term_screen) = self.get_mut(term_name) {
+        if let Some(loaded_term_screen) = self.term_tabs.get_mut(term_name) {
             let (pits, current) = loaded_term_screen.get_pits_mut();
 
             let update_screen = |term_screen: &mut TermScreenPIT| {

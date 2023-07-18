@@ -1,63 +1,74 @@
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
+
+use crate::term_knowledge_base::GetKnowledgeBase;
+
+use super::{Output, TermScreen};
 
 pub(crate) struct TwoPhaseCommit {
-    origin: String,
-    is_initiator: bool,
-    waiting_for_approval_from: HashSet<String>,
-    had_approval_from: HashSet<String>,
-    awaiting_approval: Vec<Rc<RefCell<TwoPhaseCommit>>>,
+    depending_on: Vec<(Rc<RefCell<TwoPhaseCommit>>, Rc<RefCell<bool>>)>,
+    for_approval: Vec<Rc<RefCell<bool>>>,
+    pub(crate) term: TermScreen,
 }
 
 impl TwoPhaseCommit {
-    pub(crate) fn new(origin: &str, is_initiator: bool) -> Self {
+    pub(crate) fn new(term_screen: TermScreen) -> Self {
         Self {
-            waiting_for_approval_from: HashSet::new(),
-            had_approval_from: HashSet::new(),
-            awaiting_approval: vec![],
-            is_initiator,
-            origin: origin.to_string(),
+            depending_on: vec![],
+            for_approval: vec![],
+            term: term_screen,
         }
-    }
-
-    pub(crate) fn is_initiator(&self) -> bool {
-        self.is_initiator
     }
 
     pub(crate) fn is_being_waited(&self) -> bool {
-        !self.awaiting_approval.is_empty()
+        !self.for_approval.is_empty()
     }
 
-    pub(crate) fn approve_all(&mut self, name: &str) {
-        for change_source_term in &mut self.awaiting_approval {
-            change_source_term.borrow_mut().approve_from(name);
+    pub(crate) fn is_waiting(&self) -> bool {
+        self.depending_on
+            .iter()
+            .any(|(_, approved)| !*approved.borrow())
+    }
+
+    pub(crate) fn waiting_for(&self) -> impl Iterator<Item = String> + '_ {
+        self.depending_on
+            .iter()
+            .filter(|(_, approved)| !*approved.borrow())
+            .map(|(c, _)| c.borrow().term.name())
+    }
+
+    pub(crate) fn approve_all(&mut self) {
+        for r in &mut self.for_approval {
+            *r.borrow_mut() = true;
         }
-        self.awaiting_approval.clear();
+        self.for_approval.clear();
     }
 
-    pub(crate) fn add_approval_waiter(&mut self, waiter: Rc<RefCell<TwoPhaseCommit>>) {
-        self.awaiting_approval.push(waiter);
+    pub(crate) fn add_approval_waiter(&mut self, waiter: &Rc<RefCell<bool>>) {
+        self.for_approval.push(Rc::clone(waiter));
     }
 
-    pub(crate) fn append_approval_from(&mut self, approval_from: &[String]) {
-        self.waiting_for_approval_from
-            .extend(approval_from.iter().cloned());
+    pub(crate) fn wait_approval_from(
+        &mut self,
+        approval_from: &(Rc<RefCell<TwoPhaseCommit>>, Rc<RefCell<bool>>),
+    ) {
+        self.depending_on.push(approval_from.clone());
     }
+}
 
-    pub(crate) fn iter_approved(&self) -> impl Iterator<Item = String> + '_ {
-        self.had_approval_from.iter().cloned()
-    }
-
-    pub(crate) fn waiting_for(&self) -> impl ExactSizeIterator<Item = &String> {
-        self.waiting_for_approval_from.iter()
-    }
-
-    pub(crate) fn origin(&self) -> String {
-        self.origin.clone()
-    }
-
-    fn approve_from(&mut self, approved: &str) {
-        if self.waiting_for_approval_from.remove(approved) {
-            self.had_approval_from.insert(approved.to_owned());
+impl TwoPhaseCommit {
+    pub(crate) fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        terms_knowledge_base: &impl GetKnowledgeBase,
+    ) -> Option<Output> {
+        let term_name = self.term.name();
+        // if this term is a part of a 2-phase-commit and should approve a change show the approve
+        // button
+        if self.is_being_waited() {
+            if ui.button("approve").clicked() {
+                self.approve_all();
+            }
         }
+        self.term.show(ui, terms_knowledge_base)
     }
 }

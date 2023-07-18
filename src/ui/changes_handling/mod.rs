@@ -55,8 +55,17 @@ pub(crate) fn handle_changes(
         automatic::propagate(terms, tabs, original_term, &updated_term, &affected);
     } else {
         debug!("2 phase commit propagation");
+        tabs.initiate_two_phase();
         with_confirmation::propagate(
-            TabsWithLoading::new(tabs, terms),
+            TabsWithLoading::new(
+                &mut tabs.term_tabs,
+                &mut tabs
+                    .commit_tabs
+                    .as_mut()
+                    .expect("must be initialised before call")
+                    .tabs,
+                terms,
+            ),
             original_term,
             &arg_changes,
             &updated_term,
@@ -65,7 +74,7 @@ pub(crate) fn handle_changes(
     }
     // if there is an ongoing 2phase commit among one of `updated_term`'s newly mentioned terms,
     // all the changes in the commit need to be applied on `updated_term`
-    repeat_ongoing_commit_changes(tabs, original_term, updated_term);
+    //repeat_ongoing_commit_changest(tabs, original_term, updated_term);
 }
 
 pub(crate) fn handle_deletion(
@@ -74,16 +83,29 @@ pub(crate) fn handle_deletion(
     original_term: &FatTerm,
 ) {
     if !original_term.meta.referred_by.is_empty() {
-        with_confirmation::propagate_deletion(TabsWithLoading::new(tabs, terms), original_term);
+        tabs.initiate_two_phase();
+        with_confirmation::propagate_deletion(
+            TabsWithLoading::new(
+                &mut tabs.term_tabs,
+                &mut tabs
+                    .commit_tabs
+                    .as_mut()
+                    .expect("should be initialised before call")
+                    .tabs,
+                terms,
+            ),
+            original_term,
+        );
     } else {
         automatic::propagate_deletion(terms, tabs, original_term);
         terms.delete(&original_term.meta.term.name);
-        tabs.close(&original_term.meta.term.name);
+        tabs.term_tabs.close(&original_term.meta.term.name);
     }
 }
 
 pub(crate) use with_confirmation::commit::finish as finish_commit;
 
+/*
 fn repeat_ongoing_commit_changes(tabs: &mut Tabs, original_term: &FatTerm, updated_term: FatTerm) {
     let updated_term_name = updated_term.meta.term.name.clone();
     let previously_mentioned_terms = original_term.mentioned_terms();
@@ -131,6 +153,7 @@ fn repeat_ongoing_commit_changes(tabs: &mut Tabs, original_term: &FatTerm, updat
     }
     updated_tab.choose_pit(updated_tab.get_pits().len() - 1);
 }
+*/
 
 #[cfg(test)]
 mod tests {

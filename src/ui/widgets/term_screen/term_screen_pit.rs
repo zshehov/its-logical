@@ -8,7 +8,7 @@ use crate::{
         fat_term::FatTerm,
         term::{args_binding::ArgsBinding, rule::Rule},
     },
-    term_knowledge_base::TermsKnowledgeBase,
+    term_knowledge_base::GetKnowledgeBase,
     ui::widgets::drag_and_drop::{self, Change, DragAndDrop},
 };
 
@@ -132,10 +132,10 @@ impl TermScreenPIT {
 }
 
 impl TermScreenPIT {
-    pub(crate) fn show<T: TermsKnowledgeBase>(
+    pub(crate) fn show(
         &mut self,
         ui: &mut egui::Ui,
-        terms_knowledge_base: &T,
+        terms_knowledge_base: &impl GetKnowledgeBase,
         edit_mode: bool,
     ) {
         ui.horizontal(|ui| {
@@ -297,11 +297,11 @@ impl TermScreenPIT {
             });
     }
 
-    fn show_rules_section<T: TermsKnowledgeBase>(
+    fn show_rules_section(
         &mut self,
         ui: &mut egui::Ui,
         edit_mode: bool,
-        terms_knowledge_base: &T,
+        terms_knowledge_base: &impl GetKnowledgeBase,
     ) {
         egui::ScrollArea::vertical()
             .id_source("rules_scroll_area")
@@ -469,8 +469,7 @@ fn apply_head_args_change<'a>(
     change: changes::ArgsChange,
 ) {
     for rule in rules {
-        let removed_arg =
-            changes::propagation::apply_binding_change(&change, &mut rule.head);
+        let removed_arg = changes::propagation::apply_binding_change(&change, &mut rule.head);
 
         if let Some(removed_arg) = removed_arg {
             for body_term in &mut rule.body {

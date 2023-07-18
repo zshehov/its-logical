@@ -5,7 +5,7 @@ use crate::{
         comment::name_description::NameDescription,
         term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule},
     },
-    term_knowledge_base::TermsKnowledgeBase,
+    term_knowledge_base::GetKnowledgeBase,
     ui::widgets::drag_and_drop::DragAndDrop,
 };
 
@@ -96,11 +96,11 @@ impl RulePlaceholder {
                 .with_create_item(Box::new(|| ("".to_string(), vec![]))),
         }
     }
-    pub(crate) fn show<'a, T: TermsKnowledgeBase>(
+    pub(crate) fn show<'a>(
         &mut self,
         ui: &mut egui::Ui,
         term_name: &str,
-        terms_knowledge_base: &T,
+        terms_knowledge_base: &impl GetKnowledgeBase,
         template: impl ExactSizeIterator<Item = &'a NameDescription>,
         finish_button_text: &str,
     ) -> Option<Rule> {

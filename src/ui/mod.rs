@@ -1,13 +1,8 @@
-use std::rc::Rc;
-
 use egui::Context;
 
-use crate::term_knowledge_base::TermsKnowledgeBase;
+use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
 
-use self::widgets::{
-    tabs::{ChosenTab, Tabs},
-    term_screen,
-};
+use self::widgets::tabs::Tabs;
 
 mod changes_handling;
 mod widgets;
@@ -37,67 +32,30 @@ where
                 .button(egui::RichText::new("Add term").underline().strong())
                 .clicked()
             {
-                self.term_tabs.add_new_term();
+                let new_term = FatTerm::default();
+                // TODO: maybe this will break if multiple new tabs are opened - maybe use rev
+                // iterator?
+                self.term_tabs.term_tabs.push(&new_term);
+                self.term_tabs.term_tabs.select(&new_term.meta.term.name);
             };
             let term_list_selection = widgets::terms_list::show(ui, self.terms.keys().iter());
 
             if let Some(term_name) = term_list_selection {
-                self.term_tabs.select_with_push(&term_name, &self.terms);
+                if !self.term_tabs.term_tabs.select(&term_name) {
+                    self.term_tabs
+                        .term_tabs
+                        .push(&self.terms.get(&term_name).unwrap());
+                    self.term_tabs.term_tabs.select(&term_name);
+                }
             }
         });
 
+        return self.term_tabs.show(ctx, &mut self.terms);
+        /*
         let chosen_tab = egui::TopBottomPanel::top("tabs_panel")
             .show(ctx, |ui| {
-                return self.term_tabs.show(ui);
             })
             .inner;
-
-        match chosen_tab {
-            ChosenTab::Term(term_screen) => {
-                let screen_output = egui::CentralPanel::default()
-                    .show(ctx, |ui| term_screen.show(ui, &mut self.terms))
-                    .inner;
-
-                if let Some(screen_output) = screen_output {
-                    match screen_output {
-                        term_screen::Output::Changes(changes, updated_term) => {
-                            let original_term = term_screen.get_pits().original().extract_term();
-                            changes_handling::handle_changes(
-                                &mut self.term_tabs,
-                                &mut self.terms,
-                                &original_term,
-                                &changes,
-                                updated_term,
-                            );
-                        }
-                        term_screen::Output::Deleted(_) => {
-                            let deleted_term = term_screen.get_pits().original().extract_term();
-                            changes_handling::handle_deletion(
-                                &mut self.term_tabs,
-                                &mut self.terms,
-                                &deleted_term,
-                            );
-                        }
-                        term_screen::Output::FinishTwoPhaseCommit => {
-                            let two_phase_commit =
-                                Rc::clone(term_screen.two_phase_commit.as_mut().unwrap());
-
-                            let is_deleted = term_screen.in_deletion();
-                            changes_handling::finish_commit(
-                                &mut self.term_tabs,
-                                &mut self.terms,
-                                is_deleted,
-                                two_phase_commit,
-                            );
-                        }
-                    }
-                }
-            }
-            ChosenTab::Ask(_) => {
-                egui::CentralPanel::default().show(ctx, |ui| {
-                    widgets::ask::show(ui);
-                });
-            }
-        };
+            */
     }
 }

@@ -1,18 +1,14 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use egui::Color32;
 
-use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
+use crate::model::fat_term::FatTerm;
+use crate::term_knowledge_base::GetKnowledgeBase;
 
 use self::points_in_time::PointsInTime;
 use self::term_screen_pit::{TermChange, TermScreenPIT};
-use self::two_phase_commit::TwoPhaseCommit;
 
 pub(crate) enum Output {
     Changes(Vec<TermChange>, FatTerm),
     Deleted(String),
-    FinishTwoPhaseCommit,
 }
 
 mod edit_button;
@@ -23,20 +19,17 @@ pub(crate) mod two_phase_commit;
 
 // TermScreen owns the state
 // - for the different points in time of a term
-// - related to 2-phase-commits
 pub(crate) struct TermScreen {
     points_in_time: PointsInTime,
     showing_point_in_time: Option<usize>,
     current: Option<term_screen_pit::TermScreenPIT>,
     delete_confirmation: String,
     in_deletion: bool,
-    pub(crate) two_phase_commit: Option<Rc<RefCell<TwoPhaseCommit>>>,
+    //pub(crate) two_phase_commit: Option<Rc<RefCell<TwoPhaseCommit>>>,
 }
 
 // TermScreen behaviour:
-// - track all the atomic states of a term due to changes made to it in a single 2-phase-commit
-// - track 2-phase-commit
-//  - track external term changes caused by changes made to this term (approving/aborting)
+// - track all the atomic states of a term due to changes made to it
 impl TermScreen {
     pub(crate) fn new(term: &FatTerm, in_edit: bool) -> Self {
         Self {
@@ -49,7 +42,7 @@ impl TermScreen {
                 None
             },
             showing_point_in_time: if in_edit { None } else { Some(0) },
-            two_phase_commit: None,
+            //       two_phase_commit: None,
             delete_confirmation: "".to_string(),
             in_deletion: false,
         }
@@ -64,7 +57,7 @@ impl TermScreen {
                 editing_screen
             }),
             showing_point_in_time: None,
-            two_phase_commit: None,
+            //      two_phase_commit: None,
             delete_confirmation: "".to_string(),
             in_deletion: false,
         }
@@ -96,11 +89,13 @@ impl TermScreen {
         if self.current.is_some() {
             return false;
         }
+        /*
         if let Some(two_phase_commit) = &self.two_phase_commit {
             if two_phase_commit.borrow().origin() != origin {
                 return false;
             }
         }
+        */
         true
     }
 
@@ -114,10 +109,10 @@ impl TermScreen {
 }
 
 impl TermScreen {
-    pub(crate) fn show<T: TermsKnowledgeBase>(
+    pub(crate) fn show(
         &mut self,
         ui: &mut egui::Ui,
-        terms_knowledge_base: &T,
+        terms_knowledge_base: &impl GetKnowledgeBase,
     ) -> Option<Output> {
         // show points in time
         if self.points_in_time.len() > 1 || self.in_edit() {
@@ -134,41 +129,31 @@ impl TermScreen {
         let term_name = self.name();
         // if this term is a part of a 2-phase-commit and should approve a change show the approve
         // button
+        /*
         if let Some(two_phase_commit) = &mut self.two_phase_commit {
             let mut two_phase_commit = two_phase_commit.borrow_mut();
 
             if two_phase_commit.is_being_waited() {
                 if ui.button("approve").clicked() {
-                    two_phase_commit.approve_all(&term_name);
+                    two_phase_commit.approve_all();
                 }
             } else if two_phase_commit.is_initiator() {
                 let commit_button = egui::Button::new("Finish commit");
 
-                if two_phase_commit.waiting_for().len() == 0 {
-                    let approved_by = two_phase_commit
-                        .iter_approved()
-                        .collect::<Vec<String>>()
-                        .join(",");
-
+                if two_phase_commit.is_ready_for_commit() {
                     if ui
                         .add(commit_button)
-                        .on_hover_text("Approved by: ".to_string() + &approved_by)
+                        .on_hover_text("Approved by: ".to_string())
                         .clicked()
                     {
                         return Some(Output::FinishTwoPhaseCommit);
                     }
                 } else {
-                    let waiting_for = two_phase_commit
-                        .waiting_for()
-                        .cloned()
-                        .collect::<Vec<String>>()
-                        .join(",");
-
                     ui.add_enabled(false, commit_button)
-                        .on_disabled_hover_text("Need approval from : ".to_string() + &waiting_for);
+                        .on_disabled_hover_text("Need approval from : ".to_string());
                 }
             }
-        }
+        }*/
 
         // show the edit/save buttons
         if !self.in_deletion {

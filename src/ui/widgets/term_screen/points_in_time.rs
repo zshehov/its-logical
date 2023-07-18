@@ -1,8 +1,6 @@
 use egui::RichText;
 
-use crate::{
-    changes::ArgsChange, model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase,
-};
+use crate::{changes::ArgsChange, model::fat_term::FatTerm, term_knowledge_base::GetKnowledgeBase};
 
 use super::term_screen_pit::{self, TermScreenPIT};
 
@@ -97,11 +95,11 @@ impl PointsInTime {
         }
     }
 
-    pub(crate) fn show_pit<T: TermsKnowledgeBase>(
+    pub(crate) fn show_pit(
         &mut self,
         ui: &mut egui::Ui,
         showing_pit: usize,
-        terms_knowledge_base: &T,
+        terms_knowledge_base: &impl GetKnowledgeBase,
     ) {
         if showing_pit == 0 {
             return self.original.show(ui, terms_knowledge_base, false);
