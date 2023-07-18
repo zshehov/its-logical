@@ -106,7 +106,7 @@ impl<'a, T: GetKnowledgeBase> Loaded for TabsWithLoading<'a, T> {
                 );
             }
         }
-        // a bit of UI touch:
+        // a bit of a UI touch:
         self.commit_tabs.select(initiator_name);
 
         let mut with_initiator: Vec<String> = Vec::with_capacity(term_names.len() + 1);

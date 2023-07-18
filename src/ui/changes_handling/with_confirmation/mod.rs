@@ -6,7 +6,7 @@ use crate::{
     changes::{self, ArgsChange},
     model::fat_term::FatTerm,
     term_knowledge_base::GetKnowledgeBase,
-    ui::widgets::{tabs::term_tabs::screen::Screen, term_screen::two_phase_commit::TwoPhaseCommit},
+    ui::widgets::term_screen::two_phase_commit::TwoPhaseCommit,
 };
 
 pub(crate) mod commit;
@@ -57,7 +57,7 @@ pub(crate) fn add_approvers(
     approvers: &mut [&mut Rc<RefCell<TwoPhaseCommit>>],
 ) {
     for approver in approvers {
-        debug!("Adding approver {}", approver.name());
+        debug!("Adding approver {}", approver.borrow().term.name());
 
         let approve = Rc::new(RefCell::new(false));
 

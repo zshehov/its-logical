@@ -132,13 +132,16 @@ impl Tabs {
                 }
             }
             Screens::TwoPhase(commit) => {
-                let mut commit = commit.borrow_mut();
-                let screen_output = egui::CentralPanel::default()
-                    .show(ctx, |ui| commit.show(ui, terms))
-                    .inner;
+                let (original_term, screen_output) = {
+                    let mut commit = commit.borrow_mut();
+                    let screen_output = egui::CentralPanel::default()
+                        .show(ctx, |ui| commit.show(ui, terms))
+                        .inner;
+
+                    (commit.term.extract_term(), screen_output)
+                };
 
                 if let Some(screen_output) = screen_output {
-                    let original_term = commit.term.extract_term();
                     self.handle_screen_output(&original_term, screen_output, terms);
                 }
             }
