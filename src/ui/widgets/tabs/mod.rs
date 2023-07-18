@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use term_tabs::TermTabs;
+use tracing::debug;
 
 use crate::{
     model::fat_term::FatTerm,
@@ -49,6 +50,10 @@ enum Screens<'a> {
 }
 
 impl Tabs {
+    pub(crate) fn push(&mut self, term: &FatTerm) {
+        self.term_tabs.push(term)
+    }
+
     pub(crate) fn initiate_two_phase(&mut self) -> &mut CommitTabs {
         // TODO: currently only a single commit is allowed at the same time - maybe provide the
         // ability to have multiple commits at the same time and potentially merge them upon
@@ -146,6 +151,24 @@ impl Tabs {
                 }
             }
         };
+    }
+
+    pub(crate) fn select(&mut self, term_name: &str) -> bool {
+        if let Some(commit_tab) = &mut self.commit_tabs {
+            if commit_tab.tabs.select(term_name) {
+                self.current_selection = ChoseTabInternal::TwoPhase;
+                self.term_tabs.unselect();
+                return true;
+            }
+        }
+        if self.term_tabs.select(term_name) {
+            self.current_selection = ChoseTabInternal::TermScreen;
+            if let Some(commit_tabs) = &mut self.commit_tabs {
+                commit_tabs.tabs.unselect();
+            }
+            return true;
+        }
+        false
     }
 
     fn handle_screen_output(
