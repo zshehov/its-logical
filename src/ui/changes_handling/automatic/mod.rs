@@ -26,7 +26,6 @@ pub(crate) fn propagate(
     affected: &[String],
 ) {
     let term_name = original_term.meta.term.name.clone();
-    debug!("Direct change propagation");
     let mut affected_terms =
         changes::propagation::apply(original_term, &[], updated_term, persistent);
     affected_terms.insert(term_name.clone(), updated_term.to_owned());
@@ -55,7 +54,6 @@ pub(crate) fn propagate_deletion(
     loaded: &mut impl loaded::Loaded,
     term: &FatTerm,
 ) {
-    debug!("Direct delete propagation");
     let affected_terms = changes::propagation::apply_deletion(term, persistent);
 
     for (affected_term_name, affected_updated_term) in affected_terms.into_iter() {

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use tracing::debug;
 
@@ -10,7 +10,10 @@ use crate::{
 
 use self::with_confirmation::loaded::TabsWithLoading;
 
-use super::widgets::{tabs::Tabs, term_screen::term_screen_pit::TermChange};
+use super::widgets::{
+    tabs::{commit_tabs::two_phase_commit::TwoPhaseCommit, term_tabs::TermTabs, Tabs},
+    term_screen::{term_screen_pit::TermChange, TermScreen},
+};
 
 mod automatic;
 mod with_confirmation;
@@ -55,17 +58,8 @@ pub(crate) fn handle_changes(
         automatic::propagate(terms, tabs, original_term, &updated_term, &affected);
     } else {
         debug!("2 phase commit propagation");
-        tabs.initiate_two_phase();
         with_confirmation::propagate(
-            TabsWithLoading::new(
-                &mut tabs.term_tabs,
-                &mut tabs
-                    .commit_tabs
-                    .as_mut()
-                    .expect("must be initialised before call")
-                    .tabs,
-                terms,
-            ),
+            TabsWithLoading::new(tabs, terms),
             original_term,
             &arg_changes,
             &updated_term,
@@ -74,7 +68,14 @@ pub(crate) fn handle_changes(
     }
     // if there is an ongoing 2phase commit among one of `updated_term`'s newly mentioned terms,
     // all the changes in the commit need to be applied on `updated_term`
-    //repeat_ongoing_commit_changest(tabs, original_term, updated_term);
+    if let Some(commit_tabs) = &mut tabs.commit_tabs {
+        repeat_ongoing_commit_changes(
+            &mut tabs.term_tabs,
+            &mut commit_tabs.tabs,
+            original_term,
+            updated_term,
+        );
+    }
 }
 
 pub(crate) fn handle_deletion(
@@ -83,19 +84,7 @@ pub(crate) fn handle_deletion(
     original_term: &FatTerm,
 ) {
     if !original_term.meta.referred_by.is_empty() {
-        tabs.initiate_two_phase();
-        with_confirmation::propagate_deletion(
-            TabsWithLoading::new(
-                &mut tabs.term_tabs,
-                &mut tabs
-                    .commit_tabs
-                    .as_mut()
-                    .expect("should be initialised before call")
-                    .tabs,
-                terms,
-            ),
-            original_term,
-        );
+        with_confirmation::propagate_deletion(TabsWithLoading::new(tabs, terms), original_term);
     } else {
         automatic::propagate_deletion(terms, tabs, original_term);
         terms.delete(&original_term.meta.term.name);
@@ -105,55 +94,79 @@ pub(crate) fn handle_deletion(
 
 pub(crate) use with_confirmation::commit::finish as finish_commit;
 
-/*
-fn repeat_ongoing_commit_changes(tabs: &mut Tabs, original_term: &FatTerm, updated_term: FatTerm) {
+fn repeat_ongoing_commit_changes(
+    term_tabs: &mut TermTabs<TermScreen>,
+    commit_tabs: &mut TermTabs<Rc<RefCell<TwoPhaseCommit>>>,
+    original_term: &FatTerm,
+    updated_term: FatTerm,
+) {
     let updated_term_name = updated_term.meta.term.name.clone();
     let previously_mentioned_terms = original_term.mentioned_terms();
     let currently_mentioned_terms = updated_term.mentioned_terms();
 
-    let newly_mentioned_terms = currently_mentioned_terms.difference(&previously_mentioned_terms);
+    let newly_mentioned_terms: HashSet<String> = currently_mentioned_terms
+        .difference(&previously_mentioned_terms)
+        .cloned()
+        .collect();
 
-    let mut relevant_tabs = tabs.borrow_mut(
+    let mut need_to_transfer_to_commit = false;
+    for c in commit_tabs.iter() {
+        if newly_mentioned_terms.contains(&c.borrow().term.name()) {
+            need_to_transfer_to_commit = true;
+            break;
+        }
+    }
+    if !need_to_transfer_to_commit {
+        return;
+    }
+
+    if commit_tabs.get(&original_term.meta.term.name).is_none() {
+        let tab = term_tabs
+            .close(&updated_term_name)
+            .expect("term was just updated");
+        commit_tabs.push(&tab.extract_term());
+    }
+
+    let mut relevant_tabs = commit_tabs.borrow_mut(
         &newly_mentioned_terms
             .into_iter()
-            .cloned()
             .chain(std::iter::once(updated_term_name.clone()))
             .collect::<Vec<String>>(),
     );
 
-    let updated_tab = relevant_tabs.swap_remove(
-        relevant_tabs
-            .iter()
-            .position(|tab| tab.name() == updated_term_name)
-            .expect("just updated term must have a tab"),
-    );
+    let mut updated_tab = relevant_tabs
+        .iter()
+        .position(|tab| tab.borrow().term.name() == updated_term_name)
+        .map(|idx| relevant_tabs.swap_remove(idx))
+        .expect("tab was just opened");
 
     for mentioned_tab in relevant_tabs {
-        if let Some(commit) = &mentioned_tab.two_phase_commit {
-            let (original_mentioned, mentioned_args_changes, updated_mentioned) =
-                mentioned_tab.get_pits().accumulated_changes();
+        let (original_mentioned, mentioned_args_changes, updated_mentioned) =
+            mentioned_tab.borrow().term.get_pits().accumulated_changes();
 
-            if let Some(new_pit) = changes::propagation::apply(
-                &original_mentioned,
-                &mentioned_args_changes,
-                &updated_mentioned,
-                &updated_term,
-            )
-            .get(&updated_term_name)
-            {
-                updated_tab
-                    .get_pits_mut()
-                    .0
-                    .push_pit(&[], new_pit, &mentioned_tab.name());
+        if let Some(new_pit) = changes::propagation::apply(
+            &original_mentioned,
+            &mentioned_args_changes,
+            &updated_mentioned,
+            &updated_term,
+        )
+        .get(&updated_term_name)
+        {
+            updated_tab.borrow_mut().term.get_pits_mut().0.push_pit(
+                &[],
+                new_pit,
+                &mentioned_tab.borrow().term.name(),
+            );
 
-                // relies on the invariant that there is only ever a single 2phase commit at a time
-                with_confirmation::add_approvers(commit, &mut [updated_tab]);
-            }
+            with_confirmation::add_approvers(&mentioned_tab, &mut [&mut updated_tab]);
         }
     }
-    updated_tab.choose_pit(updated_tab.get_pits().len() - 1);
+    let updated_tab_pits_count = updated_tab.borrow().term.get_pits().len();
+    updated_tab
+        .borrow_mut()
+        .term
+        .choose_pit(updated_tab_pits_count - 1);
 }
-*/
 
 #[cfg(test)]
 mod tests {

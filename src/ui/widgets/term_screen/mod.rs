@@ -13,7 +13,7 @@ pub(crate) enum Output {
 
 mod edit_button;
 mod placeholder;
-mod points_in_time;
+pub(crate) mod points_in_time;
 pub(crate) mod term_screen_pit;
 
 // TermScreen owns the state

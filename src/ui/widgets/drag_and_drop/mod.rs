@@ -44,10 +44,6 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
         self.items.get_current_changes()
     }
 
-    pub(crate) fn len(&self) -> usize {
-        self.items.len()
-    }
-
     pub(crate) fn iter(&self) -> std::slice::Iter<'_, T> {
         self.items.iter()
     }

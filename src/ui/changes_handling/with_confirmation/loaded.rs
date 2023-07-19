@@ -4,7 +4,14 @@ use crate::{
     changes::ArgsChange,
     model::fat_term::FatTerm,
     term_knowledge_base::GetKnowledgeBase,
-    ui::widgets::{tabs::{term_tabs::TermTabs, commit_tabs::two_phase_commit::TwoPhaseCommit}, term_screen::TermScreen},
+    ui::widgets::{
+        tabs::{
+            commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs},
+            term_tabs::TermTabs,
+            Tabs,
+        },
+        term_screen::TermScreen,
+    },
 };
 
 use super::add_approvers;
@@ -46,14 +53,10 @@ pub(crate) struct TabsWithLoading<'a, T: GetKnowledgeBase> {
 }
 
 impl<'a, T: GetKnowledgeBase> TabsWithLoading<'a, T> {
-    pub(crate) fn new(
-        source_tabs: &'a mut TermTabs<TermScreen>,
-        commit_tabs: &'a mut TermTabs<Rc<RefCell<TwoPhaseCommit>>>,
-        load_source: &'a T,
-    ) -> Self {
+    pub(crate) fn new(tabs: &'a mut Tabs, load_source: &'a T) -> Self {
         Self {
-            source_tabs,
-            commit_tabs,
+            source_tabs: &mut tabs.term_tabs,
+            commit_tabs: &mut tabs.commit_tabs.get_or_insert(CommitTabs::new()).tabs,
             load_source,
         }
     }

@@ -52,13 +52,6 @@ impl Tabs {
     pub(crate) fn push(&mut self, term: &FatTerm) {
         self.term_tabs.push(term)
     }
-
-    pub(crate) fn initiate_two_phase(&mut self) -> &mut CommitTabs {
-        // TODO: currently only a single commit is allowed at the same time - maybe provide the
-        // ability to have multiple commits at the same time and potentially merge them upon
-        // term collision
-        self.commit_tabs.get_or_insert(CommitTabs::new())
-    }
 }
 
 impl Tabs {
