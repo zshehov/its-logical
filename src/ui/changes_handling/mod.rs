@@ -158,7 +158,7 @@ fn repeat_ongoing_commit_changes(
                 &mentioned_tab.borrow().term.name(),
             );
 
-            with_confirmation::add_approvers(&mentioned_tab, &mut [&mut updated_tab]);
+            with_confirmation::add_approvers(mentioned_tab, &mut [&mut updated_tab]);
         }
     }
     let updated_tab_pits_count = updated_tab.borrow().term.get_pits().len();
