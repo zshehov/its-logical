@@ -12,7 +12,7 @@ use crate::{
     ui::widgets::drag_and_drop::{self, Change, DragAndDrop},
 };
 
-use super::placeholder;
+use super::placeholder::{self, RulePlaceholder};
 
 pub(crate) enum TermChange {
     Rename,
@@ -344,8 +344,10 @@ impl TermScreenPIT {
 
                         if edit_mode {
                             if let Some(edited_rule_idx) = edited_rule {
-                                let rule_for_edit = self.term.rules.remove(edited_rule_idx);
-                                self.rule_editing = Some(rule_for_edit.into());
+                                let mut rule_for_edit: RulePlaceholder =
+                                    self.term.rules.remove(edited_rule_idx).into();
+                                rule_for_edit.unlock();
+                                self.rule_editing = Some(rule_for_edit);
                             }
                             let mut finished_rule_editing = false;
                             if let Some(rule_editing) = &mut self.rule_editing {

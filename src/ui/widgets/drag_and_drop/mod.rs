@@ -14,6 +14,7 @@ pub(crate) struct DragAndDrop<T: Hash + Clone + Eq> {
     bottoms: Vec<f32>,
     create_item: Option<Box<dyn Fn() -> T>>,
     default_value_id: Option<Id>,
+    id_source: String,
 }
 const ID_SOURCE: &str = "drag_and_drop";
 
@@ -26,12 +27,18 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
             create_item: None,
             bottoms: vec![0.0; items_len],
             default_value_id: None,
+            id_source: ID_SOURCE.to_string(),
         }
     }
-    pub(crate) fn with_create_item(mut self, create_item: Box<dyn Fn() -> T>) -> Self {
+    pub(crate) fn with_create_item(
+        mut self,
+        id_source: &str,
+        create_item: Box<dyn Fn() -> T>,
+    ) -> Self {
         let prototype = create_item();
         self.create_item = Some(create_item);
-        self.default_value_id = Some(Id::new(ID_SOURCE).with(prototype));
+        self.id_source = id_source.to_string();
+        self.default_value_id = Some(Id::new(id_source).with(prototype));
         self
     }
 
@@ -99,7 +106,7 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                             .zip(self.bottoms.iter_mut())
                             .enumerate()
                         {
-                            let item_id = Id::new(ID_SOURCE).with(&item);
+                            let item_id = Id::new(&self.id_source).with(&item);
                             if let Some(default_item_id) = self.default_value_id {
                                 if item_id == default_item_id {
                                     default_item_present = true;
@@ -207,7 +214,7 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
     fn fix_dragged_item_position(&mut self, ui: &mut Ui) -> Option<(usize, usize)> {
         let mut dragged_item: Option<usize> = None;
         for (idx, item) in self.items.iter().enumerate() {
-            let item_id = Id::new(ID_SOURCE).with(item);
+            let item_id = Id::new(&self.id_source).with(item);
             if ui.memory(|mem| mem.is_being_dragged(item_id)) {
                 dragged_item = Some(idx);
             }

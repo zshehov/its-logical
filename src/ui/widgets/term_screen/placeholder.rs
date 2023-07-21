@@ -93,7 +93,7 @@ impl RulePlaceholder {
         Self {
             head: HeadPlaceholder::new(&[]),
             body: DragAndDrop::new(vec![("".to_string(), vec![])])
-                .with_create_item(Box::new(|| ("".to_string(), vec![]))),
+                .with_create_item("constructor", Box::new(|| ("".to_string(), vec![]))),
         }
     }
     pub(crate) fn show<'a>(
@@ -146,6 +146,7 @@ impl RulePlaceholder {
             .clicked()
         {
             let mut empty_rule_placeholder = RulePlaceholder::new();
+            empty_rule_placeholder.unlock();
 
             // reset the rule placeholder
             std::mem::swap(&mut empty_rule_placeholder, self);
@@ -200,7 +201,8 @@ impl From<Rule> for RulePlaceholder {
                     (name, arg_bindings.binding)
                 })
                 .collect(),
-        );
+        )
+        .with_create_item("from rule", Box::new(|| ("".to_string(), vec![])));
 
         RulePlaceholder {
             head: HeadPlaceholder {
