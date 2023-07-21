@@ -23,6 +23,7 @@ impl ItsLogicalApp<InMemoryTerms> {
             r"%! mother a mother is a parent that's female
 % @arg MotherName the name of the mother
 % @arg ChildName the name of the child
+% @see 
 mother(Siika,Mircho).
 mother(Stefka,Petko).
 mother(Cecka,Krustio).
@@ -34,6 +35,7 @@ mother(Mother,Child):-parent(Mother,Child),female(Mother)
             r"%! father a father is a parent that's male
 % @arg FatherName the name of the father
 % @arg ChildName the name of the child
+% @see 
 father(Stefan,Petko).
 father(Hristo,Stoichko).
 father(Father,Child):-parent(Father,Child),male(Father)
@@ -43,6 +45,7 @@ father(Father,Child):-parent(Father,Child),male(Father)
         let (_, male) = parse_fat_term(
             r"%! male is one of the genders that has XY chromosomes
 % @arg Name the name of the person
+% @see 
 male(stefan).
 male(petko).
 ",
