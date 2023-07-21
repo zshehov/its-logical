@@ -2,6 +2,7 @@ use std::cmp::min;
 
 use crate::model::fat_term::FatTerm;
 
+use egui::{Color32, Rounding, Stroke};
 use screen::Screen;
 
 pub(crate) mod screen;
@@ -99,23 +100,32 @@ impl<T: Screen> TermTabs<T> {
     pub(crate) fn show(&mut self, ui: &mut egui::Ui) -> Option<&mut T> {
         ui.horizontal(|ui| {
             let mut close_idx = None;
-            for (idx, term) in self.screens.iter_mut().enumerate() {
-                if ui
-                    .selectable_value(
+            for (idx, screen) in self.screens.iter_mut().enumerate() {
+                ui.scope(|ui| {
+                    let selectable = ui.selectable_value(
                         &mut self.current_tab,
                         Some(idx),
-                        if term.name() == "" {
+                        if screen.name() == "" {
                             "untitled".to_string()
-                        } else if !term.can_close() {
-                            term.name() + "*"
+                        } else if !screen.can_close() {
+                            screen.name() + "*"
                         } else {
-                            term.name()
+                            screen.name()
                         },
-                    )
-                    .secondary_clicked()
-                {
-                    close_idx = Some(idx);
-                };
+                    );
+
+                    ui.painter().line_segment(
+                        [
+                            selectable.rect.left_bottom(),
+                            selectable.rect.right_bottom(),
+                        ],
+                        screen.stroke(),
+                    );
+
+                    if selectable.secondary_clicked() {
+                        close_idx = Some(idx);
+                    };
+                });
             }
             if let Some(close_idx) = close_idx {
                 if !self.screens[close_idx].can_close() {

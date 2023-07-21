@@ -33,6 +33,8 @@ impl CommitTabs {
         {
             output = Some(CommitTabsOutput::FinishedCommit);
         }
+        // TODO: make this work
+        ui.add_enabled(false, egui::Button::new("Abort"));
 
         output.or(self.tabs.show(ui).map(CommitTabsOutput::Selected))
     }
