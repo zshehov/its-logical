@@ -454,7 +454,7 @@ impl text_suggestions::Suggestions for TestSug {
 
     type All = IntoIter<LabelWithValue>;
 
-    fn filter(&self, with: &str) -> IntoIter<LabelWithValue> {
+    fn filter(&self, _with: &str) -> IntoIter<LabelWithValue> {
         let filtered: Vec<LabelWithValue> = ["asd", "bla", "kek"]
             .iter()
             .map(|&x| LabelWithValue {

@@ -2,7 +2,7 @@ use std::cmp::min;
 
 use crate::model::fat_term::FatTerm;
 
-use egui::{Color32, Rounding, Stroke};
+
 use screen::Screen;
 
 pub(crate) mod screen;
