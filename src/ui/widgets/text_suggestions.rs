@@ -43,6 +43,12 @@ impl SuggestionsPopup {
                         // Just ergonimocs - focus is not moved correctly when jumping between the
                         // edit_box and the first suggested element. Forced this here
                         if response.lost_focus() {
+                            if ui.input(|i| i.modifiers.shift) {
+                                // the edit_box lost focus because of a Shift+Tab, so the
+                                // suggestion popup is no longer relevant
+                                ui.memory_mut(|m| m.close_popup());
+                                break;
+                            }
                             suggestion_response.request_focus();
                         } else if suggestion_response.lost_focus()
                             && ui.input(|i| i.modifiers.shift)
