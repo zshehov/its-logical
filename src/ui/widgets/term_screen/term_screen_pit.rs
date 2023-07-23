@@ -1,3 +1,5 @@
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
 use std::vec::IntoIter;
 
 use egui::{Color32, Id, Response, RichText, TextStyle, Ui, Widget};
@@ -10,7 +12,7 @@ use crate::{
         fat_term::FatTerm,
         term::{args_binding::ArgsBinding, rule::Rule},
     },
-    term_knowledge_base::GetKnowledgeBase,
+    term_knowledge_base::{GetKnowledgeBase, KeysKnowledgeBase},
     ui::widgets::{
         drag_and_drop::{self, Change, DragAndDrop},
         text_suggestions::{self, Suggestion},
@@ -142,7 +144,7 @@ impl TermScreenPIT {
     pub(crate) fn show(
         &mut self,
         ui: &mut egui::Ui,
-        terms_knowledge_base: &impl GetKnowledgeBase,
+        terms_knowledge_base: &(impl GetKnowledgeBase + KeysKnowledgeBase),
         edit_mode: bool,
     ) {
         ui.horizontal(|ui| {
@@ -308,7 +310,7 @@ impl TermScreenPIT {
         &mut self,
         ui: &mut egui::Ui,
         edit_mode: bool,
-        terms_knowledge_base: &impl GetKnowledgeBase,
+        terms_knowledge_base: &(impl GetKnowledgeBase + KeysKnowledgeBase),
     ) {
         egui::ScrollArea::vertical()
             .id_source("rules_scroll_area")
@@ -400,24 +402,17 @@ impl TermScreenPIT {
     ) -> bool {
         // TODO: fix the hardcoded widths
         let mut changed = false;
-        let mut s = text_suggestions::SuggestionsPopup {};
-        s.show(
-            ui,
-            Id::new("asd"),
-            arg_name,
-            |ui, current_val| {
-                ui.add(
-                    egui::TextEdit::singleline(current_val)
-                        .clip_text(false)
-                        .hint_text("Name")
-                        .desired_width(60.0)
-                        .frame(edit_mode)
-                        .interactive(edit_mode)
-                        .font(TextStyle::Body),
-                )
-            },
-            &TestSug {},
-        );
+        changed |= ui
+            .add(
+                egui::TextEdit::singleline(arg_name)
+                    .clip_text(false)
+                    .hint_text("Name")
+                    .desired_width(60.0)
+                    .frame(edit_mode)
+                    .interactive(edit_mode)
+                    .font(TextStyle::Body),
+            )
+            .changed();
 
         changed |= ui
             .add(
@@ -431,38 +426,6 @@ impl TermScreenPIT {
             )
             .changed();
         changed
-    }
-}
-struct TestSug {}
-
-struct LabelWithValue {
-    value: String,
-    label: egui::Button,
-}
-impl Suggestion for LabelWithValue {
-    fn value(&self) -> String {
-        self.value.to_string()
-    }
-
-    fn show(self, ui: &mut Ui) -> Response {
-        self.label.fill(Color32::TRANSPARENT).ui(ui)
-    }
-}
-
-impl text_suggestions::Suggestions for TestSug {
-    type Suggestion = LabelWithValue;
-
-    type All = IntoIter<LabelWithValue>;
-
-    fn filter(&self, _with: &str) -> IntoIter<LabelWithValue> {
-        let filtered: Vec<LabelWithValue> = ["asd", "bla", "kek"]
-            .iter()
-            .map(|&x| LabelWithValue {
-                value: x.to_string(),
-                label: egui::Button::new(x),
-            })
-            .collect();
-        filtered.into_iter()
     }
 }
 

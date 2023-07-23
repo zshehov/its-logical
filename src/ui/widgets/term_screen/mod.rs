@@ -1,7 +1,7 @@
 use egui::Color32;
 
 use crate::model::fat_term::FatTerm;
-use crate::term_knowledge_base::GetKnowledgeBase;
+use crate::term_knowledge_base::{GetKnowledgeBase, KeysKnowledgeBase};
 
 use self::points_in_time::PointsInTime;
 use self::term_screen_pit::{TermChange, TermScreenPIT};
@@ -87,7 +87,7 @@ impl TermScreen {
     pub(crate) fn show(
         &mut self,
         ui: &mut egui::Ui,
-        terms_knowledge_base: &impl GetKnowledgeBase,
+        terms_knowledge_base: &(impl GetKnowledgeBase + KeysKnowledgeBase),
     ) -> Option<Output> {
         // show points in time
         if self.points_in_time.len() > 1 || self.in_edit() {

@@ -4,7 +4,9 @@ use term_tabs::TermTabs;
 
 use crate::{
     model::fat_term::FatTerm,
-    term_knowledge_base::{DeleteKnowledgeBase, GetKnowledgeBase, PutKnowledgeBase},
+    term_knowledge_base::{
+        DeleteKnowledgeBase, GetKnowledgeBase, KeysKnowledgeBase, PutKnowledgeBase,
+    },
     ui::changes_handling,
 };
 
@@ -58,7 +60,7 @@ impl Tabs {
     pub(crate) fn show(
         &mut self,
         ctx: &egui::Context,
-        terms: &mut (impl GetKnowledgeBase + PutKnowledgeBase + DeleteKnowledgeBase),
+        terms: &mut (impl GetKnowledgeBase + PutKnowledgeBase + DeleteKnowledgeBase + KeysKnowledgeBase),
     ) {
         let chosen_screen = egui::TopBottomPanel::top("tabs_panel")
             .show(ctx, |ui| {

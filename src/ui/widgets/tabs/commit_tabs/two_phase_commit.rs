@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    term_knowledge_base::GetKnowledgeBase,
+    term_knowledge_base::{GetKnowledgeBase, KeysKnowledgeBase},
     ui::widgets::term_screen::{Output, TermScreen},
 };
 
@@ -60,7 +60,7 @@ impl TwoPhaseCommit {
     pub(crate) fn show(
         &mut self,
         ui: &mut egui::Ui,
-        terms_knowledge_base: &impl GetKnowledgeBase,
+        terms_knowledge_base: &(impl GetKnowledgeBase + KeysKnowledgeBase),
     ) -> Option<Output> {
         // if this term is a part of a 2-phase-commit and should approve a change show the approve
         // button

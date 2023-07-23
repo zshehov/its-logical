@@ -1,4 +1,8 @@
-use egui::RichText;
+use std::{cmp::Reverse, collections::BTreeSet, vec::IntoIter};
+
+use crate::{term_knowledge_base::KeysKnowledgeBase, ui::widgets::text_suggestions::Suggestion};
+use egui::{Color32, Response, RichText, Widget};
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 
 use crate::{
     model::{
@@ -6,7 +10,7 @@ use crate::{
         term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule},
     },
     term_knowledge_base::GetKnowledgeBase,
-    ui::widgets::drag_and_drop::DragAndDrop,
+    ui::widgets::{drag_and_drop::DragAndDrop, text_suggestions},
 };
 
 struct HeadPlaceholder {
@@ -100,7 +104,7 @@ impl RulePlaceholder {
         &mut self,
         ui: &mut egui::Ui,
         term_name: &str,
-        terms_knowledge_base: &impl GetKnowledgeBase,
+        terms_knowledge_base: &(impl GetKnowledgeBase + KeysKnowledgeBase),
         template: impl ExactSizeIterator<Item = &'a NameDescription>,
         finish_button_text: &str,
     ) -> Option<Rule> {
@@ -108,15 +112,32 @@ impl RulePlaceholder {
         ui.label(egui::RichText::new("if").weak());
 
         let mut term_added_to_body = None;
+
+        let term_suggestions = FuzzySuggestions::new(terms_knowledge_base.keys().iter().cloned());
+        let arg_suggestions = FuzzySuggestions::new(
+            self.body
+                .iter()
+                .flat_map(|(_, vecs)| vecs)
+                .filter(|&x| !x.is_empty())
+                .chain(self.head.binding.iter())
+                .cloned(),
+        );
+
         self.body.show(ui, |s, ui| {
             ui.horizontal(|ui| {
-                if ui
-                    .add(
-                        egui::TextEdit::singleline(&mut s.0)
-                            .clip_text(false)
-                            .desired_width(0.0),
-                    )
-                    .lost_focus()
+                if text_suggestions::show(
+                    ui,
+                    &mut s.0,
+                    |ui, current_val| {
+                        ui.add(
+                            egui::TextEdit::singleline(current_val)
+                                .clip_text(false)
+                                .desired_width(0.0),
+                        )
+                    },
+                    &term_suggestions,
+                )
+                .changed()
                 {
                     // TODO: handle the None here
                     let t = terms_knowledge_base.get(&s.0).unwrap();
@@ -124,16 +145,24 @@ impl RulePlaceholder {
                     term_added_to_body = Some(t.meta.term.name);
                 }
                 let mut added_once = false;
+
                 ui.label(egui::RichText::new("(").weak());
                 for param in &mut s.1 {
                     if added_once {
                         ui.label(egui::RichText::new(", ").weak());
                     }
-                    ui.add(
-                        egui::TextEdit::singleline(param)
-                            .clip_text(false)
-                            .desired_width(SINGLE_CHAR_WIDTH)
-                            .hint_text("X"),
+                    text_suggestions::show(
+                        ui,
+                        param,
+                        |ui, current_val| {
+                            ui.add(
+                                egui::TextEdit::singleline(current_val)
+                                    .clip_text(false)
+                                    .hint_text("X")
+                                    .desired_width(SINGLE_CHAR_WIDTH),
+                            )
+                        },
+                        &arg_suggestions,
                     );
                     added_once = true
                 }
@@ -215,3 +244,65 @@ impl From<Rule> for RulePlaceholder {
 
 // TODO: get this from the framework if possible
 const SINGLE_CHAR_WIDTH: f32 = 11.0;
+
+struct FuzzySuggestions {
+    fuzzy_matcher: SkimMatcherV2,
+    relevant: Vec<String>,
+}
+
+impl FuzzySuggestions {
+    fn new(relevant: impl Iterator<Item = String>) -> Self {
+        let relevant_set: BTreeSet<String> = BTreeSet::from_iter(relevant);
+
+        Self {
+            fuzzy_matcher: SkimMatcherV2::default(),
+            relevant: Vec::from_iter::<BTreeSet<String>>(relevant_set),
+        }
+    }
+}
+
+struct LabelWithValue {
+    value: String,
+    label: egui::Button,
+}
+
+impl Suggestion for LabelWithValue {
+    fn value(&self) -> String {
+        self.value.to_string()
+    }
+
+    fn show(self, ui: &mut egui::Ui) -> Response {
+        self.label.wrap(false).fill(Color32::TRANSPARENT).ui(ui)
+    }
+}
+
+// Prouduces fuzzy suggestions sorted by fuzzy score
+impl text_suggestions::Suggestions for FuzzySuggestions {
+    type Suggestion = LabelWithValue;
+
+    type All = IntoIter<LabelWithValue>;
+
+    fn filter(&self, with: &str) -> IntoIter<LabelWithValue> {
+        let mut filtered: Vec<(&String, i64)> = self
+            .relevant
+            .iter()
+            .filter(|&x| x != with)
+            .filter_map(|x| {
+                if let Some(score) = self.fuzzy_matcher.fuzzy_match(x, with) {
+                    return Some((x, score));
+                }
+                None
+            })
+            .collect();
+
+        filtered.sort_unstable_by_key(|(_, x)| Reverse(*x));
+        filtered
+            .into_iter()
+            .map(|(x, _)| LabelWithValue {
+                value: x.to_string(),
+                label: egui::Button::new(x),
+            })
+            .collect::<Vec<LabelWithValue>>()
+            .into_iter()
+    }
+}
