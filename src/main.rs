@@ -5,6 +5,8 @@ use tracing::Level;
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
+    use std::{env, path::PathBuf};
+
     use its_logical::{term_knowledge_base::PersistentMemoryTerms, ItsLogicalApp};
 
     // Log to stdout (if you run with `RUST_LOG=debug`).
@@ -13,10 +15,17 @@ fn main() -> eframe::Result<()> {
         .init();
     // what if we wnt to
     let native_options = eframe::NativeOptions::default();
+    let knowledge_path = env::var("KNOWLEDGE_PATH").unwrap_or("~/knowledge".to_string());
+    let knowledge_path = PathBuf::from(knowledge_path);
     eframe::run_native(
         "It's Logical",
         native_options,
-        Box::new(|cc| Box::new(ItsLogicalApp::<PersistentMemoryTerms>::new(cc))),
+        Box::new(|cc| {
+            Box::new(ItsLogicalApp::<PersistentMemoryTerms>::new(
+                cc,
+                knowledge_path,
+            ))
+        }),
     )
 }
 

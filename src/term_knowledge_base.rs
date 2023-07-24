@@ -4,7 +4,7 @@ use bincode_derive::Decode;
 use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
-    io::{BufReader, BufWriter},
+    io::{self, BufReader, BufWriter},
     path::PathBuf,
 };
 
@@ -152,7 +152,14 @@ impl PersistentMemoryTerms {
             keys.push(entry.name.clone());
         }
 
-        let page_content = fs::read_to_string(base_path.join(PAGE_NAME)).unwrap();
+        let page_path = base_path.join(PAGE_NAME);
+        let page_content = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(page_path)
+            .unwrap();
+        let page_content = io::read_to_string(page_content).unwrap();
 
         Self {
             index,

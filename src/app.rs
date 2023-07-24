@@ -62,7 +62,7 @@ male(petko).
 }
 
 impl ItsLogicalApp<PersistentMemoryTerms> {
-    pub fn new(c: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(c: &eframe::CreationContext<'_>, knowledge_path: PathBuf) -> Self {
         let mut style = (*c.egui_ctx.style()).clone();
 
         for (_, font) in style.text_styles.iter_mut() {
@@ -71,9 +71,7 @@ impl ItsLogicalApp<PersistentMemoryTerms> {
         c.egui_ctx.set_style(style);
 
         Self {
-            ui: crate::ui::App::new(PersistentMemoryTerms::new(&PathBuf::from(
-                "/Users/zdravko/knowledge",
-            ))),
+            ui: crate::ui::App::new(PersistentMemoryTerms::new(&knowledge_path)),
         }
     }
 }
