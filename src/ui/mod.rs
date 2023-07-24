@@ -1,4 +1,5 @@
 use egui::Context;
+use tracing::debug;
 
 use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
 
@@ -27,25 +28,34 @@ where
 
     pub fn show(&mut self, ctx: &Context) {
         egui::SidePanel::left("terms_panel").show(ctx, |ui| {
-            ui.heading("Terms");
-            ui.separator();
+            if let Some(output) = self.term_list.show(ui, self.terms.keys().iter()) {
+                match output {
+                    widgets::terms_list::TermListOutput::AddTerm(new_term_name) => {
+                        let new_term = FatTerm::default();
+                        if self.term_tabs.select(&new_term.meta.term.name) {
+                            debug!("unfinished term creation present");
+                            return;
+                        }
+                        self.term_tabs.push(&new_term);
+                        self.term_tabs.select(&new_term.meta.term.name);
 
-            if ui
-                .button(egui::RichText::new("Add term").underline().strong())
-                .clicked()
-            {
-                let new_term = FatTerm::default();
-                // TODO: maybe this will break if multiple new tabs are opened - maybe use rev
-                // iterator?
-                self.term_tabs.push(&new_term);
-                self.term_tabs.select(&new_term.meta.term.name);
-            };
-            let term_list_selection = self.term_list.show(ui, self.terms.keys().iter());
+                        let new_term_screen = self
+                            .term_tabs
+                            .term_tabs
+                            .get_mut(&new_term.meta.term.name)
+                            .expect("the newly created term was just added");
 
-            if let Some(term_name) = term_list_selection {
-                if !self.term_tabs.select(&term_name) {
-                    self.term_tabs.push(&self.terms.get(&term_name).unwrap());
-                    self.term_tabs.select(&term_name);
+                        new_term_screen.start_changes();
+                        let (_, editing) = new_term_screen.get_pits_mut();
+                        editing.expect("a").set_name(&new_term_name);
+                    }
+                    widgets::terms_list::TermListOutput::SelectedTerm(selected_term) => {
+                        if !self.term_tabs.select(&selected_term) {
+                            self.term_tabs
+                                .push(&self.terms.get(&selected_term).unwrap());
+                            self.term_tabs.select(&selected_term);
+                        }
+                    }
                 }
             }
         });

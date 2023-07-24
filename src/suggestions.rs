@@ -48,7 +48,6 @@ impl<T: Suggestion> Suggestions<T> for FuzzySuggestions {
         let mut filtered: Vec<(&String, i64)> = self
             .relevant
             .iter()
-            .filter(|&x| x != with)
             .filter_map(|x| {
                 if let Some(score) = self.fuzzy_matcher.fuzzy_match(x, with) {
                     return Some((x, score));

@@ -2,7 +2,6 @@ use std::cmp::min;
 
 use crate::model::fat_term::FatTerm;
 
-
 use screen::Screen;
 
 pub(crate) mod screen;
@@ -106,7 +105,7 @@ impl<T: Screen> TermTabs<T> {
                         &mut self.current_tab,
                         Some(idx),
                         if screen.name() == "" {
-                            "untitled".to_string()
+                            "untitled*".to_string()
                         } else if !screen.can_close() {
                             screen.name() + "*"
                         } else {

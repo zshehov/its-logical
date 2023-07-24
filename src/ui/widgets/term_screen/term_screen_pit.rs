@@ -49,6 +49,10 @@ impl TermScreenPIT {
         self.term.meta.name.clone()
     }
 
+    pub(crate) fn set_name(&mut self, new_name: &str) {
+        self.term.meta.name = new_name.to_string();
+    }
+
     pub(crate) fn extract_term(&self) -> FatTerm {
         (&self.term).into()
     }

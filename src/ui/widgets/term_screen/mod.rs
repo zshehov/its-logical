@@ -1,4 +1,5 @@
 use egui::Color32;
+use tracing::debug;
 
 use crate::model::fat_term::FatTerm;
 use crate::term_knowledge_base::{GetKnowledgeBase, KeysKnowledgeBase};
@@ -74,6 +75,17 @@ impl TermScreen {
         true
     }
 
+    pub(crate) fn start_changes(&mut self) {
+        self.showing_point_in_time = None;
+        self.current
+            .insert(term_screen_pit::TermScreenPIT::new(
+                // TODO: it's a bit weird to extract and recreate, however the current alternative is
+                // to perform a heavy (a lot stuff will Derive(Clone)) clone
+                &self.points_in_time.latest().extract_term(),
+            ))
+            .start_changes();
+    }
+
     pub(crate) fn name(&self) -> String {
         self.points_in_time.original().name()
     }
@@ -102,33 +114,6 @@ impl TermScreen {
         }
 
         let term_name = self.name();
-        // if this term is a part of a 2-phase-commit and should approve a change show the approve
-        // button
-        /*
-        if let Some(two_phase_commit) = &mut self.two_phase_commit {
-            let mut two_phase_commit = two_phase_commit.borrow_mut();
-
-            if two_phase_commit.is_being_waited() {
-                if ui.button("approve").clicked() {
-                    two_phase_commit.approve_all();
-                }
-            } else if two_phase_commit.is_initiator() {
-                let commit_button = egui::Button::new("Finish commit");
-
-                if two_phase_commit.is_ready_for_commit() {
-                    if ui
-                        .add(commit_button)
-                        .on_hover_text("Approved by: ".to_string())
-                        .clicked()
-                    {
-                        return Some(Output::FinishTwoPhaseCommit);
-                    }
-                } else {
-                    ui.add_enabled(false, commit_button)
-                        .on_disabled_hover_text("Need approval from : ".to_string());
-                }
-            }
-        }*/
 
         // show the edit/save buttons
         if !self.in_deletion {
@@ -136,6 +121,7 @@ impl TermScreen {
                 Some(current) => {
                     if edit_button::show_edit_button(ui, true) {
                         // one last frame of the term not being editable with the newest state
+                        debug!("asdada");
                         current.show(ui, terms_knowledge_base, false);
                         let changes = current.finish_changes();
                         self.current = None;
@@ -147,14 +133,7 @@ impl TermScreen {
                 }
                 None => {
                     if edit_button::show_edit_button(ui, false) {
-                        self.showing_point_in_time = None;
-                        self.current
-                            .insert(term_screen_pit::TermScreenPIT::new(
-                                // TODO: it's a bit weird to extract and recreate, however the current alternative is
-                                // to perform a heavy (a lot stuff will Derive(Clone)) clone
-                                &self.points_in_time.latest().extract_term(),
-                            ))
-                            .start_changes();
+                        self.start_changes();
                     }
                 }
             };
