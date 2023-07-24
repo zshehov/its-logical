@@ -1,35 +1,12 @@
 use egui::{Color32, Response, Ui, Widget};
 
-use crate::suggestions::{Suggestion, Suggestions};
-
-pub(crate) struct LabelWithValue {
-    value: String,
-    label: egui::Button,
-}
-
-impl LabelWithValue {
-    fn show(self, ui: &mut egui::Ui) -> Response {
-        self.label.wrap(false).fill(Color32::TRANSPARENT).ui(ui)
-    }
-}
-
-impl Suggestion for LabelWithValue {
-    fn value(&self) -> String {
-        self.value.to_string()
-    }
-    fn new(value: &str) -> Self {
-        LabelWithValue {
-            value: value.to_string(),
-            label: egui::Button::new(value),
-        }
-    }
-}
+use crate::suggestions::Suggestions;
 
 pub(crate) fn show(
     ui: &mut Ui,
     value: &mut String,
     mut edit_box: impl FnMut(&mut Ui, &mut String) -> Response,
-    suggestions: &impl Suggestions<LabelWithValue>,
+    suggestions: &impl Suggestions<String>,
 ) -> Response {
     let mut response = edit_box(ui, value);
     response.changed = false;
@@ -45,9 +22,11 @@ pub(crate) fn show(
             let mut last_lost_focus = false;
             for (idx, s) in suggestions.filter(value).enumerate() {
                 last_lost_focus = false;
-                let suggestion = s.value();
 
-                let suggestion_response = s.show(ui);
+                let suggestion_response = egui::Button::new(&s)
+                    .wrap(false)
+                    .fill(Color32::TRANSPARENT)
+                    .ui(ui);
                 if idx == 0 {
                     // Just ergonimocs - focus is not moved correctly when jumping between the
                     // edit_box and the first suggested element. Forced this here
@@ -67,7 +46,7 @@ pub(crate) fn show(
                     last_lost_focus = true;
                 }
                 if suggestion_response.clicked() {
-                    *value = suggestion;
+                    *value = s;
                     changed = true;
                     ui.memory_mut(|m| m.close_popup());
                     response.request_focus();

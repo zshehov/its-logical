@@ -2,13 +2,14 @@ use egui::Context;
 
 use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
 
-use self::widgets::tabs::Tabs;
+use self::widgets::{tabs::Tabs, terms_list::TermList};
 
 mod changes_handling;
 mod widgets;
 
 pub struct App<T: TermsKnowledgeBase> {
     term_tabs: Tabs,
+    term_list: TermList,
     terms: T,
 }
 
@@ -19,6 +20,7 @@ where
     pub fn new(terms: T) -> Self {
         Self {
             term_tabs: Tabs::default(),
+            term_list: TermList::new(),
             terms,
         }
     }
@@ -38,7 +40,7 @@ where
                 self.term_tabs.push(&new_term);
                 self.term_tabs.select(&new_term.meta.term.name);
             };
-            let term_list_selection = widgets::terms_list::show(ui, self.terms.keys().iter());
+            let term_list_selection = self.term_list.show(ui, self.terms.keys().iter());
 
             if let Some(term_name) = term_list_selection {
                 if !self.term_tabs.select(&term_name) {
