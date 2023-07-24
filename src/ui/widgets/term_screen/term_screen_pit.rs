@@ -1,8 +1,4 @@
-use fuzzy_matcher::skim::SkimMatcherV2;
-use fuzzy_matcher::FuzzyMatcher;
-use std::vec::IntoIter;
-
-use egui::{Color32, Id, Response, RichText, TextStyle, Ui, Widget};
+use egui::{RichText, TextStyle};
 use tracing::debug;
 
 use crate::{
@@ -13,10 +9,7 @@ use crate::{
         term::{args_binding::ArgsBinding, rule::Rule},
     },
     term_knowledge_base::{GetKnowledgeBase, KeysKnowledgeBase},
-    ui::widgets::{
-        drag_and_drop::{self, Change, DragAndDrop},
-        text_suggestions::{self, Suggestion},
-    },
+    ui::widgets::drag_and_drop::{self, Change, DragAndDrop},
 };
 
 use super::placeholder::{self, RulePlaceholder};

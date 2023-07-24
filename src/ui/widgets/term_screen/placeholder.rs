@@ -1,8 +1,5 @@
-use std::{cmp::Reverse, collections::BTreeSet, vec::IntoIter};
-
-use crate::{term_knowledge_base::KeysKnowledgeBase, ui::widgets::text_suggestions::Suggestion};
-use egui::{Color32, Response, RichText, Widget};
-use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use crate::{suggestions::FuzzySuggestions, term_knowledge_base::KeysKnowledgeBase};
+use egui::RichText;
 
 use crate::{
     model::{
@@ -10,7 +7,7 @@ use crate::{
         term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule},
     },
     term_knowledge_base::GetKnowledgeBase,
-    ui::widgets::{drag_and_drop::DragAndDrop, text_suggestions},
+    ui::widgets::{drag_and_drop::DragAndDrop, popup_suggestions},
 };
 
 struct HeadPlaceholder {
@@ -125,7 +122,7 @@ impl RulePlaceholder {
 
         self.body.show(ui, |s, ui| {
             ui.horizontal(|ui| {
-                if text_suggestions::show(
+                if popup_suggestions::show(
                     ui,
                     &mut s.0,
                     |ui, current_val| {
@@ -151,7 +148,7 @@ impl RulePlaceholder {
                     if added_once {
                         ui.label(egui::RichText::new(", ").weak());
                     }
-                    text_suggestions::show(
+                    popup_suggestions::show(
                         ui,
                         param,
                         |ui, current_val| {
@@ -244,65 +241,3 @@ impl From<Rule> for RulePlaceholder {
 
 // TODO: get this from the framework if possible
 const SINGLE_CHAR_WIDTH: f32 = 11.0;
-
-struct FuzzySuggestions {
-    fuzzy_matcher: SkimMatcherV2,
-    relevant: Vec<String>,
-}
-
-impl FuzzySuggestions {
-    fn new(relevant: impl Iterator<Item = String>) -> Self {
-        let relevant_set: BTreeSet<String> = BTreeSet::from_iter(relevant);
-
-        Self {
-            fuzzy_matcher: SkimMatcherV2::default(),
-            relevant: Vec::from_iter::<BTreeSet<String>>(relevant_set),
-        }
-    }
-}
-
-struct LabelWithValue {
-    value: String,
-    label: egui::Button,
-}
-
-impl Suggestion for LabelWithValue {
-    fn value(&self) -> String {
-        self.value.to_string()
-    }
-
-    fn show(self, ui: &mut egui::Ui) -> Response {
-        self.label.wrap(false).fill(Color32::TRANSPARENT).ui(ui)
-    }
-}
-
-// Prouduces fuzzy suggestions sorted by fuzzy score
-impl text_suggestions::Suggestions for FuzzySuggestions {
-    type Suggestion = LabelWithValue;
-
-    type All = IntoIter<LabelWithValue>;
-
-    fn filter(&self, with: &str) -> IntoIter<LabelWithValue> {
-        let mut filtered: Vec<(&String, i64)> = self
-            .relevant
-            .iter()
-            .filter(|&x| x != with)
-            .filter_map(|x| {
-                if let Some(score) = self.fuzzy_matcher.fuzzy_match(x, with) {
-                    return Some((x, score));
-                }
-                None
-            })
-            .collect();
-
-        filtered.sort_unstable_by_key(|(_, x)| Reverse(*x));
-        filtered
-            .into_iter()
-            .map(|(x, _)| LabelWithValue {
-                value: x.to_string(),
-                label: egui::Button::new(x),
-            })
-            .collect::<Vec<LabelWithValue>>()
-            .into_iter()
-    }
-}

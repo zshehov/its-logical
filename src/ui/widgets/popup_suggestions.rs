@@ -1,22 +1,35 @@
-use egui::{Response, Ui};
+use egui::{Color32, Response, Ui, Widget};
 
-pub(crate) trait Suggestion {
-    fn value(&self) -> String;
-    fn show(self, ui: &mut Ui) -> Response;
+use crate::suggestions::{Suggestion, Suggestions};
+
+pub(crate) struct LabelWithValue {
+    value: String,
+    label: egui::Button,
 }
 
-pub(crate) trait Suggestions {
-    type Suggestion: Suggestion;
-    type All: Iterator<Item = Self::Suggestion>;
+impl LabelWithValue {
+    fn show(self, ui: &mut egui::Ui) -> Response {
+        self.label.wrap(false).fill(Color32::TRANSPARENT).ui(ui)
+    }
+}
 
-    fn filter(&self, with: &str) -> Self::All;
+impl Suggestion for LabelWithValue {
+    fn value(&self) -> String {
+        self.value.to_string()
+    }
+    fn new(value: &str) -> Self {
+        LabelWithValue {
+            value: value.to_string(),
+            label: egui::Button::new(value),
+        }
+    }
 }
 
 pub(crate) fn show(
     ui: &mut Ui,
     value: &mut String,
     mut edit_box: impl FnMut(&mut Ui, &mut String) -> Response,
-    suggestions: &impl Suggestions,
+    suggestions: &impl Suggestions<LabelWithValue>,
 ) -> Response {
     let mut response = edit_box(ui, value);
     response.changed = false;
