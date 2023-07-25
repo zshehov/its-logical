@@ -12,6 +12,8 @@ use crate::{
 
 use commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs};
 
+use self::ask::Ask;
+
 use super::term_screen::{self, TermScreen};
 
 const ASK_TAB_NAME: &str = "Ask";
@@ -23,12 +25,13 @@ enum ChoseTabInternal {
     TwoPhase,
 }
 
+pub(crate) mod ask;
 pub(crate) mod commit_tabs;
 pub(crate) mod term_tabs;
 
 pub(crate) struct Tabs {
     current_selection: ChoseTabInternal,
-    ask: String,
+    ask: ask::Ask,
     pub(crate) term_tabs: TermTabs<TermScreen>,
     pub(crate) commit_tabs: Option<CommitTabs>,
 }
@@ -37,7 +40,7 @@ impl Default for Tabs {
     fn default() -> Self {
         Self {
             current_selection: ChoseTabInternal::Ask,
-            ask: ASK_TAB_NAME.to_string(),
+            ask: ask::Ask {},
             term_tabs: TermTabs::new(),
             commit_tabs: None,
         }
@@ -45,7 +48,7 @@ impl Default for Tabs {
 }
 
 enum Screens<'a> {
-    Ask(&'a String),
+    Ask(&'a Ask),
     Term(&'a mut TermScreen),
     TwoPhase(Rc<RefCell<TwoPhaseCommit>>),
 }
@@ -115,10 +118,8 @@ impl Tabs {
             .inner;
 
         match chosen_screen {
-            Screens::Ask(_) => {
-                egui::CentralPanel::default().show(ctx, |ui| {
-                    crate::ui::widgets::ask::show(ui);
-                });
+            Screens::Ask(ask) => {
+                egui::CentralPanel::default().show(ctx, |ui| ask.show(ui));
             }
             Screens::Term(term_screen) => {
                 let screen_output = egui::CentralPanel::default()
