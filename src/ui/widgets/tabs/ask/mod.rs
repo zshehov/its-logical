@@ -1,4 +1,7 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
+    knowledge_engine::{ConsultResult, Engine},
     model::comment::name_description::NameDescription,
     suggestions::FuzzySuggestions,
     term_knowledge_base::{GetKnowledgeBase, KeysKnowledgeBase},
@@ -13,6 +16,8 @@ pub(crate) struct Ask {
     term_name: String,
     anchors: Vec<Option<String>>,
     args_initial: Vec<NameDescription>,
+    results: GrowableTable,
+    consult: Option<Rc<RefCell<dyn ConsultResult>>>,
 }
 
 impl Ask {
@@ -21,6 +26,8 @@ impl Ask {
             term_name: String::new(),
             anchors: vec![],
             args_initial: vec![],
+            results: GrowableTable::new(0),
+            consult: None,
         }
     }
 
@@ -64,11 +71,13 @@ impl Ask {
             let t = terms.get(&self.term_name).unwrap();
             self.args_initial = t.meta.args;
             self.anchors = vec![None; self.args_initial.len()];
+
+            self.results = GrowableTable::new(self.args_initial.len());
         }
         ui.separator();
 
         if !self.args_initial.is_empty() {
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+            ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     for (arg, anchored) in self.args_initial.iter().zip(self.anchors.iter_mut()) {
                         ui.horizontal(|ui| {
@@ -102,8 +111,21 @@ impl Ask {
                     }
                 });
                 ui.separator();
-                GrowableTable::new(self.args_initial.len()).show(ui);
+                if self.results.show(ui) {
+                    for i in 0..5 {
+                        self.results.grow(
+                            ui,
+                            ["asd", "qwe", "eeee", "223123", "eqwe"]
+                                .into_iter()
+                                .map(<str>::to_string)
+                                .take(self.args_initial.len())
+                                .collect::<Vec<String>>()
+                                .as_slice(),
+                        );
+                    }
+                }
             });
+            ui.separator();
         }
     }
 }

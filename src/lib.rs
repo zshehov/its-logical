@@ -7,3 +7,4 @@ pub(crate) mod suggestions;
 pub mod changes;
 pub use app::ItsLogicalApp;
 pub mod term_knowledge_base;
+pub(crate) mod knowledge_engine;

@@ -14,7 +14,7 @@ impl GrowableTable {
             current_growable_size: 0.0,
         }
     }
-    fn grow(&mut self, ui: &mut egui::Ui, new_content: &[String]) {
+    pub(crate) fn grow(&mut self, ui: &mut egui::Ui, new_content: &[String]) {
         self.contents.push(new_content.to_vec());
 
         let monospace_style = TextStyle::resolve(&TextStyle::Monospace, ui.style());
@@ -43,29 +43,19 @@ impl GrowableTable {
 }
 
 impl GrowableTable {
-    pub(crate) fn show(&mut self, ui: &mut egui::Ui) {
-        for _ in 0..100 {
-            self.grow(
-                ui,
-                ["first", "second", "third", "fourth", "fifth"]
-                    .iter()
-                    .map(<&str>::to_string)
-                    .take(self.fixed_dimension)
-                    .collect::<Vec<String>>()
-                    .as_slice(),
-            );
-        }
-        ui.horizontal(|ui| {
-            egui::ScrollArea::horizontal().show(ui, |ui| {
-                ui.set_min_width(self.current_growable_size);
+    pub(crate) fn show(&mut self, ui: &mut egui::Ui) -> bool {
+        egui::ScrollArea::horizontal()
+            .show(ui, |ui| {
                 for item in &self.contents {
                     ui.vertical(|ui| {
                         for i in item {
-                            ui.label(RichText::new(i).monospace());
+                            ui.add(egui::Label::new(RichText::new(i).monospace()).wrap(false));
                         }
                     });
                 }
+                ui.add(egui::Button::new(RichText::new("More ...").heading()).wrap(false))
+                    .clicked()
             })
-        });
+            .inner
     }
 }
