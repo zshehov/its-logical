@@ -2,6 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use term_tabs::TermTabs;
 
+
 use crate::{
     model::fat_term::FatTerm,
     term_knowledge_base::{
@@ -40,7 +41,7 @@ impl Default for Tabs {
     fn default() -> Self {
         Self {
             current_selection: ChoseTabInternal::Ask,
-            ask: ask::Ask {},
+            ask: ask::Ask::new(),
             term_tabs: TermTabs::new(),
             commit_tabs: None,
         }
@@ -48,7 +49,7 @@ impl Default for Tabs {
 }
 
 enum Screens<'a> {
-    Ask(&'a Ask),
+    Ask(&'a mut Ask),
     Term(&'a mut TermScreen),
     TwoPhase(Rc<RefCell<TwoPhaseCommit>>),
 }
@@ -68,7 +69,7 @@ impl Tabs {
         let chosen_screen = egui::TopBottomPanel::top("tabs_panel")
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    let mut chosen_screen = Screens::Ask(&self.ask);
+                    let mut chosen_screen = Screens::Ask(&mut self.ask);
                     if ui
                         .selectable_value(
                             &mut self.current_selection,
@@ -119,7 +120,7 @@ impl Tabs {
 
         match chosen_screen {
             Screens::Ask(ask) => {
-                egui::CentralPanel::default().show(ctx, |ui| ask.show(ui));
+                egui::CentralPanel::default().show(ctx, |ui| ask.show(ui, terms));
             }
             Screens::Term(term_screen) => {
                 let screen_output = egui::CentralPanel::default()

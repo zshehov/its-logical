@@ -47,13 +47,12 @@ impl GrowableTable {
         for _ in 0..100 {
             self.grow(
                 ui,
-                &[
-                    "first".to_string(),
-                    "second".to_string(),
-                    "third".to_string(),
-                    "fourth".to_string(),
-                    "fifth".to_string(),
-                ],
+                ["first", "second", "third", "fourth", "fifth"]
+                    .iter()
+                    .map(<&str>::to_string)
+                    .take(self.fixed_dimension)
+                    .collect::<Vec<String>>()
+                    .as_slice(),
             );
         }
         ui.horizontal(|ui| {
