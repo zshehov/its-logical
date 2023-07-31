@@ -17,6 +17,7 @@ pub(crate) struct Term {
 
 const NEWLINE: &str = r"
 ";
+const END_OF_CLAUSE: &str = r".";
 const END_OF_FACT: &str = r").
 ";
 const END_OF_RULE_HEAD: &str = r"):-";
@@ -47,6 +48,7 @@ impl Term {
 
             let body_entries: Vec<String> = rule.body.iter().map(|b| b.encode()).collect();
             encoded.push_str(&body_entries.join(","));
+            encoded.push_str(END_OF_CLAUSE);
             encoded.push_str(NEWLINE);
         }
         encoded
@@ -95,7 +97,7 @@ fn test_parse_term() {
         parse_term(
             r"parent(john,mary).
 parent(bill,hilly).
-parent(X,Y):-strong_match_in_dna(X,Y),older(X,Y)
+parent(X,Y):-strong_match_in_dna(X,Y),older(X,Y).
 "
         ),
         Ok((
@@ -169,7 +171,7 @@ fn test_encode_term() {
         term.encode("parent"),
         r"parent(john,mary).
 parent(bill,hilly).
-parent(X,Y):-strong_match_in_dna(X,Y),older(X,Y)
+parent(X,Y):-strong_match_in_dna(X,Y),older(X,Y).
 "
     );
 }

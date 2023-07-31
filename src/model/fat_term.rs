@@ -95,7 +95,7 @@ mod test {
 % @see parent,male
 father(stefan,petko).
 father(hristo,stoichko).
-father(Father,Child):-parent(Father,Child),male(Father)
+father(Father,Child):-parent(Father,Child),male(Father).
 ";
         let parsed = parse_fat_term(input);
 

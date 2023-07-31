@@ -196,7 +196,7 @@ mod tests {
             Term::new(
                 &[],
                 &[
-                    parse_rule("original(FirstRuleArg):-mentioned(FirstRuleArg)")
+                    parse_rule("original(FirstRuleArg):-mentioned(FirstRuleArg).")
                         .unwrap()
                         .1,
                 ],
@@ -212,7 +212,7 @@ mod tests {
             Term::new(
                 &[],
                 &[
-                    parse_rule("referring(FirstRuleArg):-original(FirstRuleArg)")
+                    parse_rule("referring(FirstRuleArg):-original(FirstRuleArg).")
                         .unwrap()
                         .1,
                 ],
