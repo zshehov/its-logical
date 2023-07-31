@@ -17,7 +17,7 @@ pub(crate) struct Ask {
     anchors: Vec<Option<String>>,
     args_initial: Vec<NameDescription>,
     results: GrowableTable,
-    consult: Option<Rc<RefCell<dyn ConsultResult>>>,
+    consult: Option<Rc<RefCell<ConsultResult>>>,
 }
 
 impl Ask {
@@ -26,12 +26,12 @@ impl Ask {
             term_name: String::new(),
             anchors: vec![],
             args_initial: vec![],
-            results: GrowableTable::new(0),
+            results: GrowableTable::new(),
             consult: None,
         }
     }
 
-    pub(crate) fn extract_request(&self) -> impl Iterator<Item = &String> {
+    fn extract_request(&self) -> impl Iterator<Item = &String> {
         self.anchors
             .iter()
             .zip(self.args_initial.iter())
@@ -44,10 +44,13 @@ impl Ask {
     }
 }
 
+const CONSULT_LIMIT: usize = 10;
+
 impl Ask {
     pub(crate) fn show(
         &mut self,
         ui: &mut egui::Ui,
+        engine: &mut impl Engine,
         terms: &(impl GetKnowledgeBase + KeysKnowledgeBase),
     ) {
         let term_suggestions = FuzzySuggestions::new(terms.keys().iter().cloned());
@@ -72,7 +75,7 @@ impl Ask {
             self.args_initial = t.meta.args;
             self.anchors = vec![None; self.args_initial.len()];
 
-            self.results = GrowableTable::new(self.args_initial.len());
+            self.results = GrowableTable::new();
         }
         ui.separator();
 
@@ -112,16 +115,23 @@ impl Ask {
                 });
                 ui.separator();
                 if self.results.show(ui) {
-                    for i in 0..5 {
-                        self.results.grow(
-                            ui,
-                            ["asd", "qwe", "eeee", "223123", "eqwe"]
-                                .into_iter()
-                                .map(<str>::to_string)
-                                .take(self.args_initial.len())
-                                .collect::<Vec<String>>()
-                                .as_slice(),
-                        );
+                    let consult = engine.ask(
+                        &self.term_name,
+                        self.extract_request()
+                            .cloned()
+                            .collect::<Vec<String>>()
+                            .as_slice(),
+                    );
+
+                    let consult = self.consult.get_or_insert_with(|| Rc::clone(&consult));
+
+                    let mut i = 0;
+                    while let Some(next) = &consult.borrow_mut().more() {
+                        self.results.grow(ui, next);
+                        i += 1;
+                        if i >= CONSULT_LIMIT {
+                            break;
+                        }
                     }
                 }
             });

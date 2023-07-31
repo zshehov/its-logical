@@ -2,8 +2,8 @@ use std::{cell::RefCell, rc::Rc};
 
 use term_tabs::TermTabs;
 
-
 use crate::{
+    knowledge_engine::DummyEngine,
     model::fat_term::FatTerm,
     term_knowledge_base::{
         DeleteKnowledgeBase, GetKnowledgeBase, KeysKnowledgeBase, PutKnowledgeBase,
@@ -120,7 +120,8 @@ impl Tabs {
 
         match chosen_screen {
             Screens::Ask(ask) => {
-                egui::CentralPanel::default().show(ctx, |ui| ask.show(ui, terms));
+                egui::CentralPanel::default()
+                    .show(ctx, |ui| ask.show(ui, &mut DummyEngine {}, terms));
             }
             Screens::Term(term_screen) => {
                 let screen_output = egui::CentralPanel::default()

@@ -1,15 +1,13 @@
 use egui::{Color32, RichText, TextStyle};
 
 pub(crate) struct GrowableTable {
-    fixed_dimension: usize,
     contents: Vec<Vec<String>>,
     current_growable_size: f32,
 }
 
 impl GrowableTable {
-    pub(crate) fn new(fixed_dimension: usize) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            fixed_dimension,
             contents: vec![],
             current_growable_size: 0.0,
         }
