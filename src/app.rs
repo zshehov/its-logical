@@ -52,11 +52,15 @@ male(petko).
         )
         .unwrap();
         Self {
-            ui: crate::ui::App::new(InMemoryTerms::new(HashMap::from([
-                ("mother".to_string(), mother),
-                ("father".to_string(), father),
-                ("male".to_string(), male),
-            ]))),
+            ui: crate::ui::App::new(
+                InMemoryTerms::new(HashMap::from([
+                    ("mother".to_string(), mother),
+                    ("father".to_string(), father),
+                    ("male".to_string(), male),
+                ])),
+                // in-memory mode doesn't care about base directory
+                PathBuf::new(),
+            ),
         }
     }
 }
@@ -71,7 +75,7 @@ impl ItsLogicalApp<PersistentMemoryTerms> {
         c.egui_ctx.set_style(style);
 
         Self {
-            ui: crate::ui::App::new(PersistentMemoryTerms::new(&knowledge_path)),
+            ui: crate::ui::App::new(PersistentMemoryTerms::new(&knowledge_path), knowledge_path),
         }
     }
 }

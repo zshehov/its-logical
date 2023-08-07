@@ -42,7 +42,7 @@ impl TermList {
             });
             ui.separator();
 
-            let scroll_area = egui::ScrollArea::vertical().auto_shrink([false; 2]);
+            let scroll_area = egui::ScrollArea::vertical().auto_shrink([true; 2]);
             scroll_area
                 .show(ui, |ui| {
                     let mut result = None;

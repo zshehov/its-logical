@@ -1,14 +1,22 @@
-use egui::Context;
-use tracing::debug;
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
+
+use egui::{Context, RichText};
+use tracing::{debug, field::debug};
 
 use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
+use git2;
 
-use self::widgets::{tabs::Tabs, terms_list::TermList};
+use self::widgets::{load_module_menu::LoadModuleMenu, tabs::Tabs, terms_list::TermList};
 
 mod changes_handling;
+mod knowledge_loader;
 mod widgets;
 
 pub struct App<T: TermsKnowledgeBase> {
+    load_menu: LoadModuleMenu,
     term_tabs: Tabs,
     term_list: TermList,
     terms: T,
@@ -18,11 +26,12 @@ impl<T> App<T>
 where
     T: TermsKnowledgeBase,
 {
-    pub fn new(terms: T) -> Self {
+    pub fn new(terms: T, knowledge_path: PathBuf) -> Self {
         Self {
             term_tabs: Tabs::default(),
             term_list: TermList::new(),
             terms,
+            load_menu: LoadModuleMenu::new(knowledge_path),
         }
     }
 
@@ -58,6 +67,10 @@ where
                     }
                 }
             }
+            ui.separator();
+            ui.vertical_centered_justified(|ui| {
+                self.load_menu.show(ui);
+            });
         });
 
         self.term_tabs.show(ctx, &mut self.terms)
