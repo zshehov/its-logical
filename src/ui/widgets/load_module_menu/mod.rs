@@ -3,7 +3,7 @@ use std::{
     sync::mpsc::{self, Receiver},
 };
 
-use egui::{Id, RichText, Ui};
+use egui::{RichText, Ui};
 use git2::build::CheckoutBuilder;
 use tracing::debug;
 
@@ -12,11 +12,6 @@ pub(crate) struct LoadModuleMenu {
     cached_module_names: Vec<String>,
     base_local_dir: PathBuf,
     loading: Option<LoadingProgress>,
-}
-struct LoadingProgress {
-    rx: Receiver<(usize, usize)>,
-    handle: std::thread::JoinHandle<()>,
-    current_progress: (usize, usize),
 }
 
 impl LoadModuleMenu {
@@ -35,6 +30,7 @@ impl LoadModuleMenu {
             loading: None,
         }
     }
+
     fn refresh_module_names(&mut self) {
         self.cached_module_names.clear();
         for base_dir_entry in std::fs::read_dir(&self.base_local_dir)
@@ -50,13 +46,14 @@ impl LoadModuleMenu {
 }
 
 impl LoadModuleMenu {
-    pub(crate) fn show(&mut self, ui: &mut Ui) {
+    pub(crate) fn show(&mut self, ui: &mut Ui) -> Option<PathBuf> {
+        let mut output = None;
         if ui
             .menu_button(RichText::new("load module").italics(), |ui| {
                 for module_name in &self.cached_module_names {
                     if ui.small_button(module_name).clicked() {
-                        //TODO: handle return selected module name for loading by widgets above this
-                        //one
+                        output = Some(self.base_local_dir.join(module_name));
+                        ui.close_menu();
                     }
                 }
 
@@ -124,7 +121,6 @@ impl LoadModuleMenu {
                         loading_finished = true;
                     }
                     if let Ok(latest) = progress.rx.try_recv() {
-                        debug!("{:?}", latest);
                         progress.current_progress = latest;
                     }
                 }
@@ -147,5 +143,12 @@ impl LoadModuleMenu {
         {
             self.refresh_module_names();
         };
+        output
     }
+}
+
+struct LoadingProgress {
+    rx: Receiver<(usize, usize)>,
+    handle: std::thread::JoinHandle<()>,
+    current_progress: (usize, usize),
 }

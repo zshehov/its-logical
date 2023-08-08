@@ -1,18 +1,16 @@
-use std::{
-    env,
-    path::{Path, PathBuf},
+use std::path::PathBuf;
+
+use egui::Context;
+use tracing::debug;
+
+use crate::{
+    model::fat_term::FatTerm,
+    term_knowledge_base::{LoadKnowledgeBase, TermsKnowledgeBase},
 };
-
-use egui::{Context, RichText};
-use tracing::{debug, field::debug};
-
-use crate::{model::fat_term::FatTerm, term_knowledge_base::TermsKnowledgeBase};
-use git2;
 
 use self::widgets::{load_module_menu::LoadModuleMenu, tabs::Tabs, terms_list::TermList};
 
 mod changes_handling;
-mod knowledge_loader;
 mod widgets;
 
 pub struct App<T: TermsKnowledgeBase> {
@@ -24,7 +22,7 @@ pub struct App<T: TermsKnowledgeBase> {
 
 impl<T> App<T>
 where
-    T: TermsKnowledgeBase,
+    T: TermsKnowledgeBase + LoadKnowledgeBase<KnowledgeBase = T>,
 {
     pub fn new(terms: T, knowledge_path: PathBuf) -> Self {
         Self {
@@ -69,7 +67,9 @@ where
             }
             ui.separator();
             ui.vertical_centered_justified(|ui| {
-                self.load_menu.show(ui);
+                if let Some(module_path) = self.load_menu.show(ui) {
+                    self.terms = T::load(&module_path);
+                }
             });
         });
 

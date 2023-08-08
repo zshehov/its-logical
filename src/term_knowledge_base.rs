@@ -33,6 +33,12 @@ pub trait DeleteKnowledgeBase {
     fn delete(&mut self, term_name: &str);
 }
 
+pub trait LoadKnowledgeBase {
+    type KnowledgeBase: TermsKnowledgeBase;
+
+    fn load(path: &PathBuf) -> Self::KnowledgeBase;
+}
+
 pub trait TermsKnowledgeBase:
     GetKnowledgeBase + PutKnowledgeBase + KeysKnowledgeBase + DeleteKnowledgeBase
 {
@@ -49,6 +55,7 @@ impl InMemoryTerms {
         Self { map, vec }
     }
 }
+
 impl GetKnowledgeBase for InMemoryTerms {
     fn get(&self, term_name: &str) -> Option<FatTerm> {
         self.map.get(term_name).cloned()
@@ -80,6 +87,14 @@ impl KeysKnowledgeBase for InMemoryTerms {
     }
 }
 
+impl LoadKnowledgeBase for InMemoryTerms {
+    fn load(path: &PathBuf) -> InMemoryTerms {
+        todo!()
+    }
+
+    type KnowledgeBase = InMemoryTerms;
+}
+
 impl TermsKnowledgeBase for InMemoryTerms {}
 
 const PAGE_NAME: &str = "page.pl";
@@ -104,6 +119,7 @@ pub struct PersistentMemoryTerms {
     base_path: PathBuf,
     buffer: String,
 }
+
 impl Drop for PersistentMemoryTerms {
     fn drop(&mut self) {
         self.persist()
@@ -124,8 +140,8 @@ impl PersistentMemoryTerms {
         fs::write(self.base_path.join(PAGE_NAME), &self.buffer).unwrap();
     }
 
-    pub fn new(base_path: &PathBuf) -> Self {
-        let descriptor_path = base_path.join(DESCRIPTOR_NAME);
+    pub fn new(path: &PathBuf) -> Self {
+        let descriptor_path = path.join(DESCRIPTOR_NAME);
 
         let mut descriptor_vec = if !descriptor_path.exists() {
             File::create(&descriptor_path).unwrap();
@@ -152,7 +168,7 @@ impl PersistentMemoryTerms {
             keys.push(entry.name.clone());
         }
 
-        let page_path = base_path.join(PAGE_NAME);
+        let page_path = path.join(PAGE_NAME);
         let page_content = OpenOptions::new()
             .create(true)
             .read(true)
@@ -164,7 +180,7 @@ impl PersistentMemoryTerms {
         Self {
             index,
             descriptor: descriptor_vec,
-            base_path: base_path.to_owned(),
+            base_path: path.to_owned(),
             buffer: page_content,
             keys,
         }
@@ -227,6 +243,7 @@ impl PersistentMemoryTerms {
         Ok(())
     }
 }
+
 impl GetKnowledgeBase for PersistentMemoryTerms {
     fn get(&self, term_name: &str) -> Option<FatTerm> {
         match self.index.get(term_name) {
@@ -250,11 +267,13 @@ impl PutKnowledgeBase for PersistentMemoryTerms {
         }
     }
 }
+
 impl KeysKnowledgeBase for PersistentMemoryTerms {
     fn keys(&self) -> &Vec<String> {
         &self.keys
     }
 }
+
 impl DeleteKnowledgeBase for PersistentMemoryTerms {
     // delete doesn't delete the descriptor entry for the record - rather it just sets its len to 0
     fn delete(&mut self, term_name: &str) {
@@ -285,6 +304,14 @@ impl DeleteKnowledgeBase for PersistentMemoryTerms {
 
         let keys_idx = self.keys.iter().position(|name| name == term_name).unwrap();
         self.keys.remove(keys_idx);
+    }
+}
+
+impl LoadKnowledgeBase for PersistentMemoryTerms {
+    type KnowledgeBase = PersistentMemoryTerms;
+
+    fn load(path: &PathBuf) -> Self::KnowledgeBase {
+        PersistentMemoryTerms::new(path)
     }
 }
 
