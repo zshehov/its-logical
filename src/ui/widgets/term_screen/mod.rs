@@ -1,5 +1,4 @@
 use egui::Color32;
-use tracing::debug;
 
 use crate::model::fat_term::FatTerm;
 use crate::term_knowledge_base::{GetKnowledgeBase, KeysKnowledgeBase};
@@ -58,6 +57,10 @@ impl TermScreen {
 
     pub(crate) fn in_deletion(&self) -> bool {
         self.in_deletion
+    }
+
+    pub(crate) fn put_in_deletion(&mut self) {
+        self.in_deletion = true;
     }
 
     pub(crate) fn get_pits(&self) -> &PointsInTime {
@@ -121,7 +124,6 @@ impl TermScreen {
                 Some(current) => {
                     if edit_button::show_edit_button(ui, true) {
                         // one last frame of the term not being editable with the newest state
-                        debug!("asdada");
                         current.show(ui, terms_knowledge_base, false);
                         let changes = current.finish_changes();
                         self.current = None;

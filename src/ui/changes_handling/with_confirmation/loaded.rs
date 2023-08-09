@@ -89,6 +89,15 @@ impl<'a, T: GetKnowledgeBase> Loaded for TabsWithLoading<'a, T> {
                 .close(initiator_name)
                 .expect("initiator must be opened");
             self.commit_tabs.push(&initiator.extract_term());
+
+            if initiator.in_deletion() {
+                self.commit_tabs
+                    .get_mut(initiator_name)
+                    .expect("commit tab with the initiator was just pushed")
+                    .borrow_mut()
+                    .term
+                    .put_in_deletion();
+            }
         }
 
         for t in term_names {
