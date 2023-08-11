@@ -32,7 +32,12 @@ where
             load_menu: LoadModuleMenu::new(knowledge_path),
         }
     }
+}
 
+impl<T> App<T>
+where
+    T: TermsKnowledgeBase + LoadKnowledgeBase<KnowledgeBase = T>,
+{
     pub fn show(&mut self, ctx: &Context) {
         egui::SidePanel::left("terms_panel").show(ctx, |ui| {
             if let Some(output) = self.term_list.show(ui, self.terms.keys().iter()) {

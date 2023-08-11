@@ -20,6 +20,7 @@ pub enum KnowledgeBaseError {
 pub trait GetKnowledgeBase {
     fn get(&self, term_name: &str) -> Option<FatTerm>;
 }
+
 pub trait PutKnowledgeBase {
     // the term.meta.term.name takes precedence to the provided term_name
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), KnowledgeBaseError>;

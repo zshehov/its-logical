@@ -10,6 +10,21 @@ pub struct ItsLogicalApp<T: TermsKnowledgeBase> {
 
 const SCALE_FACTOR: f32 = 1.2;
 
+impl ItsLogicalApp<PersistentMemoryTerms> {
+    pub fn new(c: &eframe::CreationContext<'_>, knowledge_path: PathBuf) -> Self {
+        let mut style = (*c.egui_ctx.style()).clone();
+
+        for (_, font) in style.text_styles.iter_mut() {
+            font.size *= SCALE_FACTOR;
+        }
+        c.egui_ctx.set_style(style);
+
+        Self {
+            ui: crate::ui::App::new(PersistentMemoryTerms::new(&knowledge_path), knowledge_path),
+        }
+    }
+}
+
 impl ItsLogicalApp<InMemoryTerms> {
     pub fn new(c: &eframe::CreationContext<'_>) -> Self {
         let mut style = (*c.egui_ctx.style()).clone();
@@ -61,21 +76,6 @@ male(petko).
                 // in-memory mode doesn't care about base directory
                 PathBuf::new(),
             ),
-        }
-    }
-}
-
-impl ItsLogicalApp<PersistentMemoryTerms> {
-    pub fn new(c: &eframe::CreationContext<'_>, knowledge_path: PathBuf) -> Self {
-        let mut style = (*c.egui_ctx.style()).clone();
-
-        for (_, font) in style.text_styles.iter_mut() {
-            font.size *= SCALE_FACTOR;
-        }
-        c.egui_ctx.set_style(style);
-
-        Self {
-            ui: crate::ui::App::new(PersistentMemoryTerms::new(&knowledge_path), knowledge_path),
         }
     }
 }
