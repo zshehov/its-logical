@@ -6,7 +6,7 @@ use nom::sequence::{separated_pair, terminated};
 use nom::IResult;
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
-pub(crate) struct NameDescription {
+pub struct NameDescription {
     pub name: String,
     pub desc: String,
 }
@@ -19,7 +19,7 @@ impl NameDescription {
         }
     }
 
-    pub(crate) fn encode(&self) -> String {
+    pub fn encode(&self) -> String {
         let mut encoded = String::with_capacity(self.name.len() + 1 + self.desc.len());
 
         encoded.push_str(&self.name);
@@ -35,7 +35,7 @@ impl fmt::Display for NameDescription {
     }
 }
 
-pub(crate) fn parse_name_description<'a>(
+pub fn parse_name_description<'a>(
     i: &'a str,
 ) -> IResult<&'a str, NameDescription, VerboseError<&str>> {
     separated_pair(

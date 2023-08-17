@@ -9,17 +9,17 @@ use nom::{
 use super::name_description::{parse_name_description, NameDescription};
 
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Comment {
-    pub(crate) term: NameDescription,
-    pub(crate) args: Vec<NameDescription>,
-    pub(crate) referred_by: Vec<String>,
+pub struct Comment {
+    pub term: NameDescription,
+    pub args: Vec<NameDescription>,
+    pub referred_by: Vec<String>,
 }
 
 const NEWLINE: &str = r"
 ";
 
 impl Comment {
-    pub(crate) fn encode(&self) -> String {
+    pub fn encode(&self) -> String {
         let term_encoded = self.term.encode();
         let mut encoded = String::with_capacity(term_encoded.len() + "%! ".len() + 1);
         encoded.push_str("%! ");
@@ -38,7 +38,7 @@ impl Comment {
         encoded
     }
 
-    pub(crate) fn new(
+    pub fn new(
         term: NameDescription,
         args: &[NameDescription],
         referred_by: &[String],
@@ -51,7 +51,7 @@ impl Comment {
     }
 }
 
-pub(crate) fn parse_comment<'a>(i: &'a str) -> IResult<&'a str, Comment, VerboseError<&str>> {
+pub fn parse_comment<'a>(i: &'a str) -> IResult<&'a str, Comment, VerboseError<&str>> {
     take_until("%!")(i)
         .and_then(|(leftover, _)| {
             tuple((

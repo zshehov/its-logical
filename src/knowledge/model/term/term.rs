@@ -10,9 +10,9 @@ use super::{
 };
 
 #[derive(PartialEq, Debug, Clone)]
-pub(crate) struct Term {
-    pub(crate) facts: Vec<ArgsBinding>,
-    pub(crate) rules: Vec<Rule>,
+pub struct Term {
+    pub facts: Vec<ArgsBinding>,
+    pub rules: Vec<Rule>,
 }
 
 const NEWLINE: &str = r"
@@ -23,14 +23,14 @@ const END_OF_FACT: &str = r").
 const END_OF_RULE_HEAD: &str = r"):-";
 
 impl Term {
-    pub(crate) fn new(facts: &[ArgsBinding], rules: &[Rule]) -> Self {
+    pub fn new(facts: &[ArgsBinding], rules: &[Rule]) -> Self {
         Self {
             facts: facts.to_vec(),
             rules: rules.to_vec(),
         }
     }
 
-    pub(crate) fn encode(&self, term_name: &str) -> String {
+    pub fn encode(&self, term_name: &str) -> String {
         let mut encoded = String::new();
         let term_name_prefix = term_name.to_owned() + "(";
 
@@ -55,7 +55,7 @@ impl Term {
     }
 }
 
-pub(crate) fn parse_term<'a>(i: &'a str) -> IResult<&'a str, Term, VerboseError<&str>> {
+pub fn parse_term<'a>(i: &'a str) -> IResult<&'a str, Term, VerboseError<&str>> {
     let (leftover, facts) = many0(terminated(parse_fact, newline))(i)?;
     let (leftover, rules) = many0(terminated(parse_rule, newline))(leftover)?;
 

@@ -8,12 +8,12 @@ use nom::{
 use super::args_binding::{parse_args_binding, ArgsBinding};
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
-pub(crate) struct BoundTerm {
-    pub(crate) name: String,
-    pub(crate) arg_bindings: ArgsBinding,
+pub struct BoundTerm {
+    pub name: String,
+    pub arg_bindings: ArgsBinding,
 }
 impl BoundTerm {
-    pub(crate) fn encode(&self) -> String {
+    pub fn encode(&self) -> String {
         let mut encoded = String::new();
         encoded.push_str(&self.name);
         encoded.push('(');
@@ -23,7 +23,7 @@ impl BoundTerm {
     }
 }
 // parses "some_term_name(some_const,SomeVar,_)"
-pub(crate) fn parse_bound_term<'a>(i: &'a str) -> IResult<&'a str, BoundTerm, VerboseError<&str>> {
+pub fn parse_bound_term<'a>(i: &'a str) -> IResult<&'a str, BoundTerm, VerboseError<&str>> {
     let name_and_args = tuple((
         take_until("("),
         delimited(

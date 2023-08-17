@@ -12,13 +12,13 @@ use super::{
 };
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
-pub(crate) struct Rule {
-    pub(crate) head: ArgsBinding,
-    pub(crate) body: Vec<BoundTerm>,
+pub struct Rule {
+    pub head: ArgsBinding,
+    pub body: Vec<BoundTerm>,
 }
 
 // parses "some_rule_name(SomeVar,someConst,_):=some_fact(SomeVar),some_rule(someConst,SomeVar)."
-pub(crate) fn parse_rule<'a>(i: &'a str) -> IResult<&'a str, Rule, VerboseError<&str>> {
+pub fn parse_rule<'a>(i: &'a str) -> IResult<&'a str, Rule, VerboseError<&str>> {
     let raw_rule = separated_pair(
         parse_bound_term,
         tag(":-"),

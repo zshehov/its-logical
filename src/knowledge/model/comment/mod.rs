@@ -1,2 +1,2 @@
-pub(crate) mod comment;
-pub(crate) mod name_description;
+pub mod comment;
+pub mod name_description;

@@ -12,23 +12,23 @@ use super::{
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FatTerm {
-    pub(crate) meta: Comment,
-    pub(crate) term: Term,
+    pub meta: Comment,
+    pub term: Term,
 }
 
 impl FatTerm {
-    pub(crate) fn new(meta: Comment, term: Term) -> Self {
+    pub fn new(meta: Comment, term: Term) -> Self {
         Self { meta, term }
     }
 
-    pub(crate) fn encode(&self) -> String {
+    pub fn encode(&self) -> String {
         let mut encoded = String::new();
         encoded.push_str(&self.meta.encode());
         encoded.push_str(&self.term.encode(&self.meta.term.name));
         encoded
     }
 
-    pub(crate) fn add_referred_by(&mut self, term_name: &String) -> bool {
+    pub fn add_referred_by(&mut self, term_name: &String) -> bool {
         if !self.meta.referred_by.contains(term_name) {
             self.meta.referred_by.push(term_name.to_owned());
             return true;
@@ -36,7 +36,7 @@ impl FatTerm {
         false
     }
 
-    pub(crate) fn remove_referred_by(&mut self, term_name: &str) -> bool {
+    pub fn remove_referred_by(&mut self, term_name: &str) -> bool {
         if let Some(idx) = self.meta.referred_by.iter().position(|x| x == term_name) {
             self.meta.referred_by.remove(idx);
             return true;
@@ -44,7 +44,7 @@ impl FatTerm {
         false
     }
 
-    pub(crate) fn rename_referred_by(&mut self, from: &str, to: &str) -> bool {
+    pub fn rename_referred_by(&mut self, from: &str, to: &str) -> bool {
         if let Some(idx) = self.meta.referred_by.iter().position(|x| x == from) {
             *self.meta.referred_by.get_mut(idx).unwrap() = to.to_owned();
             return true;
@@ -52,7 +52,7 @@ impl FatTerm {
         false
     }
 
-    pub(crate) fn mentioned_terms(&self) -> HashSet<String> {
+    pub fn mentioned_terms(&self) -> HashSet<String> {
         let mut mentioned_terms = HashSet::<String>::new();
 
         for rule in self.term.rules.iter() {
@@ -73,7 +73,7 @@ impl Default for FatTerm {
     }
 }
 
-pub(crate) fn parse_fat_term<'a>(i: &'a str) -> IResult<&'a str, FatTerm, VerboseError<&str>> {
+pub fn parse_fat_term<'a>(i: &'a str) -> IResult<&'a str, FatTerm, VerboseError<&str>> {
     let (leftover, meta) = parse_comment(i)?;
     let (leftover, term) = parse_term(leftover)?;
 
