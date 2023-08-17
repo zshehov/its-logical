@@ -83,12 +83,11 @@ pub(crate) fn parse_fat_term<'a>(i: &'a str) -> IResult<&'a str, FatTerm, Verbos
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::model::term::args_binding::ArgsBinding;
+    use crate::knowledge::model::term::{
+        args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule,
+    };
     #[test]
     fn test_parse_encode() {
-        use crate::model::term::bound_term::BoundTerm;
-        use crate::model::term::rule::Rule;
-
         let input = r"%! father a father is a parent that's male
 % @arg FatherName the name of the father
 % @arg ChildName the name of the child

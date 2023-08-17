@@ -1,9 +1,9 @@
+use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::store::Get;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     changes::ArgsChange,
-    model::fat_term::FatTerm,
     ui::widgets::{
         tabs::{
             commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs},

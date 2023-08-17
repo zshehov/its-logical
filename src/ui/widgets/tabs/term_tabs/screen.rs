@@ -1,10 +1,10 @@
+use crate::knowledge::model::fat_term::FatTerm;
 use std::{cell::RefCell, rc::Rc};
 
 use egui::{Color32, Stroke};
 
-use crate::{
-    model::fat_term::FatTerm,
-    ui::widgets::{tabs::commit_tabs::two_phase_commit::TwoPhaseCommit, term_screen::TermScreen},
+use crate::ui::widgets::{
+    tabs::commit_tabs::two_phase_commit::TwoPhaseCommit, term_screen::TermScreen,
 };
 
 pub(crate) trait Screen {

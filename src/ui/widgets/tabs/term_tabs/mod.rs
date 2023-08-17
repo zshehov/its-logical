@@ -1,6 +1,5 @@
+use crate::knowledge::model::fat_term::FatTerm;
 use std::cmp::min;
-
-use crate::model::fat_term::FatTerm;
 
 use screen::Screen;
 

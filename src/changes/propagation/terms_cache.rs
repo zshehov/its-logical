@@ -1,7 +1,6 @@
+use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::store::Get;
 use std::collections::HashMap;
-
-use crate::model::fat_term::FatTerm;
 
 pub(crate) struct TermsCache<'a, T: Get> {
     updated_terms: HashMap<String, FatTerm>,
@@ -33,7 +32,6 @@ impl<'a, T: Get> TermsCache<'a, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::fat_term::FatTerm;
 
     struct MockTerms {
         terms: HashMap<String, FatTerm>,

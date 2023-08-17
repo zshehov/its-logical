@@ -1,7 +1,6 @@
+use crate::knowledge::model::{fat_term::FatTerm, term::args_binding::ArgsBinding};
 use crate::knowledge::store::Get;
 use std::collections::HashMap;
-
-use crate::model::{fat_term::FatTerm, term::args_binding::ArgsBinding};
 
 use self::terms_cache::TermsCache;
 
@@ -116,10 +115,7 @@ pub(crate) fn apply(
     terms_cache.all_terms()
 }
 
-pub(crate) fn apply_deletion(
-    deleted_term: &FatTerm,
-    terms: &impl Get,
-) -> HashMap<String, FatTerm> {
+pub(crate) fn apply_deletion(deleted_term: &FatTerm, terms: &impl Get) -> HashMap<String, FatTerm> {
     let mut terms_cache = TermsCache::new(terms);
     for rule in deleted_term.term.rules.iter() {
         for body_term in &rule.body {
@@ -193,19 +189,19 @@ pub(crate) fn apply_binding_change(
 
 #[cfg(test)]
 mod tests {
-    use crate::knowledge::store::Get;
-    use std::collections::HashSet;
-
-    use crate::{
-        changes::{
-            propagation::{affected_from_changes, apply},
-            ArgsChange,
-        },
+    use crate::knowledge::{
         model::{
             comment::{comment::Comment, name_description::NameDescription},
             fat_term::FatTerm,
             term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule, term::Term},
         },
+        store::Get,
+    };
+    use std::collections::HashSet;
+
+    use crate::changes::{
+        propagation::{affected_from_changes, apply},
+        ArgsChange,
     };
 
     fn create_related_test_term() -> FatTerm {

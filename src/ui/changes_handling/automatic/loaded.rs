@@ -1,9 +1,7 @@
-use crate::{
-    model::fat_term::FatTerm,
-    ui::widgets::{
-        tabs::Tabs,
-        term_screen::{points_in_time::PointsInTime, term_screen_pit::TermScreenPIT},
-    },
+use crate::knowledge::model::fat_term::FatTerm;
+use crate::ui::widgets::{
+    tabs::Tabs,
+    term_screen::{points_in_time::PointsInTime, term_screen_pit::TermScreenPIT},
 };
 
 // Loaded trait represents a container with currently loaded Terms that can be updated with a given

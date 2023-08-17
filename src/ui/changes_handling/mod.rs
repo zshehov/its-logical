@@ -1,9 +1,10 @@
+use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::store::{Delete, Get, Put};
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use tracing::debug;
 
-use crate::{changes, model::fat_term::FatTerm};
+use crate::changes;
 
 use self::with_confirmation::loaded::TabsWithLoading;
 
@@ -167,18 +168,18 @@ fn repeat_ongoing_commit_changes(
 
 #[cfg(test)]
 mod tests {
-    use crate::knowledge::store::InMemoryTerms;
-    use std::collections::HashMap;
-
-    use crate::{
+    use crate::knowledge::{
         model::{
             comment::{comment::Comment, name_description::NameDescription},
             term::{
                 args_binding::ArgsBinding, bound_term::BoundTerm, rule::parse_rule, term::Term,
             },
         },
-        ui::widgets::drag_and_drop,
+        store::InMemoryTerms,
     };
+    use std::collections::HashMap;
+
+    use crate::ui::widgets::drag_and_drop;
 
     use super::*;
 
@@ -300,7 +301,7 @@ mod tests {
 
         // with arg change
         let term_changes = vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
-            crate::model::comment::name_description::NameDescription::new("some", "arg"),
+            NameDescription::new("some", "arg"),
         )])];
         updated.meta.args.push(NameDescription::new("some", "arg"));
         updated.term.rules[0].head.binding.push("_".to_string());

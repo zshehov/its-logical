@@ -1,3 +1,4 @@
+use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::{
     engine::DummyEngine,
     store::{Delete, Get, Keys, Put},
@@ -6,7 +7,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use term_tabs::TermTabs;
 
-use crate::{model::fat_term::FatTerm, ui::changes_handling};
+use crate::ui::changes_handling;
 
 use commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs};
 

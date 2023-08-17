@@ -1,7 +1,8 @@
+use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::store::{Get, Keys};
 use egui::RichText;
 
-use crate::{changes::ArgsChange, model::fat_term::FatTerm};
+use crate::changes::ArgsChange;
 
 use super::term_screen_pit::{self, TermScreenPIT};
 

@@ -1,6 +1,7 @@
+use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::store::{Get, Put};
 
-use crate::{changes, model::fat_term::FatTerm};
+use crate::changes;
 
 mod loaded;
 

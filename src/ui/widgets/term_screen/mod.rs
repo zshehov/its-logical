@@ -1,7 +1,6 @@
+use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::store::{Get, Keys};
 use egui::Color32;
-
-use crate::model::fat_term::FatTerm;
 
 use self::points_in_time::PointsInTime;
 use self::term_screen_pit::{TermChange, TermScreenPIT};

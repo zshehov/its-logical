@@ -2,7 +2,6 @@
 
 mod app;
 pub mod changes;
-pub mod model;
 pub(crate) mod suggestions;
 pub(crate) mod ui;
 pub use app::ItsLogicalApp;

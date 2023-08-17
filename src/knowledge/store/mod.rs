@@ -1,3 +1,4 @@
+use crate::knowledge::model::fat_term::{parse_fat_term, FatTerm};
 use bincode::{config, decode_from_std_read, encode_into_std_write, Encode};
 use bincode_derive::Decode;
 
@@ -7,8 +8,6 @@ use std::{
     io::{self, BufReader, BufWriter},
     path::PathBuf,
 };
-
-use crate::model::fat_term::{parse_fat_term, FatTerm};
 
 #[derive(Debug)]
 pub enum Error {

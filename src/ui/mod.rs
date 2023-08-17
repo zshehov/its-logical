@@ -1,10 +1,9 @@
+use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::store::{Load, TermsStore};
 use std::path::PathBuf;
 
 use egui::Context;
 use tracing::debug;
-
-use crate::model::fat_term::FatTerm;
 
 use self::widgets::{load_module_menu::LoadModuleMenu, tabs::Tabs, terms_list::TermList};
 

@@ -1,14 +1,14 @@
-use crate::knowledge::store::{Get, Keys};
-use crate::suggestions::FuzzySuggestions;
-use egui::RichText;
-
-use crate::{
+use crate::knowledge::{
     model::{
         comment::name_description::NameDescription,
         term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule},
     },
-    ui::widgets::{drag_and_drop::DragAndDrop, popup_suggestions},
+    store::{Get, Keys},
 };
+use crate::suggestions::FuzzySuggestions;
+use egui::RichText;
+
+use crate::ui::widgets::{drag_and_drop::DragAndDrop, popup_suggestions};
 
 struct HeadPlaceholder {
     binding: Vec<String>,
@@ -202,7 +202,7 @@ impl From<RulePlaceholder> for Rule {
 
                 Some(BoundTerm {
                     name: name.to_owned(),
-                    arg_bindings: crate::model::term::args_binding::ArgsBinding {
+                    arg_bindings: crate::knowledge::model::term::args_binding::ArgsBinding {
                         binding: args.to_owned(),
                     },
                 })
@@ -210,7 +210,7 @@ impl From<RulePlaceholder> for Rule {
             .collect();
 
         Rule {
-            head: crate::model::term::args_binding::ArgsBinding {
+            head: crate::knowledge::model::term::args_binding::ArgsBinding {
                 binding: head_binding.binding,
             },
             body: body_bindings,
