@@ -1,9 +1,9 @@
+use crate::knowledge::store::Get;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     changes::ArgsChange,
     model::fat_term::FatTerm,
-    term_knowledge_base::GetKnowledgeBase,
     ui::widgets::{
         tabs::{
             commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs},
@@ -46,13 +46,13 @@ impl TermHolder for Rc<RefCell<TwoPhaseCommit>> {
     }
 }
 
-pub(crate) struct TabsWithLoading<'a, T: GetKnowledgeBase> {
+pub(crate) struct TabsWithLoading<'a, T: Get> {
     source_tabs: &'a mut TermTabs<TermScreen>,
     commit_tabs: &'a mut TermTabs<Rc<RefCell<TwoPhaseCommit>>>,
     load_source: &'a T,
 }
 
-impl<'a, T: GetKnowledgeBase> TabsWithLoading<'a, T> {
+impl<'a, T: Get> TabsWithLoading<'a, T> {
     pub(crate) fn new(tabs: &'a mut Tabs, load_source: &'a T) -> Self {
         Self {
             source_tabs: &mut tabs.term_tabs,
@@ -62,7 +62,7 @@ impl<'a, T: GetKnowledgeBase> TabsWithLoading<'a, T> {
     }
 }
 
-impl<'a, T: GetKnowledgeBase> Loaded for TabsWithLoading<'a, T> {
+impl<'a, T: Get> Loaded for TabsWithLoading<'a, T> {
     type TermHolder = Rc<RefCell<TwoPhaseCommit>>;
 
     fn borrow_mut<'b>(

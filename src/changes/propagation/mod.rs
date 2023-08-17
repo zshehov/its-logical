@@ -1,9 +1,7 @@
+use crate::knowledge::store::Get;
 use std::collections::HashMap;
 
-use crate::{
-    model::{fat_term::FatTerm, term::args_binding::ArgsBinding},
-    term_knowledge_base::GetKnowledgeBase,
-};
+use crate::model::{fat_term::FatTerm, term::args_binding::ArgsBinding};
 
 use self::terms_cache::TermsCache;
 
@@ -68,7 +66,7 @@ pub(crate) fn apply(
     original: &FatTerm,
     args_changes: &[ArgsChange],
     updated: &FatTerm,
-    terms: &impl GetKnowledgeBase,
+    terms: &impl Get,
 ) -> HashMap<String, FatTerm> {
     let mut terms_cache = TermsCache::new(terms);
 
@@ -120,7 +118,7 @@ pub(crate) fn apply(
 
 pub(crate) fn apply_deletion(
     deleted_term: &FatTerm,
-    terms: &impl GetKnowledgeBase,
+    terms: &impl Get,
 ) -> HashMap<String, FatTerm> {
     let mut terms_cache = TermsCache::new(terms);
     for rule in deleted_term.term.rules.iter() {
@@ -195,6 +193,7 @@ pub(crate) fn apply_binding_change(
 
 #[cfg(test)]
 mod tests {
+    use crate::knowledge::store::Get;
     use std::collections::HashSet;
 
     use crate::{
@@ -207,7 +206,6 @@ mod tests {
             fat_term::FatTerm,
             term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule, term::Term},
         },
-        term_knowledge_base::GetKnowledgeBase,
     };
 
     fn create_related_test_term() -> FatTerm {
@@ -382,8 +380,7 @@ mod tests {
             binding: vec!["SomeArgValue".to_string()],
         });
 
-        let (mentioned, referred_by) =
-            affected_from_changes(&original, &with_facts_change, &[]);
+        let (mentioned, referred_by) = affected_from_changes(&original, &with_facts_change, &[]);
         let affected: Vec<String> =
             HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
                 .into_iter()
@@ -400,8 +397,7 @@ mod tests {
         *with_args_rename.meta.args.last_mut().unwrap() =
             NameDescription::new("NewArgName", "New desc");
 
-        let (mentioned, referred_by) =
-            affected_from_changes(&original, &with_args_rename, &[]);
+        let (mentioned, referred_by) = affected_from_changes(&original, &with_args_rename, &[]);
         let affected: Vec<String> =
             HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
                 .into_iter()
@@ -430,8 +426,7 @@ mod tests {
         with_rules_change.term.rules.remove(0);
         with_rules_change.term.rules.push(new_rule);
 
-        let (mentioned, referred_by) =
-            affected_from_changes(&original, &with_rules_change, &[]);
+        let (mentioned, referred_by) = affected_from_changes(&original, &with_rules_change, &[]);
         let mut affected: Vec<String> =
             HashSet::<String>::from_iter(mentioned.into_iter().chain(referred_by))
                 .into_iter()
@@ -518,7 +513,7 @@ mod tests {
             Self { term: term.clone() }
         }
     }
-    impl GetKnowledgeBase for FakeTermHolder {
+    impl Get for FakeTermHolder {
         fn get(&self, term_name: &str) -> Option<FatTerm> {
             if term_name == self.term.meta.term.name {
                 Some(self.term.clone())
@@ -653,15 +648,10 @@ mod tests {
         assert_eq!(mentioned.meta.referred_by, vec!["test"]);
         let related = create_related_test_term();
 
-        let changed_mentioned = apply(
-            &original,
-            &[],
-            &updated,
-            &FakeTermHolder::new(&mentioned),
-        )
-        .get(&mentioned.meta.term.name)
-        .unwrap()
-        .to_owned();
+        let changed_mentioned = apply(&original, &[], &updated, &FakeTermHolder::new(&mentioned))
+            .get(&mentioned.meta.term.name)
+            .unwrap()
+            .to_owned();
         let mut expected_changed_mentioned = mentioned;
         expected_changed_mentioned.meta.referred_by = vec![updated.meta.term.name.clone()];
         assert_eq!(changed_mentioned, expected_changed_mentioned);

@@ -1,12 +1,9 @@
+use crate::knowledge::store::{Delete, Get, Put};
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use tracing::debug;
 
-use crate::{
-    changes,
-    model::fat_term::FatTerm,
-    term_knowledge_base::{DeleteKnowledgeBase, GetKnowledgeBase, PutKnowledgeBase},
-};
+use crate::{changes, model::fat_term::FatTerm};
 
 use self::with_confirmation::loaded::TabsWithLoading;
 
@@ -20,7 +17,7 @@ mod with_confirmation;
 
 pub(crate) fn handle_changes(
     tabs: &mut Tabs,
-    terms: &mut (impl GetKnowledgeBase + PutKnowledgeBase),
+    terms: &mut (impl Get + Put),
     original_term: &FatTerm,
     term_changes: &[TermChange],
     updated_term: FatTerm,
@@ -80,7 +77,7 @@ pub(crate) fn handle_changes(
 
 pub(crate) fn handle_deletion(
     tabs: &mut Tabs,
-    terms: &mut (impl GetKnowledgeBase + PutKnowledgeBase + DeleteKnowledgeBase),
+    terms: &mut (impl Get + Put + Delete),
     original_term: &FatTerm,
 ) {
     if !original_term.meta.referred_by.is_empty() {
@@ -170,6 +167,7 @@ fn repeat_ongoing_commit_changes(
 
 #[cfg(test)]
 mod tests {
+    use crate::knowledge::store::InMemoryTerms;
     use std::collections::HashMap;
 
     use crate::{
@@ -179,7 +177,6 @@ mod tests {
                 args_binding::ArgsBinding, bound_term::BoundTerm, rule::parse_rule, term::Term,
             },
         },
-        term_knowledge_base::InMemoryTerms,
         ui::widgets::drag_and_drop,
     };
 

@@ -1,19 +1,17 @@
+use crate::knowledge::store::{Delete, Put};
 use std::{cell::RefCell, rc::Rc};
 
 use tracing::debug;
 
-use crate::{
-    term_knowledge_base::{DeleteKnowledgeBase, PutKnowledgeBase},
-    ui::widgets::{
-        tabs::{commit_tabs::two_phase_commit::TwoPhaseCommit, term_tabs::TermTabs},
-        term_screen::TermScreen,
-    },
+use crate::ui::widgets::{
+    tabs::{commit_tabs::two_phase_commit::TwoPhaseCommit, term_tabs::TermTabs},
+    term_screen::TermScreen,
 };
 
 pub(crate) fn finish(
     commit_tabs: &mut TermTabs<Rc<RefCell<TwoPhaseCommit>>>,
     source_tabs: &mut TermTabs<TermScreen>,
-    terms: &mut (impl PutKnowledgeBase + DeleteKnowledgeBase),
+    terms: &mut (impl Put + Delete),
 ) {
     debug!("finished commit");
 

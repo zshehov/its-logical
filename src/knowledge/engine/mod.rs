@@ -1,20 +1,20 @@
 use std::{cell::RefCell, rc::Rc};
 
-pub(crate) trait Engine {
+pub trait Engine {
     fn ask(&mut self, name: &str, args: &[String]) -> Rc<RefCell<ConsultResult>>;
 }
-pub(crate) struct ConsultResult {
+pub struct ConsultResult {
     size: usize,
 }
 
 impl ConsultResult {
-    pub(crate) fn new(size: usize) -> Self {
+    pub fn new(size: usize) -> Self {
         Self { size }
     }
 }
 
 impl ConsultResult {
-    pub(crate) fn more(&mut self) -> Option<Vec<String>> {
+    pub fn more(&mut self) -> Option<Vec<String>> {
         let mut res = Vec::with_capacity(self.size);
         for i in 0..self.size {
             res.push(format!("Eval numero {}", i));
@@ -23,7 +23,7 @@ impl ConsultResult {
     }
 }
 
-pub(crate) struct DummyEngine {}
+pub struct DummyEngine {}
 
 impl Engine for DummyEngine {
     fn ask(&mut self, _: &str, args: &[String]) -> Rc<RefCell<ConsultResult>> {

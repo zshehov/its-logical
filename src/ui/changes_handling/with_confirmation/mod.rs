@@ -1,3 +1,4 @@
+use crate::knowledge::store::Get;
 use std::{cell::RefCell, rc::Rc};
 
 use tracing::debug;
@@ -5,7 +6,7 @@ use tracing::debug;
 use crate::{
     changes::{self, ArgsChange},
     model::fat_term::FatTerm,
-    term_knowledge_base::GetKnowledgeBase, ui::widgets::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit,
+    ui::widgets::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit,
 };
 
 pub(crate) mod commit;
@@ -68,7 +69,7 @@ pub(crate) fn add_approvers(
     }
 }
 
-impl<H> GetKnowledgeBase for &[&mut H]
+impl<H> Get for &[&mut H]
 where
     H: loaded::TermHolder,
 {

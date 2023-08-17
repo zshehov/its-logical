@@ -1,10 +1,8 @@
-use crate::{
-    model::fat_term::parse_fat_term,
-    term_knowledge_base::{InMemoryTerms, PersistentMemoryTerms, TermsKnowledgeBase},
-};
+use crate::knowledge::store::{InMemoryTerms, PersistentMemoryTerms, TermsStore};
+use crate::model::fat_term::parse_fat_term;
 use std::{collections::HashMap, path::PathBuf};
 
-pub struct ItsLogicalApp<T: TermsKnowledgeBase> {
+pub struct ItsLogicalApp<T: TermsStore> {
     ui: crate::ui::App<T>,
 }
 

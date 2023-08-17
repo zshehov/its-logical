@@ -1,10 +1,11 @@
+use crate::knowledge::{
+    engine::{ConsultResult, Engine},
+    store::{Get, Keys},
+};
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    knowledge_engine::{ConsultResult, Engine},
-    model::comment::name_description::NameDescription,
-    suggestions::FuzzySuggestions,
-    term_knowledge_base::{GetKnowledgeBase, KeysKnowledgeBase},
+    model::comment::name_description::NameDescription, suggestions::FuzzySuggestions,
     ui::widgets::popup_suggestions,
 };
 
@@ -51,7 +52,7 @@ impl Ask {
         &mut self,
         ui: &mut egui::Ui,
         engine: &mut impl Engine,
-        terms: &(impl GetKnowledgeBase + KeysKnowledgeBase),
+        terms: &(impl Get + Keys),
     ) {
         let term_suggestions = FuzzySuggestions::new(terms.keys().iter().cloned());
         if popup_suggestions::show(

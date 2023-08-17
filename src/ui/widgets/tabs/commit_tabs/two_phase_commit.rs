@@ -1,9 +1,7 @@
+use crate::knowledge::store::{Get, Keys};
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{
-    term_knowledge_base::{GetKnowledgeBase, KeysKnowledgeBase},
-    ui::widgets::term_screen::{Output, TermScreen},
-};
+use crate::ui::widgets::term_screen::{Output, TermScreen};
 
 pub(crate) struct TwoPhaseCommit {
     depending_on: Vec<(Rc<RefCell<TwoPhaseCommit>>, Rc<RefCell<bool>>)>,
@@ -60,7 +58,7 @@ impl TwoPhaseCommit {
     pub(crate) fn show(
         &mut self,
         ui: &mut egui::Ui,
-        terms_knowledge_base: &(impl GetKnowledgeBase + KeysKnowledgeBase),
+        terms_knowledge_base: &(impl Get + Keys),
     ) -> Option<Output> {
         // if this term is a part of a 2-phase-commit and should approve a change show the approve
         // button

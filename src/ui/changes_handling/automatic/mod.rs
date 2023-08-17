@@ -1,14 +1,10 @@
+use crate::knowledge::store::{Get, Put};
 
-
-use crate::{
-    changes,
-    model::fat_term::FatTerm,
-    term_knowledge_base::{GetKnowledgeBase, PutKnowledgeBase},
-};
+use crate::{changes, model::fat_term::FatTerm};
 
 mod loaded;
 
-impl GetKnowledgeBase for FatTerm {
+impl Get for FatTerm {
     fn get(&self, term_name: &str) -> Option<FatTerm> {
         if term_name == self.meta.term.name {
             Some(self.clone())
@@ -19,7 +15,7 @@ impl GetKnowledgeBase for FatTerm {
 }
 
 pub(crate) fn propagate(
-    persistent: &mut (impl GetKnowledgeBase + PutKnowledgeBase),
+    persistent: &mut (impl Get + Put),
     loaded: &mut impl loaded::Loaded,
     original_term: &FatTerm,
     updated_term: &FatTerm,
@@ -50,7 +46,7 @@ pub(crate) fn propagate(
 }
 
 pub(crate) fn propagate_deletion(
-    persistent: &mut (impl GetKnowledgeBase + PutKnowledgeBase),
+    persistent: &mut (impl Get + Put),
     loaded: &mut impl loaded::Loaded,
     term: &FatTerm,
 ) {

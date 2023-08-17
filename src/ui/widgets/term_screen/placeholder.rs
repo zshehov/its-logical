@@ -1,4 +1,5 @@
-use crate::{suggestions::FuzzySuggestions, term_knowledge_base::KeysKnowledgeBase};
+use crate::knowledge::store::{Get, Keys};
+use crate::suggestions::FuzzySuggestions;
 use egui::RichText;
 
 use crate::{
@@ -6,7 +7,6 @@ use crate::{
         comment::name_description::NameDescription,
         term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule},
     },
-    term_knowledge_base::GetKnowledgeBase,
     ui::widgets::{drag_and_drop::DragAndDrop, popup_suggestions},
 };
 
@@ -101,7 +101,7 @@ impl RulePlaceholder {
         &mut self,
         ui: &mut egui::Ui,
         term_name: &str,
-        terms_knowledge_base: &(impl GetKnowledgeBase + KeysKnowledgeBase),
+        terms_knowledge_base: &(impl Get + Keys),
         template: impl ExactSizeIterator<Item = &'a NameDescription>,
         finish_button_text: &str,
     ) -> Option<Rule> {

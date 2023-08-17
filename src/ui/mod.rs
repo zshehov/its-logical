@@ -1,19 +1,17 @@
+use crate::knowledge::store::{Load, TermsStore};
 use std::path::PathBuf;
 
 use egui::Context;
 use tracing::debug;
 
-use crate::{
-    model::fat_term::FatTerm,
-    term_knowledge_base::{LoadKnowledgeBase, TermsKnowledgeBase},
-};
+use crate::model::fat_term::FatTerm;
 
 use self::widgets::{load_module_menu::LoadModuleMenu, tabs::Tabs, terms_list::TermList};
 
 mod changes_handling;
 mod widgets;
 
-pub struct App<T: TermsKnowledgeBase> {
+pub struct App<T: TermsStore> {
     load_menu: LoadModuleMenu,
     term_tabs: Tabs,
     term_list: TermList,
@@ -22,7 +20,7 @@ pub struct App<T: TermsKnowledgeBase> {
 
 impl<T> App<T>
 where
-    T: TermsKnowledgeBase + LoadKnowledgeBase<KnowledgeBase = T>,
+    T: TermsStore + Load<Store = T>,
 {
     pub fn new(terms: T, knowledge_path: PathBuf) -> Self {
         Self {
@@ -36,7 +34,7 @@ where
 
 impl<T> App<T>
 where
-    T: TermsKnowledgeBase + LoadKnowledgeBase<KnowledgeBase = T>,
+    T: TermsStore + Load<Store = T>,
 {
     pub fn show(&mut self, ctx: &Context) {
         egui::SidePanel::left("terms_panel").show(ctx, |ui| {

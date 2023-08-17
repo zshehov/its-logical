@@ -1,3 +1,4 @@
+use crate::knowledge::store::{Get, Keys};
 use egui::{RichText, TextStyle};
 use tracing::debug;
 
@@ -8,7 +9,6 @@ use crate::{
         fat_term::FatTerm,
         term::{args_binding::ArgsBinding, rule::Rule},
     },
-    term_knowledge_base::{GetKnowledgeBase, KeysKnowledgeBase},
     ui::widgets::drag_and_drop::{self, Change, DragAndDrop},
 };
 
@@ -141,7 +141,7 @@ impl TermScreenPIT {
     pub(crate) fn show(
         &mut self,
         ui: &mut egui::Ui,
-        terms_knowledge_base: &(impl GetKnowledgeBase + KeysKnowledgeBase),
+        terms_knowledge_base: &(impl Get + Keys),
         edit_mode: bool,
     ) {
         ui.horizontal(|ui| {
@@ -307,7 +307,7 @@ impl TermScreenPIT {
         &mut self,
         ui: &mut egui::Ui,
         edit_mode: bool,
-        terms_knowledge_base: &(impl GetKnowledgeBase + KeysKnowledgeBase),
+        terms_knowledge_base: &(impl Get + Keys),
     ) {
         egui::ScrollArea::vertical()
             .id_source("rules_scroll_area")

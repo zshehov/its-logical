@@ -1,15 +1,12 @@
+use crate::knowledge::{
+    engine::DummyEngine,
+    store::{Delete, Get, Keys, Put},
+};
 use std::{cell::RefCell, rc::Rc};
 
 use term_tabs::TermTabs;
 
-use crate::{
-    knowledge_engine::DummyEngine,
-    model::fat_term::FatTerm,
-    term_knowledge_base::{
-        DeleteKnowledgeBase, GetKnowledgeBase, KeysKnowledgeBase, PutKnowledgeBase,
-    },
-    ui::changes_handling,
-};
+use crate::{model::fat_term::FatTerm, ui::changes_handling};
 
 use commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs};
 
@@ -64,7 +61,7 @@ impl Tabs {
     pub(crate) fn show(
         &mut self,
         ctx: &egui::Context,
-        terms: &mut (impl GetKnowledgeBase + PutKnowledgeBase + DeleteKnowledgeBase + KeysKnowledgeBase),
+        terms: &mut (impl Get + Put + Delete + Keys),
     ) {
         let chosen_screen = egui::TopBottomPanel::top("tabs_panel")
             .show(ctx, |ui| {
@@ -172,7 +169,7 @@ impl Tabs {
         &mut self,
         original_term: &FatTerm,
         screen_output: term_screen::Output,
-        terms: &mut (impl GetKnowledgeBase + PutKnowledgeBase + DeleteKnowledgeBase),
+        terms: &mut (impl Get + Put + Delete),
     ) {
         match screen_output {
             term_screen::Output::Changes(changes, updated_term) => {
