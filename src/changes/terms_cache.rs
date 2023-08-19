@@ -1,6 +1,6 @@
-use crate::knowledge::model::fat_term::FatTerm;
-use crate::knowledge::store::Get;
 use std::collections::HashMap;
+
+use crate::knowledge::{model::fat_term::FatTerm, store::Get};
 
 pub(crate) struct TermsCache<'a, T: Get> {
     updated_terms: HashMap<String, FatTerm>,

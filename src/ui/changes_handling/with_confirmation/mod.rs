@@ -1,5 +1,5 @@
-use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::store::Get;
+use crate::{changes::Deletion, knowledge::model::fat_term::FatTerm};
 use std::{cell::RefCell, rc::Rc};
 
 use tracing::debug;
@@ -24,8 +24,13 @@ pub(crate) fn propagate(
         .borrow_mut(&original_term.meta.term.name, affected)
         .expect("[TODO] inability to load is not handled");
 
-    let updates =
-        changes::propagation::apply(original_term, arg_changes, updated_term, &affected.as_ref());
+    let change = changes::Change::new(
+        original_term.to_owned(),
+        arg_changes,
+        updated_term.to_owned(),
+    );
+
+    let updates = change.apply(&affected.as_ref());
 
     initiator.put(&updated_term.meta.term.name, arg_changes, updated_term);
     for affected_term in affected {
@@ -37,13 +42,10 @@ pub(crate) fn propagate(
 
 pub(crate) fn propagate_deletion(mut loaded: impl loaded::Loaded, term: &FatTerm) {
     let (_, affected) = loaded
-        .borrow_mut(
-            &term.meta.term.name,
-            &changes::propagation::affected_from_deletion(term),
-        )
+        .borrow_mut(&term.meta.term.name, &term.deletion_affects())
         .expect("[TODO] inability to load is not handled");
 
-    let updates = changes::propagation::apply_deletion(term, &affected.as_ref());
+    let updates = term.apply_deletion(&affected.as_ref());
 
     for affected_term in affected {
         if let Some(updated) = updates.get(&affected_term.get().meta.term.name) {

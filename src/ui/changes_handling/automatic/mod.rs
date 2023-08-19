@@ -1,7 +1,7 @@
 use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::store::{Get, Put};
 
-use crate::changes;
+use crate::changes::{self, Deletion};
 
 mod loaded;
 
@@ -22,9 +22,10 @@ pub(crate) fn propagate(
     updated_term: &FatTerm,
     affected: &[String],
 ) {
+    let change = changes::Change::new(original_term.to_owned(), &[], updated_term.to_owned());
     let term_name = original_term.meta.term.name.clone();
-    let mut affected_terms =
-        changes::propagation::apply(original_term, &[], updated_term, persistent);
+    let mut affected_terms = change.apply(persistent);
+
     affected_terms.insert(term_name.clone(), updated_term.to_owned());
 
     for (affected_term_name, affected_updated_term) in affected_terms.into_iter() {
@@ -34,7 +35,8 @@ pub(crate) fn propagate(
     }
 
     let update_fn = |in_term: &FatTerm| -> FatTerm {
-        changes::propagation::apply(original_term, &[], updated_term, in_term)
+        change
+            .apply(in_term)
             .get(&in_term.meta.term.name)
             .unwrap()
             .to_owned()
@@ -51,7 +53,7 @@ pub(crate) fn propagate_deletion(
     loaded: &mut impl loaded::Loaded,
     term: &FatTerm,
 ) {
-    let affected_terms = changes::propagation::apply_deletion(term, persistent);
+    let affected_terms = term.apply_deletion(persistent);
 
     for (affected_term_name, affected_updated_term) in affected_terms.into_iter() {
         persistent
@@ -60,13 +62,13 @@ pub(crate) fn propagate_deletion(
     }
 
     let update_fn = |in_term: &FatTerm| -> FatTerm {
-        changes::propagation::apply_deletion(term, in_term)
+        term.apply_deletion(in_term)
             .get(&in_term.meta.term.name)
             .unwrap()
             .to_owned()
     };
 
-    for affected_term_name in changes::propagation::affected_from_deletion(term) {
+    for affected_term_name in term.deletion_affects() {
         loaded.update_with(&affected_term_name, update_fn);
     }
 }

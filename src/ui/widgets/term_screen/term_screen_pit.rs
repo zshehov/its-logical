@@ -478,8 +478,7 @@ fn apply_head_args_change<'a>(
     change: changes::ArgsChange,
 ) {
     for rule in rules {
-        let removed_arg = changes::propagation::apply_binding_change(&change, &mut rule.head);
-
+        let removed_arg = change.apply(&mut rule.head);
         if let Some(removed_arg) = removed_arg {
             for body_term in &mut rule.body {
                 for bound_arg in &mut body_term.arg_bindings.binding {
@@ -492,14 +491,14 @@ fn apply_head_args_change<'a>(
     }
 
     for fact in facts {
-        changes::propagation::apply_binding_change(&change, fact);
+        change.apply(fact);
     }
 }
 
 impl From<&drag_and_drop::Change<NameDescription>> for changes::ArgsChange {
     fn from(value: &drag_and_drop::Change<NameDescription>) -> Self {
         match value {
-            Change::Pushed(item) => changes::ArgsChange::Pushed(item.name.clone()),
+            Change::Pushed(item) => changes::ArgsChange::Pushed(item.clone()),
             Change::Moved(moves) => changes::ArgsChange::Moved(moves.clone()),
             Change::Removed(idx) => changes::ArgsChange::Removed(*idx),
         }

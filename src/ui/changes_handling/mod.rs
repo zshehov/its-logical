@@ -35,8 +35,13 @@ pub(crate) fn handle_changes(
         })
         .unwrap_or(vec![]);
 
-    let (mentioned, referred_by) =
-        changes::propagation::affected_from_changes(original_term, &updated_term, &arg_changes);
+    let change = changes::Change::new(
+        original_term.to_owned(),
+        &arg_changes,
+        updated_term.to_owned(),
+    );
+
+    let (mentioned, referred_by) = change.affects();
 
     let mut affected: HashSet<String> = HashSet::from_iter(mentioned);
     affected.extend(referred_by.clone());
@@ -142,14 +147,12 @@ fn repeat_ongoing_commit_changes(
         let (original_mentioned, mentioned_args_changes, updated_mentioned) =
             mentioned_tab.borrow().term.get_pits().accumulated_changes();
 
-        if let Some(new_pit) = changes::propagation::apply(
-            &original_mentioned,
+        let change = changes::Change::new(
+            original_mentioned,
             &mentioned_args_changes,
-            &updated_mentioned,
-            &updated_term,
-        )
-        .get(&updated_term_name)
-        {
+            updated_mentioned,
+        );
+        if let Some(new_pit) = change.apply(&updated_term).get(&updated_term_name) {
             updated_tab.borrow_mut().term.get_pits_mut().0.push_pit(
                 &[],
                 new_pit,
