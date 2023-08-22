@@ -2,14 +2,11 @@ use its_logical::knowledge::store::Get;
 use its_logical::{changes::change::ArgsChange, knowledge::model::fat_term::FatTerm};
 use std::{cell::RefCell, rc::Rc};
 
-use crate::ui::widgets::{
-    tabs::{
-        commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs},
-        term_tabs::TermTabs,
-        Tabs,
-    },
-    term_screen::TermScreen,
-};
+use crate::ui::tabs::Tabs;
+use crate::ui::tabs::commit_tabs::CommitTabs;
+use crate::ui::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit;
+use crate::ui::tabs::term_tabs::TermTabs;
+use crate::ui::term_screen::TermScreen;
 
 use super::add_approvers;
 

@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use tracing::debug;
 
-use crate::ui::widgets::{
+use crate::ui::{
     tabs::{commit_tabs::two_phase_commit::TwoPhaseCommit, term_tabs::TermTabs},
     term_screen::TermScreen,
 };

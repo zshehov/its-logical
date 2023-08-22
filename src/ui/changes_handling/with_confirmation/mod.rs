@@ -9,11 +9,11 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use tracing::debug;
 
-use crate::ui::widgets::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit;
-
 pub(crate) mod commit;
 pub(crate) mod loaded;
 use loaded::TermHolder;
+
+use crate::ui::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit;
 
 pub(crate) fn propagate(
     mut loaded: impl loaded::Loaded,

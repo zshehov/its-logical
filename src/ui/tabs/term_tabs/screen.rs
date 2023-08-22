@@ -3,9 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use egui::{Color32, Stroke};
 
-use crate::ui::widgets::{
-    tabs::commit_tabs::two_phase_commit::TwoPhaseCommit, term_screen::TermScreen,
-};
+use crate::ui::{term_screen::TermScreen, tabs::commit_tabs::two_phase_commit::TwoPhaseCommit};
 
 pub(crate) trait Screen {
     fn new(term: &FatTerm) -> Self;

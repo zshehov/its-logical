@@ -8,11 +8,6 @@ use its_logical::changes::change::{self, Apply};
 
 use self::with_confirmation::loaded::TabsWithLoading;
 
-use super::widgets::{
-    tabs::{commit_tabs::two_phase_commit::TwoPhaseCommit, term_tabs::TermTabs, Tabs},
-    term_screen::{term_screen_pit::TermChange, TermScreen},
-};
-
 mod automatic;
 mod with_confirmation;
 
@@ -96,6 +91,12 @@ pub(crate) fn handle_deletion(
 }
 
 pub(crate) use with_confirmation::commit::finish as finish_commit;
+
+use super::tabs::Tabs;
+use super::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit;
+use super::tabs::term_tabs::TermTabs;
+use super::term_screen::TermScreen;
+use super::term_screen::term_screen_pit::TermChange;
 
 fn repeat_ongoing_commit_changes(
     term_tabs: &mut TermTabs<TermScreen>,
