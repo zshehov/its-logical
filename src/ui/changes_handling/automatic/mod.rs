@@ -1,7 +1,7 @@
 use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::store::{Get, Put};
 
-use crate::changes::{self, Deletion};
+use crate::changes::{change, deletion::Deletion};
 
 mod loaded;
 
@@ -22,7 +22,8 @@ pub(crate) fn propagate(
     updated_term: &FatTerm,
     affected: &[String],
 ) {
-    let change = changes::Change::new(original_term.to_owned(), &[], updated_term.to_owned());
+    let change =
+        change::Change::new(original_term.to_owned(), &[], updated_term.to_owned());
     let term_name = original_term.meta.term.name.clone();
     let mut affected_terms = change.apply(persistent);
 

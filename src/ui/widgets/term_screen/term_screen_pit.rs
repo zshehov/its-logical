@@ -8,7 +8,7 @@ use egui::{RichText, TextStyle};
 use tracing::debug;
 
 use crate::{
-    changes,
+    changes::change,
     ui::widgets::drag_and_drop::{self, Change, DragAndDrop},
 };
 
@@ -475,7 +475,7 @@ impl From<&Term> for FatTerm {
 fn apply_head_args_change<'a>(
     rules: impl Iterator<Item = &'a mut Rule>,
     facts: impl Iterator<Item = &'a mut ArgsBinding>,
-    change: changes::ArgsChange,
+    change: change::ArgsChange,
 ) {
     for rule in rules {
         let removed_arg = change.apply(&mut rule.head);
@@ -495,12 +495,12 @@ fn apply_head_args_change<'a>(
     }
 }
 
-impl From<&drag_and_drop::Change<NameDescription>> for changes::ArgsChange {
+impl From<&drag_and_drop::Change<NameDescription>> for change::ArgsChange {
     fn from(value: &drag_and_drop::Change<NameDescription>) -> Self {
         match value {
-            Change::Pushed(item) => changes::ArgsChange::Pushed(item.clone()),
-            Change::Moved(moves) => changes::ArgsChange::Moved(moves.clone()),
-            Change::Removed(idx) => changes::ArgsChange::Removed(*idx),
+            Change::Pushed(item) => change::ArgsChange::Pushed(item.clone()),
+            Change::Moved(moves) => change::ArgsChange::Moved(moves.clone()),
+            Change::Removed(idx) => change::ArgsChange::Removed(*idx),
         }
     }
 }

@@ -4,7 +4,7 @@ use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use tracing::debug;
 
-use crate::changes;
+use crate::changes::change;
 
 use self::with_confirmation::loaded::TabsWithLoading;
 
@@ -35,7 +35,7 @@ pub(crate) fn handle_changes(
         })
         .unwrap_or(vec![]);
 
-    let change = changes::Change::new(
+    let change = change::Change::new(
         original_term.to_owned(),
         &arg_changes,
         updated_term.to_owned(),
@@ -147,7 +147,7 @@ fn repeat_ongoing_commit_changes(
         let (original_mentioned, mentioned_args_changes, updated_mentioned) =
             mentioned_tab.borrow().term.get_pits().accumulated_changes();
 
-        let change = changes::Change::new(
+        let change = change::Change::new(
             original_mentioned,
             &mentioned_args_changes,
             updated_mentioned,

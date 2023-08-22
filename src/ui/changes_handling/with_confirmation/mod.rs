@@ -1,13 +1,10 @@
 use crate::knowledge::store::Get;
-use crate::{changes::Deletion, knowledge::model::fat_term::FatTerm};
+use crate::{changes::deletion::Deletion, knowledge::model::fat_term::FatTerm};
 use std::{cell::RefCell, rc::Rc};
 
 use tracing::debug;
 
-use crate::{
-    changes::{self, ArgsChange},
-    ui::widgets::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit,
-};
+use crate::{changes::change, ui::widgets::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit};
 
 pub(crate) mod commit;
 pub(crate) mod loaded;
@@ -16,7 +13,7 @@ use loaded::TermHolder;
 pub(crate) fn propagate(
     mut loaded: impl loaded::Loaded,
     original_term: &FatTerm,
-    arg_changes: &[ArgsChange],
+    arg_changes: &[change::ArgsChange],
     updated_term: &FatTerm,
     affected: &[String],
 ) {
@@ -24,7 +21,7 @@ pub(crate) fn propagate(
         .borrow_mut(&original_term.meta.term.name, affected)
         .expect("[TODO] inability to load is not handled");
 
-    let change = changes::Change::new(
+    let change = change::Change::new(
         original_term.to_owned(),
         arg_changes,
         updated_term.to_owned(),

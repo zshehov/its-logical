@@ -3,7 +3,7 @@ use crate::knowledge::store::Get;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    changes::ArgsChange,
+    changes::change::ArgsChange,
     ui::widgets::{
         tabs::{
             commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs},
