@@ -119,6 +119,13 @@ impl Change {
         }
     }
 
+    pub fn original_name(&self) -> String {
+        self.original.meta.term.name.clone()
+    }
+
+    pub fn changed(&self) -> &FatTerm {
+        &self.changed
+    }
     // returned "mentioned" terms are ones that actually are changed (newly mentioned/not mentioned
     // any longer or in case of name change each mentioned term will have its "referred by" field
     // changed)

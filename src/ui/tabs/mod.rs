@@ -7,7 +7,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use term_tabs::TermTabs;
 
-use crate::ui::changes_handling;
+use crate::changes_handling;
 
 use commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs};
 

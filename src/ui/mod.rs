@@ -5,10 +5,9 @@ use std::path::PathBuf;
 use egui::Context;
 use tracing::debug;
 
-mod changes_handling;
 mod load_module_menu;
-mod tabs;
-mod term_screen;
+pub(crate) mod tabs;
+pub(crate) mod term_screen;
 mod terms_list;
 mod widgets;
 

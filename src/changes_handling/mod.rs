@@ -53,7 +53,7 @@ pub(crate) fn handle_changes(
         || /* no referring term is affected */ referred_by.is_empty()
     {
         debug!("automatic propagation");
-        automatic::propagate(terms, tabs, original_term, &updated_term, &affected);
+        automatic::propagate(terms, tabs, &change);
     } else {
         debug!("2 phase commit propagation");
         with_confirmation::propagate(
@@ -92,11 +92,11 @@ pub(crate) fn handle_deletion(
 
 pub(crate) use with_confirmation::commit::finish as finish_commit;
 
-use super::tabs::Tabs;
-use super::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit;
-use super::tabs::term_tabs::TermTabs;
-use super::term_screen::TermScreen;
-use super::term_screen::term_screen_pit::TermChange;
+use super::ui::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit;
+use super::ui::tabs::term_tabs::TermTabs;
+use super::ui::tabs::Tabs;
+use super::ui::term_screen::term_screen_pit::TermChange;
+use super::ui::term_screen::TermScreen;
 
 fn repeat_ongoing_commit_changes(
     term_tabs: &mut TermTabs<TermScreen>,
@@ -182,8 +182,6 @@ mod tests {
         store::InMemoryTerms,
     };
     use std::collections::HashMap;
-
-    use crate::ui::widgets::drag_and_drop;
 
     use super::*;
 
