@@ -1,5 +1,5 @@
-use crate::knowledge::model::fat_term::FatTerm;
-use crate::knowledge::store::{Load, TermsStore};
+use its_logical::knowledge::model::fat_term::FatTerm;
+use its_logical::knowledge::store::{Load, TermsStore};
 use std::path::PathBuf;
 
 use egui::Context;

@@ -1,4 +1,4 @@
-use crate::knowledge::model::fat_term::FatTerm;
+use its_logical::knowledge::model::fat_term::FatTerm;
 use std::cmp::min;
 
 use screen::Screen;

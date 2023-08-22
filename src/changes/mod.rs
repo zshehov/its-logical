@@ -4,15 +4,12 @@ mod terms_cache;
 
 #[cfg(test)]
 mod tests {
-    use crate::changes::change::{ArgsChange, Change};
-    use crate::knowledge::{
-        model::{
+    use crate::changes::change::{ArgsChange, Change, Apply};
+    use crate::knowledge::model::{
             comment::{comment::Comment, name_description::NameDescription},
             fat_term::FatTerm,
             term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule, term::Term},
-        },
-        store::Get,
-    };
+        };
     use std::collections::HashSet;
 
     fn create_related_test_term() -> FatTerm {
@@ -317,25 +314,6 @@ mod tests {
         assert_eq!(affected, expected);
     }
 
-    struct FakeTermHolder {
-        term: FatTerm,
-    }
-
-    impl FakeTermHolder {
-        fn new(term: &FatTerm) -> Self {
-            Self { term: term.clone() }
-        }
-    }
-    impl Get for FakeTermHolder {
-        fn get(&self, term_name: &str) -> Option<FatTerm> {
-            if term_name == self.term.meta.term.name {
-                Some(self.term.clone())
-            } else {
-                None
-            }
-        }
-    }
-
     #[test]
     fn test_apply_pushed_and_moved_arg() {
         let original = create_test_term();
@@ -348,8 +326,8 @@ mod tests {
         let arg_change = ArgsChange::Pushed(NameDescription::new(&pushed_arg.name, ""));
 
         let change = Change::new(original, &[arg_change], after_change.clone());
-        let result = change
-            .apply(&FakeTermHolder::new(&related_term))
+        let result = related_term
+            .apply(&change)
             .get(&related_term.meta.term.name)
             .unwrap()
             .to_owned();
@@ -372,8 +350,8 @@ mod tests {
         after_change.meta.args.swap(1, 0);
 
         let change = Change::new(original, &[ArgsChange::Moved(vec![1, 0])], after_change);
-        let result = change
-            .apply(&FakeTermHolder::new(&expected))
+        let result = expected
+            .apply(&change)
             .get(&expected.meta.term.name)
             .unwrap()
             .to_owned();
@@ -400,8 +378,8 @@ mod tests {
         let related_term = create_related_test_term();
 
         let change = Change::new(original, &[ArgsChange::Removed(0)], after_change);
-        let result = change
-            .apply(&FakeTermHolder::new(&related_term))
+        let result = related_term
+            .apply(&change)
             .get(&related_term.meta.term.name)
             .unwrap()
             .to_owned();
@@ -428,8 +406,8 @@ mod tests {
         assert_eq!(mentioned.meta.referred_by, vec!["test"]);
 
         let change = Change::new(original, &[], after_changes);
-        let result = change
-            .apply(&FakeTermHolder::new(&mentioned))
+        let result = mentioned
+            .apply(&change)
             .get(&mentioned.meta.term.name)
             .unwrap()
             .to_owned();
@@ -450,8 +428,8 @@ mod tests {
         let related = create_related_test_term();
 
         let change = Change::new(original.clone(), &[], updated.clone());
-        let changed_mentioned = change
-            .apply(&FakeTermHolder::new(&mentioned))
+        let changed_mentioned = mentioned
+            .apply(&change)
             .get(&mentioned.meta.term.name)
             .unwrap()
             .to_owned();
@@ -460,8 +438,8 @@ mod tests {
         assert_eq!(changed_mentioned, expected_changed_mentioned);
 
         let change = Change::new(original.clone(), &[], updated.clone());
-        let changed_related = change
-            .apply(&FakeTermHolder::new(&related))
+        let changed_related = related
+            .apply(&change)
             .get(&related.meta.term.name)
             .unwrap()
             .to_owned();

@@ -41,6 +41,75 @@ impl ArgsChange {
     }
 }
 
+pub trait Apply {
+    fn apply(&self, change: &Change) -> HashMap<String, FatTerm>;
+}
+
+impl<T: knowledge::store::Get> Apply for T {
+    fn apply(&self, change: &Change) -> HashMap<String, FatTerm> {
+        let mut terms_cache = TermsCache::new(self);
+
+        if !change.args_changes.is_empty() {
+            for referred_by_term_name in &change.changed.meta.referred_by {
+                if let Some(term) = terms_cache.get(referred_by_term_name) {
+                    apply_args_changes(&change, term);
+                }
+            }
+        }
+
+        let (new, removed) = changes_in_mentioned_terms(&change);
+        for term_name_with_removed_mention in &removed {
+            if let Some(term) = terms_cache.get(term_name_with_removed_mention) {
+                term.remove_referred_by(&change.original.meta.term.name);
+            }
+        }
+
+        for term_name_with_new_mention in &new {
+            if let Some(term) = terms_cache.get(term_name_with_new_mention) {
+                term.add_referred_by(&change.original.meta.term.name);
+            }
+        }
+        // once all externally propagated changes are applied with the original name,
+        // the potential name change is addressed
+        if &change.original.meta.term.name != &change.changed.meta.term.name {
+            for rule in change.changed.term.rules.iter() {
+                for body_term in &rule.body {
+                    if let Some(term) = terms_cache.get(&body_term.name) {
+                        term.rename_referred_by(
+                            &change.original.meta.term.name,
+                            &change.changed.meta.term.name,
+                        );
+                    }
+                }
+            }
+
+            for referred_by_term_name in &change.changed.meta.referred_by {
+                if let Some(term) = terms_cache.get(referred_by_term_name) {
+                    for rule in &mut term.term.rules {
+                        for body_term in &mut rule.body {
+                            if &body_term.name == &change.original.meta.term.name {
+                                body_term.name = change.changed.meta.term.name.clone();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        terms_cache.all_terms()
+    }
+}
+
+// enable applying a change on a single term
+impl knowledge::store::Get for FatTerm {
+    fn get(&self, term_name: &str) -> Option<FatTerm> {
+        if term_name == self.meta.term.name {
+            Some(self.clone())
+        } else {
+            None
+        }
+    }
+}
+
 impl Change {
     pub fn new(original: FatTerm, args_changes: &[ArgsChange], changed: FatTerm) -> Self {
         Self {
@@ -68,7 +137,7 @@ impl Change {
             // all mentioned are already included so there's no need to figure out
             // new and old
         } else {
-            let (mut new, mut removed) = self.changes_in_mentioned_terms();
+            let (mut new, mut removed) = changes_in_mentioned_terms(self);
 
             mentioned.append(&mut new);
             mentioned.append(&mut removed);
@@ -89,82 +158,30 @@ impl Change {
         }
         (mentioned, referred_by)
     }
+}
 
-    pub fn apply(&self, terms: &impl knowledge::store::Get) -> HashMap<String, FatTerm> {
-        let mut terms_cache = TermsCache::new(terms);
+fn changes_in_mentioned_terms(change: &Change) -> (Vec<String>, Vec<String>) {
+    let old_related_terms = change.original.mentioned_terms();
+    let related_terms = change.changed.mentioned_terms();
 
-        if !self.args_changes.is_empty() {
-            for referred_by_term_name in &self.changed.meta.referred_by {
-                if let Some(term) = terms_cache.get(referred_by_term_name) {
-                    self.apply_args_changes(term);
-                }
-            }
-        }
+    return (
+        related_terms
+            .difference(&old_related_terms)
+            .cloned()
+            .collect(),
+        old_related_terms
+            .difference(&related_terms)
+            .cloned()
+            .collect(),
+    );
+}
 
-        let (new, removed) = self.changes_in_mentioned_terms();
-        for term_name_with_removed_mention in &removed {
-            if let Some(term) = terms_cache.get(term_name_with_removed_mention) {
-                term.remove_referred_by(&self.original.meta.term.name);
-            }
-        }
-
-        for term_name_with_new_mention in &new {
-            if let Some(term) = terms_cache.get(term_name_with_new_mention) {
-                term.add_referred_by(&self.original.meta.term.name);
-            }
-        }
-        // once all externally propagated changes are applied with the original name,
-        // the potential name change is addressed
-        if &self.original.meta.term.name != &self.changed.meta.term.name {
-            for rule in self.changed.term.rules.iter() {
-                for body_term in &rule.body {
-                    if let Some(term) = terms_cache.get(&body_term.name) {
-                        term.rename_referred_by(
-                            &self.original.meta.term.name,
-                            &self.changed.meta.term.name,
-                        );
-                    }
-                }
-            }
-
-            for referred_by_term_name in &self.changed.meta.referred_by {
-                if let Some(term) = terms_cache.get(referred_by_term_name) {
-                    for rule in &mut term.term.rules {
-                        for body_term in &mut rule.body {
-                            if &body_term.name == &self.original.meta.term.name {
-                                body_term.name = self.changed.meta.term.name.clone();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        terms_cache.all_terms()
-    }
-
-    fn changes_in_mentioned_terms(&self) -> (Vec<String>, Vec<String>) {
-        let old_related_terms = self.original.mentioned_terms();
-        let related_terms = self.changed.mentioned_terms();
-
-        return (
-            related_terms
-                .difference(&old_related_terms)
-                .cloned()
-                .collect(),
-            old_related_terms
-                .difference(&related_terms)
-                .cloned()
-                .collect(),
-        );
-    }
-
-    fn apply_args_changes(&self, target_term: &mut FatTerm) {
-        for rule in &mut target_term.term.rules {
-            for body_term in &mut rule.body {
-                if &body_term.name == &self.original.meta.term.name {
-                    for change in &self.args_changes {
-                        change.apply(&mut body_term.arg_bindings);
-                    }
+fn apply_args_changes(change: &Change, target_term: &mut FatTerm) {
+    for rule in &mut target_term.term.rules {
+        for body_term in &mut rule.body {
+            if &body_term.name == &change.original.meta.term.name {
+                for change in &change.args_changes {
+                    change.apply(&mut body_term.arg_bindings);
                 }
             }
         }

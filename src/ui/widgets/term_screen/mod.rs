@@ -1,5 +1,5 @@
-use crate::knowledge::model::fat_term::FatTerm;
-use crate::knowledge::store::{Get, Keys};
+use its_logical::knowledge::model::fat_term::FatTerm;
+use its_logical::knowledge::store::{Get, Keys};
 use egui::Color32;
 
 use self::points_in_time::PointsInTime;

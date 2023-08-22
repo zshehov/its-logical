@@ -1,4 +1,4 @@
-use crate::knowledge::store::{Delete, Put};
+use its_logical::knowledge::store::{Delete, Put};
 use std::{cell::RefCell, rc::Rc};
 
 use tracing::debug;

@@ -1,4 +1,4 @@
-use crate::knowledge::store::{Get, Keys};
+use its_logical::knowledge::store::{Get, Keys};
 use std::{cell::RefCell, rc::Rc};
 
 use crate::ui::widgets::term_screen::{Output, TermScreen};

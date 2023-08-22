@@ -1,10 +1,15 @@
-use crate::knowledge::store::Get;
-use crate::{changes::deletion::Deletion, knowledge::model::fat_term::FatTerm};
-use std::{cell::RefCell, rc::Rc};
+use its_logical::{
+    changes::{
+        change::{self, Apply},
+        deletion::Deletion,
+    },
+    knowledge::model::fat_term::FatTerm,
+};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use tracing::debug;
 
-use crate::{changes::change, ui::widgets::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit};
+use crate::ui::widgets::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit;
 
 pub(crate) mod commit;
 pub(crate) mod loaded;
@@ -27,7 +32,13 @@ pub(crate) fn propagate(
         updated_term.to_owned(),
     );
 
-    let updates = change.apply(&affected.as_ref());
+    let mut updates = HashMap::with_capacity(affected.len());
+
+    for loaded_term in affected.iter() {
+        let term = loaded_term.get();
+        let changed = term.apply(&change);
+        updates.extend(changed);
+    }
 
     initiator.put(&updated_term.meta.term.name, arg_changes, updated_term);
     for affected_term in affected {
@@ -37,16 +48,25 @@ pub(crate) fn propagate(
     }
 }
 
-pub(crate) fn propagate_deletion(mut loaded: impl loaded::Loaded, term: &FatTerm) {
+pub(crate) fn propagate_deletion(mut loaded: impl loaded::Loaded, deleted_term: &FatTerm) {
     let (_, affected) = loaded
-        .borrow_mut(&term.meta.term.name, &term.deletion_affects())
+        .borrow_mut(
+            &deleted_term.meta.term.name,
+            &deleted_term.deletion_affects(),
+        )
         .expect("[TODO] inability to load is not handled");
 
-    let updates = term.apply_deletion(&affected.as_ref());
+    let mut updates = HashMap::with_capacity(affected.len());
+
+    for loaded_term in affected.iter() {
+        let term = loaded_term.get();
+        let changed = term.apply_deletion(deleted_term);
+        updates.extend(changed);
+    }
 
     for affected_term in affected {
         if let Some(updated) = updates.get(&affected_term.get().meta.term.name) {
-            affected_term.put(&term.meta.term.name, &[], updated);
+            affected_term.put(&deleted_term.meta.term.name, &[], updated);
         }
     }
 }
@@ -65,20 +85,5 @@ pub(crate) fn add_approvers(
         source_two_phase_commit
             .borrow_mut()
             .wait_approval_from(&(approver.to_owned(), approve));
-    }
-}
-
-impl<H> Get for &[&mut H]
-where
-    H: loaded::TermHolder,
-{
-    fn get(&self, term_name: &str) -> Option<FatTerm> {
-        for term in self.iter() {
-            let term = term.get();
-            if term.meta.term.name == term_name {
-                return Some(term);
-            }
-        }
-        None
     }
 }

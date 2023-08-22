@@ -1,19 +1,10 @@
-use crate::knowledge::model::fat_term::FatTerm;
-use crate::knowledge::store::{Get, Put};
+use its_logical::changes::change::Apply;
+use its_logical::knowledge::model::fat_term::FatTerm;
+use its_logical::knowledge::store::{Get, Put};
 
-use crate::changes::{change, deletion::Deletion};
+use its_logical::changes::{change, deletion::Deletion};
 
 mod loaded;
-
-impl Get for FatTerm {
-    fn get(&self, term_name: &str) -> Option<FatTerm> {
-        if term_name == self.meta.term.name {
-            Some(self.clone())
-        } else {
-            None
-        }
-    }
-}
 
 pub(crate) fn propagate(
     persistent: &mut (impl Get + Put),
@@ -22,10 +13,9 @@ pub(crate) fn propagate(
     updated_term: &FatTerm,
     affected: &[String],
 ) {
-    let change =
-        change::Change::new(original_term.to_owned(), &[], updated_term.to_owned());
+    let change = change::Change::new(original_term.to_owned(), &[], updated_term.to_owned());
     let term_name = original_term.meta.term.name.clone();
-    let mut affected_terms = change.apply(persistent);
+    let mut affected_terms = persistent.apply(&change);
 
     affected_terms.insert(term_name.clone(), updated_term.to_owned());
 
@@ -36,8 +26,8 @@ pub(crate) fn propagate(
     }
 
     let update_fn = |in_term: &FatTerm| -> FatTerm {
-        change
-            .apply(in_term)
+        in_term
+            .apply(&change)
             .get(&in_term.meta.term.name)
             .unwrap()
             .to_owned()

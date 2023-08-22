@@ -1,4 +1,4 @@
-use crate::knowledge::model::fat_term::FatTerm;
+use its_logical::knowledge::model::fat_term::FatTerm;
 use std::{cell::RefCell, rc::Rc};
 
 use egui::{Color32, Stroke};

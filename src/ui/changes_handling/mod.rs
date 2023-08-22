@@ -1,10 +1,10 @@
-use crate::knowledge::model::fat_term::FatTerm;
-use crate::knowledge::store::{Delete, Get, Put};
+use its_logical::knowledge::model::fat_term::FatTerm;
+use its_logical::knowledge::store::{Delete, Get, Put};
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use tracing::debug;
 
-use crate::changes::change;
+use its_logical::changes::change::{self, Apply};
 
 use self::with_confirmation::loaded::TabsWithLoading;
 
@@ -152,7 +152,7 @@ fn repeat_ongoing_commit_changes(
             &mentioned_args_changes,
             updated_mentioned,
         );
-        if let Some(new_pit) = change.apply(&updated_term).get(&updated_term_name) {
+        if let Some(new_pit) = updated_term.apply(&change).get(&updated_term_name) {
             updated_tab.borrow_mut().term.get_pits_mut().0.push_pit(
                 &[],
                 new_pit,
@@ -171,7 +171,7 @@ fn repeat_ongoing_commit_changes(
 
 #[cfg(test)]
 mod tests {
-    use crate::knowledge::{
+    use its_logical::knowledge::{
         model::{
             comment::{comment::Comment, name_description::NameDescription},
             term::{

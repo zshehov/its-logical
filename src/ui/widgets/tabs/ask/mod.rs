@@ -1,11 +1,12 @@
-use crate::knowledge::model::comment::name_description::NameDescription;
-use crate::knowledge::{
+use its_logical::knowledge::model::comment::name_description::NameDescription;
+use its_logical::knowledge::{
     engine::{ConsultResult, Engine},
     store::{Get, Keys},
 };
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{suggestions::FuzzySuggestions, ui::widgets::popup_suggestions};
+use crate::suggestions::FuzzySuggestions;
+use crate::ui::widgets::popup_suggestions;
 
 use self::growable_table::GrowableTable;
 

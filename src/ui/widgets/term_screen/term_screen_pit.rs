@@ -1,16 +1,16 @@
-use crate::knowledge::model::{
-    comment::{comment::Comment, name_description::NameDescription},
-    fat_term::FatTerm,
-    term::{args_binding::ArgsBinding, rule::Rule},
-};
-use crate::knowledge::store::{Get, Keys};
 use egui::{RichText, TextStyle};
+use its_logical::knowledge::store::{Get, Keys};
+use its_logical::{
+    changes::change,
+    knowledge::model::{
+        comment::{comment::Comment, name_description::NameDescription},
+        fat_term::FatTerm,
+        term::{args_binding::ArgsBinding, rule::Rule},
+    },
+};
 use tracing::debug;
 
-use crate::{
-    changes::change,
-    ui::widgets::drag_and_drop::{self, Change, DragAndDrop},
-};
+use crate::ui::widgets::drag_and_drop::{self, Change, DragAndDrop};
 
 use super::placeholder::{self, RulePlaceholder};
 
@@ -464,7 +464,7 @@ impl From<&Term> for FatTerm {
                 term.arguments.iter().as_slice(),
                 term.related.as_slice(),
             ),
-            crate::knowledge::model::term::term::Term::new(
+            its_logical::knowledge::model::term::term::Term::new(
                 term.facts.iter().as_slice(),
                 term.rules.iter().as_slice(),
             ),

@@ -1,5 +1,5 @@
-use crate::knowledge::model::fat_term::FatTerm;
-use crate::knowledge::{
+use its_logical::knowledge::model::fat_term::FatTerm;
+use its_logical::knowledge::{
     engine::DummyEngine,
     store::{Delete, Get, Keys, Put},
 };

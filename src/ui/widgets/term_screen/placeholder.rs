@@ -1,4 +1,4 @@
-use crate::knowledge::{
+use its_logical::knowledge::{
     model::{
         comment::name_description::NameDescription,
         term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule},
@@ -202,7 +202,7 @@ impl From<RulePlaceholder> for Rule {
 
                 Some(BoundTerm {
                     name: name.to_owned(),
-                    arg_bindings: crate::knowledge::model::term::args_binding::ArgsBinding {
+                    arg_bindings: its_logical::knowledge::model::term::args_binding::ArgsBinding {
                         binding: args.to_owned(),
                     },
                 })
@@ -210,7 +210,7 @@ impl From<RulePlaceholder> for Rule {
             .collect();
 
         Rule {
-            head: crate::knowledge::model::term::args_binding::ArgsBinding {
+            head: its_logical::knowledge::model::term::args_binding::ArgsBinding {
                 binding: head_binding.binding,
             },
             body: body_bindings,

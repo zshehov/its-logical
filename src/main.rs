@@ -3,12 +3,17 @@
 
 use its_logical::knowledge::store::PersistentMemoryTerms;
 use tracing::Level;
+
+mod app;
+mod suggestions;
+mod ui;
+
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
     use std::{env, path::PathBuf};
 
-    use its_logical::ItsLogicalApp;
+    use app::ItsLogicalApp;
 
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt()
