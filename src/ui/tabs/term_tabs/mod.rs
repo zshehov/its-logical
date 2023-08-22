@@ -93,7 +93,6 @@ impl<T: Screen> TermTabs<T> {
     }
 }
 
-// UI related
 impl<T: Screen> TermTabs<T> {
     pub(crate) fn show(&mut self, ui: &mut egui::Ui) -> Option<&mut T> {
         ui.horizontal(|ui| {
