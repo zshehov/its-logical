@@ -4,7 +4,7 @@ use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use tracing::debug;
 
-use its_logical::changes::change::{self, Apply};
+use its_logical::changes::change::{self, Apply, ArgsChange};
 
 use self::with_confirmation::loaded::TabsWithLoading;
 
@@ -15,21 +15,10 @@ pub(crate) fn handle_changes(
     tabs: &mut Tabs,
     terms: &mut (impl Get + Put),
     original_term: &FatTerm,
-    term_changes: &[TermChange],
+    arg_changes: &[ArgsChange],
     updated_term: FatTerm,
 ) {
     let original_name = original_term.meta.term.name.clone();
-    // only argument changes are tough and need special care
-    let arg_changes = term_changes
-        .iter()
-        .find_map(|change| {
-            if let TermChange::ArgChanges(arg_changes) = change {
-                return Some(arg_changes.iter().map(|x| x.into()).collect());
-            }
-            None
-        })
-        .unwrap_or(vec![]);
-
     let change = change::Change::new(
         original_term.to_owned(),
         &arg_changes,
@@ -95,7 +84,6 @@ pub(crate) use with_confirmation::commit::finish as finish_commit;
 use super::ui::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit;
 use super::ui::tabs::term_tabs::TermTabs;
 use super::ui::tabs::Tabs;
-use super::ui::term_screen::term_screen_pit::TermChange;
 use super::ui::term_screen::TermScreen;
 
 fn repeat_ongoing_commit_changes(
@@ -251,11 +239,7 @@ mod tests {
         let mut updated = original.clone();
         updated.meta.term.name = "new_name".to_string();
 
-        let term_changes = vec![
-            TermChange::RuleChanges,
-            TermChange::FactsChange,
-            TermChange::DescriptionChange,
-        ];
+        let args_changes = vec![];
 
         // only original tab is opened
         tabs.term_tabs.close("referring");
@@ -266,7 +250,7 @@ mod tests {
             &mut tabs,
             &mut database,
             &original,
-            &term_changes,
+            &args_changes,
             updated.clone(),
         );
 
@@ -302,9 +286,10 @@ mod tests {
         let before_change_mentioned = database.get("mentioned").unwrap();
 
         // with arg change
-        let term_changes = vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
-            NameDescription::new("some", "arg"),
-        )])];
+        let args_changes = vec![change::ArgsChange::Pushed(NameDescription::new(
+            "some", "arg",
+        ))];
+
         updated.meta.args.push(NameDescription::new("some", "arg"));
         updated.term.rules[0].head.binding.push("_".to_string());
 
@@ -317,7 +302,7 @@ mod tests {
             &mut tabs,
             &mut database,
             &original,
-            &term_changes,
+            &args_changes,
             updated.clone(),
         );
 
@@ -344,9 +329,7 @@ mod tests {
         updated.remove_referred_by("referring");
 
         // the arg is essentially a new arg
-        let term_changes = vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
-            updated.meta.args[0].clone(),
-        )])];
+        let args_changes = vec![change::ArgsChange::Pushed(updated.meta.args[0].clone())];
 
         // simulate starting with a blank term
         original = FatTerm::default();
@@ -368,7 +351,7 @@ mod tests {
             &mut tabs,
             &mut database,
             &original,
-            &term_changes,
+            &args_changes,
             updated.clone(),
         );
 
@@ -405,13 +388,11 @@ mod tests {
             .unwrap();
 
         // with arg change
-        let term_changes = vec![
-            TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(NameDescription::new(
-                "new_arg",
-                "description",
-            ))]),
-            TermChange::RuleChanges,
-        ];
+        let args_changes = vec![change::ArgsChange::Pushed(NameDescription::new(
+            "new_arg",
+            "description",
+        ))];
+
         updated.meta.args[0] = NameDescription::new("new_arg", "description");
         updated.term.rules[0].head.binding.push("_".to_string());
         updated.term.rules[0].body.push(BoundTerm {
@@ -430,7 +411,7 @@ mod tests {
             &mut tabs,
             &mut database,
             &original,
-            &term_changes,
+            &args_changes,
             updated.clone(),
         );
 
@@ -482,9 +463,10 @@ mod tests {
 
         // now test what happpens when the newly mentioned is changed while the 2-phase-commit is
         // in process
-        let term_changes = vec![TermChange::ArgChanges(vec![drag_and_drop::Change::Pushed(
-            NameDescription::new("new_arg", "description"),
-        )])];
+        let args_changes = vec![change::ArgsChange::Pushed(NameDescription::new(
+            "new_arg",
+            "description",
+        ))];
         let commit_tabs = tabs.commit_tabs.as_ref().unwrap();
         let newly_mentioned = commit_tabs
             .tabs
@@ -505,7 +487,7 @@ mod tests {
             &mut tabs,
             &mut database,
             &newly_mentioned,
-            &term_changes,
+            &args_changes,
             updated,
         );
 

@@ -1,3 +1,4 @@
+use its_logical::changes;
 use its_logical::knowledge::model::fat_term::FatTerm;
 use its_logical::knowledge::{
     engine::DummyEngine,
@@ -13,6 +14,7 @@ use commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs};
 
 use self::ask::Ask;
 
+use super::term_screen::term_screen_pit::TermChange;
 use super::term_screen::{self, TermScreen};
 
 const ASK_TAB_NAME: &str = "Ask";
@@ -178,7 +180,8 @@ impl Tabs {
                     self,
                     terms,
                     original_term,
-                    &changes,
+                    Into::<Vec<changes::change::ArgsChange>>::into(TermChangeVec(changes))
+                        .as_slice(),
                     updated_term,
                 );
             }
@@ -186,5 +189,21 @@ impl Tabs {
                 changes_handling::handle_deletion(self, terms, original_term);
             }
         }
+    }
+}
+
+struct TermChangeVec(Vec<TermChange>);
+impl From<TermChangeVec> for Vec<changes::change::ArgsChange> {
+    fn from(value: TermChangeVec) -> Self {
+        value
+            .0
+            .iter()
+            .find_map(|change| {
+                if let TermChange::ArgChanges(arg_changes) = change {
+                    return Some(arg_changes.iter().map(|x| x.into()).collect());
+                }
+                None
+            })
+            .unwrap_or(vec![])
     }
 }

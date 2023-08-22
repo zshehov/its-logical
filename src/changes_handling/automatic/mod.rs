@@ -5,7 +5,6 @@ use its_logical::knowledge::model::fat_term::FatTerm;
 use its_logical::knowledge::store::{Get, Put};
 
 use its_logical::changes::deletion::Deletion;
-
 mod loaded;
 
 pub(crate) fn propagate(
@@ -20,7 +19,8 @@ pub(crate) fn propagate(
         in_term
             .apply(&change)
             .get(&in_term.meta.term.name)
-            .unwrap()
+            // the change might not affect the in_term so it needs to be returned as is
+            .unwrap_or(in_term)
             .to_owned()
     };
     let mut affected_terms = persistent.apply(&change);
@@ -40,7 +40,8 @@ pub(crate) fn propagate_deletion(
     let update_fn = |in_term: &FatTerm| -> FatTerm {
         term.apply_deletion(in_term)
             .get(&in_term.meta.term.name)
-            .unwrap()
+            // the deletion might not affect the in_term so it needs to be returned as is
+            .unwrap_or(in_term)
             .to_owned()
     };
 
