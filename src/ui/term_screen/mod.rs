@@ -5,8 +5,6 @@ use its_logical::knowledge::store::{Get, Keys};
 use self::points_in_time::PointsInTime;
 use self::term_screen_pit::{TermChange, TermScreenPIT};
 
-
-
 pub(crate) enum Output {
     Changes(Vec<TermChange>, FatTerm),
     Deleted(String),

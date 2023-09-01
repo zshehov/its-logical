@@ -4,12 +4,12 @@ mod terms_cache;
 
 #[cfg(test)]
 mod tests {
-    use crate::changes::change::{ArgsChange, Change, Apply};
+    use crate::changes::change::{Apply, ArgsChange, Change};
     use crate::knowledge::model::{
-            comment::{comment::Comment, name_description::NameDescription},
-            fat_term::FatTerm,
-            term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule, term::Term},
-        };
+        comment::{comment::Comment, name_description::NameDescription},
+        fat_term::FatTerm,
+        term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule, term::Term},
+    };
     use std::collections::HashSet;
 
     fn create_related_test_term() -> FatTerm {

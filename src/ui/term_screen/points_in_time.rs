@@ -1,6 +1,6 @@
+use egui::RichText;
 use its_logical::knowledge::model::fat_term::FatTerm;
 use its_logical::knowledge::store::{Get, Keys};
-use egui::RichText;
 
 use its_logical::changes::change::ArgsChange;
 

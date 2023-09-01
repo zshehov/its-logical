@@ -88,10 +88,6 @@ impl TwoPhaseCommitScreen {
         self.screen.extract_term()
     }
 
-    pub(crate) fn get_pits(&self) -> &PointsInTime {
-        self.screen.get_pits()
-    }
-
     pub(crate) fn get_pits_mut(&mut self) -> (&mut PointsInTime, Option<&mut TermScreenPIT>) {
         self.screen.get_pits_mut()
     }

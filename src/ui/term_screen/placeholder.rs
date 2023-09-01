@@ -1,3 +1,5 @@
+use crate::suggestions::FuzzySuggestions;
+use egui::RichText;
 use its_logical::knowledge::{
     model::{
         comment::name_description::NameDescription,
@@ -5,8 +7,6 @@ use its_logical::knowledge::{
     },
     store::{Get, Keys},
 };
-use crate::suggestions::FuzzySuggestions;
-use egui::RichText;
 
 use crate::ui::widgets::{drag_and_drop::DragAndDrop, popup_suggestions};
 
