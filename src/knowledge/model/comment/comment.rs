@@ -38,11 +38,7 @@ impl Comment {
         encoded
     }
 
-    pub fn new(
-        term: NameDescription,
-        args: &[NameDescription],
-        referred_by: &[String],
-    ) -> Self {
+    pub fn new(term: NameDescription, args: &[NameDescription], referred_by: &[String]) -> Self {
         Self {
             term,
             args: args.to_vec(),
@@ -51,7 +47,7 @@ impl Comment {
     }
 }
 
-pub fn parse_comment<'a>(i: &'a str) -> IResult<&'a str, Comment, VerboseError<&str>> {
+pub fn parse_comment(i: &str) -> IResult<&str, Comment, VerboseError<&str>> {
     take_until("%!")(i)
         .and_then(|(leftover, _)| {
             tuple((
@@ -72,17 +68,15 @@ pub fn parse_comment<'a>(i: &'a str) -> IResult<&'a str, Comment, VerboseError<&
         })
 }
 
-fn term_definition_parser<'a>(i: &'a str) -> IResult<&'a str, NameDescription, VerboseError<&str>> {
+fn term_definition_parser(i: &str) -> IResult<&str, NameDescription, VerboseError<&str>> {
     preceded(tag("%! "), parse_name_description)(i)
 }
 
-fn args_definition_parser<'a>(
-    i: &'a str,
-) -> IResult<&'a str, Vec<NameDescription>, VerboseError<&str>> {
+fn args_definition_parser(i: &str) -> IResult<&str, Vec<NameDescription>, VerboseError<&str>> {
     many0(preceded(tag("% @arg "), parse_name_description))(i)
 }
 
-fn referred_by_terms_parser<'a>(i: &'a str) -> IResult<&'a str, Vec<String>, VerboseError<&str>> {
+fn referred_by_terms_parser(i: &str) -> IResult<&str, Vec<String>, VerboseError<&str>> {
     preceded(
         tag("% @see "),
         terminated(
@@ -92,7 +86,7 @@ fn referred_by_terms_parser<'a>(i: &'a str) -> IResult<&'a str, Vec<String>, Ver
     )(i)
 }
 
-fn parse_to_owned_string<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&str>> {
+fn parse_to_owned_string(i: &str) -> IResult<&str, String, VerboseError<&str>> {
     take_till1(|c| c == ',' || c == '\n')(i)
         .map(|(leftover, parsed)| (leftover, parsed.to_string()))
 }

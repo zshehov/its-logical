@@ -35,9 +35,7 @@ impl fmt::Display for NameDescription {
     }
 }
 
-pub fn parse_name_description<'a>(
-    i: &'a str,
-) -> IResult<&'a str, NameDescription, VerboseError<&str>> {
+pub fn parse_name_description(i: &str) -> IResult<&str, NameDescription, VerboseError<&str>> {
     separated_pair(
         take_until(" "),
         tag(" "),

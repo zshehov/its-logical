@@ -23,7 +23,7 @@ impl BoundTerm {
     }
 }
 // parses "some_term_name(some_const,SomeVar,_)"
-pub fn parse_bound_term<'a>(i: &'a str) -> IResult<&'a str, BoundTerm, VerboseError<&str>> {
+pub fn parse_bound_term(i: &str) -> IResult<&str, BoundTerm, VerboseError<&str>> {
     let name_and_args = tuple((
         take_until("("),
         delimited(

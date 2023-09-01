@@ -6,7 +6,7 @@ use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
     io::{self, BufReader, BufWriter},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 #[derive(Debug)]
@@ -36,7 +36,7 @@ pub trait Delete {
 pub trait Load {
     type Store: TermsStore;
 
-    fn load(path: &PathBuf) -> Self::Store;
+    fn load(path: &Path) -> Self::Store;
 }
 
 pub trait TermsStore: Get + Put + Keys + Delete {}
@@ -85,7 +85,7 @@ impl Keys for InMemoryTerms {
 }
 
 impl Load for InMemoryTerms {
-    fn load(_path: &PathBuf) -> InMemoryTerms {
+    fn load(_path: &Path) -> InMemoryTerms {
         todo!()
     }
 
@@ -137,7 +137,7 @@ impl PersistentMemoryTerms {
         fs::write(self.base_path.join(PAGE_NAME), &self.buffer).unwrap();
     }
 
-    pub fn new(path: &PathBuf) -> Self {
+    pub fn new(path: &Path) -> Self {
         let descriptor_path = path.join(DESCRIPTOR_NAME);
 
         let mut descriptor_vec = if !descriptor_path.exists() {
@@ -302,7 +302,7 @@ impl Delete for PersistentMemoryTerms {
 impl Load for PersistentMemoryTerms {
     type Store = PersistentMemoryTerms;
 
-    fn load(path: &PathBuf) -> Self::Store {
+    fn load(path: &Path) -> Self::Store {
         PersistentMemoryTerms::new(path)
     }
 }

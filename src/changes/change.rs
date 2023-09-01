@@ -71,7 +71,7 @@ impl<T: knowledge::store::Get> Apply for T {
         }
         // once all externally propagated changes are applied with the original name,
         // the potential name change is addressed
-        if &change.original.meta.term.name != &change.changed.meta.term.name {
+        if change.original.meta.term.name != change.changed.meta.term.name {
             for rule in change.changed.term.rules.iter() {
                 for body_term in &rule.body {
                     if let Some(term) = terms_cache.get(&body_term.name) {
@@ -87,7 +87,7 @@ impl<T: knowledge::store::Get> Apply for T {
                 if let Some(term) = terms_cache.get(referred_by_term_name) {
                     for rule in &mut term.term.rules {
                         for body_term in &mut rule.body {
-                            if &body_term.name == &change.original.meta.term.name {
+                            if body_term.name == change.original.meta.term.name {
                                 body_term.name = change.changed.meta.term.name.clone();
                             }
                         }
@@ -140,7 +140,7 @@ impl Change {
         let mut include_referred_by = false;
         let mut include_mentioned = false;
 
-        if &self.original.meta.term.name != &self.changed.meta.term.name {
+        if self.original.meta.term.name != self.changed.meta.term.name {
             include_referred_by = true;
             include_mentioned = true;
         }
@@ -191,7 +191,7 @@ fn changes_in_mentioned_terms(change: &Change) -> (Vec<String>, Vec<String>) {
 fn apply_args_changes(change: &Change, target_term: &mut FatTerm) {
     for rule in &mut target_term.term.rules {
         for body_term in &mut rule.body {
-            if &body_term.name == &change.original.meta.term.name {
+            if body_term.name == change.original.meta.term.name {
                 for change in &change.args_changes {
                     change.apply(&mut body_term.arg_bindings);
                 }

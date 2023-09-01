@@ -55,7 +55,7 @@ impl Term {
     }
 }
 
-pub fn parse_term<'a>(i: &'a str) -> IResult<&'a str, Term, VerboseError<&str>> {
+pub fn parse_term(i: &str) -> IResult<&str, Term, VerboseError<&str>> {
     let (leftover, facts) = many0(terminated(parse_fact, newline))(i)?;
     let (leftover, rules) = many0(terminated(parse_rule, newline))(leftover)?;
 
@@ -69,7 +69,7 @@ pub fn parse_term<'a>(i: &'a str) -> IResult<&'a str, Term, VerboseError<&str>> 
 }
 
 // parses "some_fact_name(SomeVar,someConst,_)."
-fn parse_fact<'a>(i: &'a str) -> IResult<&'a str, BoundTerm, VerboseError<&str>> {
+fn parse_fact(i: &str) -> IResult<&str, BoundTerm, VerboseError<&str>> {
     terminated(parse_bound_term, tag("."))(i)
 }
 

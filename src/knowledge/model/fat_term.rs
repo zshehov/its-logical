@@ -73,7 +73,7 @@ impl Default for FatTerm {
     }
 }
 
-pub fn parse_fat_term<'a>(i: &'a str) -> IResult<&'a str, FatTerm, VerboseError<&str>> {
+pub fn parse_fat_term(i: &str) -> IResult<&str, FatTerm, VerboseError<&str>> {
     let (leftover, meta) = parse_comment(i)?;
     let (leftover, term) = parse_term(leftover)?;
 

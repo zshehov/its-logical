@@ -15,9 +15,7 @@ impl ArgsBinding {
     }
 }
 
-pub fn parse_args_binding<'a>(
-    i: &'a str,
-) -> IResult<&'a str, ArgsBinding, VerboseError<&str>> {
+pub fn parse_args_binding(i: &str) -> IResult<&str, ArgsBinding, VerboseError<&str>> {
     separated_list1(tag(","), take_till1(is_end_of_args))(i).map(|(leftover, args)| {
         (
             leftover,
