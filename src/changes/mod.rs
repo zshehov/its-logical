@@ -437,7 +437,7 @@ mod tests {
         expected_changed_mentioned.meta.referred_by = vec![updated.meta.term.name.clone()];
         assert_eq!(changed_mentioned, expected_changed_mentioned);
 
-        let change = Change::new(original.clone(), &[], updated.clone());
+        let change = Change::new(original, &[], updated.clone());
         let changed_related = related
             .apply(&change)
             .get(&related.meta.term.name)

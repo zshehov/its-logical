@@ -133,7 +133,7 @@ where
     fn apply_automatic_change(&mut self, change: &Change) {
         let update_fn = |in_term: &FatTerm| -> FatTerm {
             in_term
-                .apply(&change)
+                .apply(change)
                 .get(&in_term.meta.term.name)
                 // the change might not affect the in_term so it needs to be returned as is
                 .unwrap_or(in_term)
@@ -141,8 +141,8 @@ where
         };
         for term in &mut self.terms {
             match term {
-                super::TermHolder::Normal(t) => t.apply(&update_fn),
-                super::TermHolder::TwoPhase(t) => t.apply(&update_fn),
+                super::TermHolder::Normal(t) => t.apply(update_fn),
+                super::TermHolder::TwoPhase(t) => t.apply(update_fn),
             }
         }
     }

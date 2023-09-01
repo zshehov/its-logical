@@ -67,46 +67,44 @@ impl LoadModuleMenu {
                         .hint_text("git@github.com:knowledge/yields.power")
                         .show(ui);
 
-                    if !self.to_load_url.is_empty() {
-                        if ui.button(RichText::new("⏵")).clicked() {
-                            let (tx, rx) = mpsc::channel();
+                    if !self.to_load_url.is_empty() && ui.button(RichText::new("⏵")).clicked() {
+                        let (tx, rx) = mpsc::channel();
 
-                            let repo_name = self
-                                .to_load_url
-                                .rsplit_once("/")
-                                .expect("TODO: no verification yet")
-                                .1
-                                .trim_end_matches(".git");
-                            let local_repo = self.base_local_dir.join(repo_name);
-                            let load_url = self.to_load_url.clone();
+                        let repo_name = self
+                            .to_load_url
+                            .rsplit_once('/')
+                            .expect("TODO: no verification yet")
+                            .1
+                            .trim_end_matches(".git");
+                        let local_repo = self.base_local_dir.join(repo_name);
+                        let load_url = self.to_load_url.clone();
 
-                            let handle = std::thread::spawn(move || {
-                                let mut callbacks = git2::RemoteCallbacks::new();
-                                callbacks.credentials(|_url, username_from_url, _allowed_types| {
-                                    debug!("{}", username_from_url.unwrap());
-                                    git2::Cred::ssh_key_from_agent("git")
-                                });
-
-                                let mut fo = git2::FetchOptions::new();
-                                fo.remote_callbacks(callbacks);
-
-                                let mut co = CheckoutBuilder::new();
-                                co.progress(move |_, curr, total| {
-                                    tx.send((curr, total)).unwrap();
-                                });
-
-                                let mut builder = git2::build::RepoBuilder::new();
-                                builder.fetch_options(fo);
-                                builder.with_checkout(co);
-                                builder.clone(&load_url, &local_repo);
+                        let handle = std::thread::spawn(move || {
+                            let mut callbacks = git2::RemoteCallbacks::new();
+                            callbacks.credentials(|_url, username_from_url, _allowed_types| {
+                                debug!("{}", username_from_url.unwrap());
+                                git2::Cred::ssh_key_from_agent("git")
                             });
 
-                            self.loading = Some(LoadingProgress {
-                                rx,
-                                handle,
-                                current_progress: (0, 0),
+                            let mut fo = git2::FetchOptions::new();
+                            fo.remote_callbacks(callbacks);
+
+                            let mut co = CheckoutBuilder::new();
+                            co.progress(move |_, curr, total| {
+                                tx.send((curr, total)).unwrap();
                             });
-                        }
+
+                            let mut builder = git2::build::RepoBuilder::new();
+                            builder.fetch_options(fo);
+                            builder.with_checkout(co);
+                            builder.clone(&load_url, &local_repo);
+                        });
+
+                        self.loading = Some(LoadingProgress {
+                            rx,
+                            handle,
+                            current_progress: (0, 0),
+                        });
                     }
                 });
                 let mut loading_finished = false;

@@ -52,12 +52,12 @@ impl<T: knowledge::store::Get> Apply for T {
         if !change.args_changes.is_empty() {
             for referred_by_term_name in &change.changed.meta.referred_by {
                 if let Some(term) = terms_cache.get(referred_by_term_name) {
-                    apply_args_changes(&change, term);
+                    apply_args_changes(change, term);
                 }
             }
         }
 
-        let (new, removed) = changes_in_mentioned_terms(&change);
+        let (new, removed) = changes_in_mentioned_terms(change);
         for term_name_with_removed_mention in &removed {
             if let Some(term) = terms_cache.get(term_name_with_removed_mention) {
                 term.remove_referred_by(&change.original.meta.term.name);

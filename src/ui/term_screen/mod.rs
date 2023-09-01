@@ -5,7 +5,7 @@ use its_logical::knowledge::store::{Get, Keys};
 use self::points_in_time::PointsInTime;
 use self::term_screen_pit::{TermChange, TermScreenPIT};
 
-use super::tabs::two_phase_commit_screen::TwoPhaseCommitScreen;
+
 
 pub(crate) enum Output {
     Changes(Vec<TermChange>, FatTerm),

@@ -45,7 +45,7 @@ impl TermsCache<TermScreen, TwoPhaseCommitScreen> {
                     let selectable = ui.selectable_value(
                         current_tab,
                         ChosenTab::TermScreen(idx),
-                        if name == "" {
+                        if name.is_empty() {
                             "untitled*".to_string()
                         } else if !can_close {
                             name + "*"

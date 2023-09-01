@@ -85,7 +85,7 @@ impl Keys for InMemoryTerms {
 }
 
 impl Load for InMemoryTerms {
-    fn load(path: &PathBuf) -> InMemoryTerms {
+    fn load(_path: &PathBuf) -> InMemoryTerms {
         todo!()
     }
 

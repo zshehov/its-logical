@@ -58,7 +58,7 @@ impl crate::terms_cache::change_handling::ConfirmationApply for TwoPhaseCommitSc
         resulting_term: &FatTerm,
         source: &str,
     ) {
-        let mut pits = self.get_pits_mut().0;
+        let pits = self.get_pits_mut().0;
 
         pits.push_pit(arg_changes, resulting_term, source);
         let pits_count = pits.len();

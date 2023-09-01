@@ -130,9 +130,9 @@ impl Tabs {
             term_screen::Output::Changes(changes, updated_term) => {
                 let change = change::Change::new(
                     original_term.to_owned(),
-                    &Into::<Vec<changes::change::ArgsChange>>::into(TermChangeVec(changes))
+                    Into::<Vec<changes::change::ArgsChange>>::into(TermChangeVec(changes))
                         .as_slice(),
-                    updated_term.to_owned(),
+                    updated_term,
                 );
                 self.term_tabs.handle_change(terms, &change);
             }
