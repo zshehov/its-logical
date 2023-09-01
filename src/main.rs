@@ -5,8 +5,8 @@ use its_logical::knowledge::store::PersistentMemoryTerms;
 use tracing::Level;
 
 mod app;
-mod changes_handling;
 mod suggestions;
+mod terms_cache;
 mod ui;
 
 // When compiling natively:

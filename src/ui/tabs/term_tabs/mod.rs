@@ -1,113 +1,56 @@
-use its_logical::knowledge::model::fat_term::FatTerm;
 use std::cmp::min;
 
 use screen::Screen;
 
+use crate::{
+    terms_cache::{TermsCache, TwoPhaseTerm},
+    ui::term_screen::TermScreen,
+};
+
+use super::{two_phase_commit_screen::TwoPhaseCommitScreen, ChosenTab};
+
 pub(crate) mod screen;
 
-pub(crate) struct TermTabs<T: Screen> {
-    current_tab: Option<usize>,
-    screens: Vec<T>,
+pub(crate) enum Output {
+    FinishedCommit,
+    AbortedCommit,
 }
 
-impl<T: Screen> Default for TermTabs<T> {
-    fn default() -> Self {
-        TermTabs {
-            current_tab: None,
-            screens: vec![],
-        }
-    }
-}
+impl TermsCache<TermScreen, TwoPhaseCommitScreen> {
+    pub(crate) fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        current_tab: &mut ChosenTab,
+    ) -> Option<Output> {
+        let mut output = None;
+        let mut has_two_phase_commit = false;
+        let mut is_ready_for_commit = true;
 
-impl<T: Screen> TermTabs<T> {
-    pub(crate) fn new() -> Self {
-        Self {
-            current_tab: None,
-            screens: vec![],
-        }
-    }
-
-    pub(crate) fn push(&mut self, term: &FatTerm) {
-        self.screens.push(T::new(term));
-    }
-
-    pub(crate) fn get(&self, term_name: &str) -> Option<&T> {
-        if let Some(term_idx) = self.screens.iter().position(|x| x.name() == term_name) {
-            return Some(&self.screens[term_idx]);
-        }
-        None
-    }
-
-    pub(crate) fn get_mut(&mut self, term_name: &str) -> Option<&mut T> {
-        if let Some(term_idx) = self.screens.iter().position(|x| x.name() == term_name) {
-            return Some(&mut self.screens[term_idx]);
-        }
-        None
-    }
-
-    pub(crate) fn borrow_mut(&mut self, names: &[String]) -> Vec<&mut T> {
-        let screens = self
-            .screens
-            .iter_mut()
-            .filter(|screen| {
-                if names.contains(&screen.name()) {
-                    return true;
-                }
-                false
-            })
-            .collect();
-
-        screens
-    }
-
-    pub(crate) fn close(&mut self, term_name: &str) -> Option<T> {
-        if let Some(term_idx) = self.screens.iter().position(|x| x.name() == term_name) {
-            return self.close_idx(term_idx);
-        }
-        None
-    }
-
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &T> {
-        self.screens.iter()
-    }
-
-    pub(crate) fn screens(self) -> Vec<T> {
-        self.screens
-    }
-
-    fn close_idx(&mut self, idx: usize) -> Option<T> {
-        if idx >= self.screens.len() {
-            return None;
-        }
-        if self.screens.len() == 1 {
-            self.current_tab = None;
-        }
-        if let Some(current_idx) = &mut self.current_tab {
-            if idx < *current_idx {
-                *current_idx -= 1;
-            } else {
-                *current_idx = min(*current_idx, self.screens.len() - 1 - 1);
-            }
-        }
-        Some(self.screens.remove(idx))
-    }
-}
-
-impl<T: Screen> TermTabs<T> {
-    pub(crate) fn show(&mut self, ui: &mut egui::Ui) -> Option<&mut T> {
         ui.horizontal(|ui| {
             let mut close_idx = None;
-            for (idx, screen) in self.screens.iter_mut().enumerate() {
+            for (idx, screen) in self.iter_mut().enumerate() {
+                let (name, stroke, can_close) = match screen {
+                    crate::terms_cache::TermHolder::Normal(s) => {
+                        (s.name(), s.stroke(), s.can_close())
+                    }
+                    crate::terms_cache::TermHolder::TwoPhase(s) => {
+                        has_two_phase_commit = true;
+                        is_ready_for_commit =
+                            is_ready_for_commit && !s.two_phase_commit().borrow().is_waiting();
+                        (s.name(), s.stroke(), s.can_close())
+                    }
+                };
+
                 ui.scope(|ui| {
                     let selectable = ui.selectable_value(
-                        &mut self.current_tab,
-                        Some(idx),
-                        if screen.name() == "" {
+                        current_tab,
+                        ChosenTab::TermScreen(idx),
+                        if name == "" {
                             "untitled*".to_string()
-                        } else if !screen.can_close() {
-                            screen.name() + "*"
+                        } else if !can_close {
+                            name + "*"
                         } else {
-                            screen.name()
+                            name
                         },
                     );
 
@@ -116,7 +59,7 @@ impl<T: Screen> TermTabs<T> {
                             selectable.rect.left_bottom(),
                             selectable.rect.right_bottom(),
                         ],
-                        screen.stroke(),
+                        stroke,
                     );
 
                     if selectable.secondary_clicked() {
@@ -125,29 +68,47 @@ impl<T: Screen> TermTabs<T> {
                 });
             }
             if let Some(close_idx) = close_idx {
-                if !self.screens[close_idx].can_close() {
-                    // tab can't be closed - switch to it for the user to see what's going on
-                    self.current_tab = Some(close_idx);
-                } else {
-                    self.close_idx(close_idx);
+                if let Some(to_be_closed) = self.get_by_idx(close_idx) {
+                    let (can_close, name) = match to_be_closed {
+                        crate::terms_cache::TermHolder::Normal(s) => (s.can_close(), s.name()),
+                        crate::terms_cache::TermHolder::TwoPhase(s) => (s.can_close(), s.name()),
+                    };
+
+                    if !can_close {
+                        // tab can't be closed - switch to it for the user to see what's going on
+                        *current_tab = ChosenTab::TermScreen(close_idx);
+                    } else {
+                        if self.iter().len() == 1 {
+                            *current_tab = ChosenTab::Ask;
+                        }
+                        if let ChosenTab::TermScreen(idx) = current_tab {
+                            if close_idx < *idx {
+                                *idx -= 1;
+                            } else {
+                                *idx = min(*idx, self.iter().len() - 1 - 1);
+                            }
+                        }
+
+                        self.remove(&name);
+                    }
                 }
             }
+            if has_two_phase_commit {
+                let commit_button = egui::Button::new("Finish commit");
+
+                if ui
+                    .add_enabled(is_ready_for_commit, commit_button)
+                    .on_disabled_hover_text("Still need some approvals")
+                    .clicked()
+                {
+                    output = Some(Output::FinishedCommit);
+                }
+                // TODO: make this work
+                if ui.add_enabled(false, egui::Button::new("Abort")).clicked() {
+                    output = Some(Output::AbortedCommit);
+                };
+            }
         });
-        if let Some(idx) = self.current_tab {
-            return Some(&mut self.screens[idx]);
-        }
-        None
-    }
-
-    pub(crate) fn select(&mut self, term_name: &str) -> bool {
-        if let Some(term_idx) = self.screens.iter().position(|x| x.name() == term_name) {
-            self.current_tab = Some(term_idx);
-            return true;
-        }
-        false
-    }
-
-    pub(crate) fn unselect(&mut self) {
-        self.current_tab = None;
+        output
     }
 }

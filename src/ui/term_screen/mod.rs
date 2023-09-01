@@ -1,9 +1,11 @@
+use egui::Color32;
 use its_logical::knowledge::model::fat_term::FatTerm;
 use its_logical::knowledge::store::{Get, Keys};
-use egui::Color32;
 
 use self::points_in_time::PointsInTime;
 use self::term_screen_pit::{TermChange, TermScreenPIT};
+
+use super::tabs::two_phase_commit_screen::TwoPhaseCommitScreen;
 
 pub(crate) enum Output {
     Changes(Vec<TermChange>, FatTerm),
@@ -23,6 +25,39 @@ pub(crate) struct TermScreen {
     current: Option<term_screen_pit::TermScreenPIT>,
     delete_confirmation: String,
     in_deletion: bool,
+}
+
+impl crate::terms_cache::NamedTerm for TermScreen {
+    fn new(term: FatTerm) -> Self {
+        Self::new(&term, false)
+    }
+
+    fn name(&self) -> String {
+        self.name()
+    }
+
+    fn term(&self) -> FatTerm {
+        self.extract_term()
+    }
+}
+
+impl crate::terms_cache::change_handling::AutoApply for TermScreen {
+    fn apply(&mut self, f: impl Fn(&FatTerm) -> FatTerm) {
+        let (pits, current) = self.get_pits_mut();
+
+        let update_screen = |term_screen: &mut TermScreenPIT| {
+            let before = term_screen.extract_term();
+            let after = f(&before);
+
+            *term_screen = TermScreenPIT::new(&after);
+        };
+
+        pits.iter_mut_pits().for_each(update_screen);
+        if let Some(current) = current {
+            update_screen(current);
+            current.start_changes();
+        }
+    }
 }
 
 // TermScreen behaviour:

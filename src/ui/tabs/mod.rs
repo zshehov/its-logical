@@ -1,18 +1,13 @@
-use its_logical::changes;
+use its_logical::changes::{self, change};
 use its_logical::knowledge::model::fat_term::FatTerm;
 use its_logical::knowledge::{
     engine::DummyEngine,
     store::{Delete, Get, Keys, Put},
 };
-use std::{cell::RefCell, rc::Rc};
 
-use term_tabs::TermTabs;
+use crate::terms_cache::{TermHolder, TermsCache};
 
-use crate::changes_handling;
-
-use commit_tabs::{two_phase_commit::TwoPhaseCommit, CommitTabs};
-
-use self::ask::Ask;
+use self::two_phase_commit_screen::TwoPhaseCommitScreen;
 
 use super::term_screen::term_screen_pit::TermChange;
 use super::term_screen::{self, TermScreen};
@@ -20,43 +15,28 @@ use super::term_screen::{self, TermScreen};
 const ASK_TAB_NAME: &str = "Ask";
 
 #[derive(PartialEq)]
-enum ChoseTabInternal {
+pub(crate) enum ChosenTab {
     Ask,
-    TermScreen,
-    TwoPhase,
+    TermScreen(usize),
 }
 
 pub(crate) mod ask;
-pub(crate) mod commit_tabs;
 pub(crate) mod term_tabs;
+pub(crate) mod two_phase_commit_screen;
 
 pub(crate) struct Tabs {
-    current_selection: ChoseTabInternal,
+    current_selection: ChosenTab,
     ask: ask::Ask,
-    pub(crate) term_tabs: TermTabs<TermScreen>,
-    pub(crate) commit_tabs: Option<CommitTabs>,
+    term_tabs: TermsCache<TermScreen, TwoPhaseCommitScreen>,
 }
 
 impl Default for Tabs {
     fn default() -> Self {
         Self {
-            current_selection: ChoseTabInternal::Ask,
+            current_selection: ChosenTab::Ask,
             ask: ask::Ask::new(),
-            term_tabs: TermTabs::new(),
-            commit_tabs: None,
+            term_tabs: TermsCache::default(),
         }
-    }
-}
-
-enum Screens<'a> {
-    Ask(&'a mut Ask),
-    Term(&'a mut TermScreen),
-    TwoPhase(Rc<RefCell<TwoPhaseCommit>>),
-}
-
-impl Tabs {
-    pub(crate) fn push(&mut self, term: &FatTerm) {
-        self.term_tabs.push(term)
     }
 }
 
@@ -66,106 +46,78 @@ impl Tabs {
         ctx: &egui::Context,
         terms: &mut (impl Get + Put + Delete + Keys),
     ) {
-        let chosen_screen = egui::TopBottomPanel::top("tabs_panel")
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    let mut chosen_screen = Screens::Ask(&mut self.ask);
-                    if ui
-                        .selectable_value(
-                            &mut self.current_selection,
-                            ChoseTabInternal::Ask,
-                            egui::RichText::new(ASK_TAB_NAME).strong(),
-                        )
-                        .clicked()
-                    {
-                        self.term_tabs.unselect();
-                        if let Some(commit_screens) = &mut self.commit_tabs {
-                            commit_screens.tabs.unselect();
-                        }
-                    }
-                    ui.separator();
+        egui::TopBottomPanel::top("tabs_panel").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.selectable_value(
+                    &mut self.current_selection,
+                    ChosenTab::Ask,
+                    egui::RichText::new(ASK_TAB_NAME).strong(),
+                );
 
-                    if let Some(commit_tabs) = &mut self.commit_tabs {
-                        if let Some(commit_output) = commit_tabs.show(ui) {
-                            match commit_output {
-                                commit_tabs::CommitTabsOutput::Selected(screen) => {
-                                    self.current_selection = ChoseTabInternal::TwoPhase;
-                                    self.term_tabs.unselect();
-                                    chosen_screen = Screens::TwoPhase(Rc::clone(screen));
-                                }
-                                commit_tabs::CommitTabsOutput::FinishedCommit => {
-                                    changes_handling::finish_commit(
-                                        &mut commit_tabs.tabs,
-                                        &mut self.term_tabs,
-                                        terms,
-                                    );
-                                    self.commit_tabs = None;
-                                    self.current_selection = ChoseTabInternal::Ask;
-                                }
-                            }
-                        }
-                    }
-                    if let Some(chosen_term_screen) = self.term_tabs.show(ui) {
-                        self.current_selection = ChoseTabInternal::TermScreen;
-                        if let Some(commit_screens) = &mut self.commit_tabs {
-                            commit_screens.tabs.unselect();
-                        }
-                        chosen_screen = Screens::Term(chosen_term_screen);
-                    }
-                    chosen_screen
-                })
-                .inner
-            })
-            .inner;
+                ui.separator();
 
-        match chosen_screen {
-            Screens::Ask(ask) => {
-                egui::CentralPanel::default()
-                    .show(ctx, |ui| ask.show(ui, &mut DummyEngine {}, terms));
-            }
-            Screens::Term(term_screen) => {
-                let screen_output = egui::CentralPanel::default()
-                    .show(ctx, |ui| term_screen.show(ui, terms))
-                    .inner;
-
-                if let Some(screen_output) = screen_output {
-                    let original_term = term_screen.extract_term();
-                    self.handle_screen_output(&original_term, screen_output, terms);
+                if let Some(tabs_output) = self.term_tabs.show(ui, &mut self.current_selection) {
+                    match tabs_output {
+                        term_tabs::Output::FinishedCommit => {
+                            todo!();
+                        }
+                        term_tabs::Output::AbortedCommit => todo!(),
+                    }
                 }
+            })
+        });
+
+        match self.current_selection {
+            ChosenTab::Ask => {
+                egui::CentralPanel::default()
+                    .show(ctx, |ui| self.ask.show(ui, &mut DummyEngine {}, terms));
             }
-            Screens::TwoPhase(commit) => {
-                let (original_term, screen_output) = {
-                    let mut commit = commit.borrow_mut();
+            ChosenTab::TermScreen(screen_idx) => {
+                if let Some(term_screen) = self.term_tabs.get_by_idx_mut(screen_idx) {
                     let screen_output = egui::CentralPanel::default()
-                        .show(ctx, |ui| commit.show(ui, terms))
+                        .show(ctx, |ui| match term_screen {
+                            crate::terms_cache::TermHolder::Normal(term_screen) => {
+                                term_screen.show(ui, terms)
+                            }
+                            crate::terms_cache::TermHolder::TwoPhase(term_screen) => {
+                                term_screen.show(ui, terms)
+                            }
+                        })
                         .inner;
 
-                    (commit.term.extract_term(), screen_output)
-                };
-
-                if let Some(screen_output) = screen_output {
-                    self.handle_screen_output(&original_term, screen_output, terms);
+                    if let Some(screen_output) = screen_output {
+                        let original_term = match term_screen {
+                            crate::terms_cache::TermHolder::Normal(term_screen) => {
+                                term_screen.extract_term()
+                            }
+                            crate::terms_cache::TermHolder::TwoPhase(term_screen) => {
+                                term_screen.extract_term()
+                            }
+                        };
+                        self.handle_screen_output(&original_term, screen_output, terms);
+                    }
                 }
             }
-        };
+        }
     }
 
     pub(crate) fn select(&mut self, term_name: &str) -> bool {
-        if let Some(commit_tab) = &mut self.commit_tabs {
-            if commit_tab.tabs.select(term_name) {
-                self.current_selection = ChoseTabInternal::TwoPhase;
-                self.term_tabs.unselect();
-                return true;
-            }
-        }
-        if self.term_tabs.select(term_name) {
-            self.current_selection = ChoseTabInternal::TermScreen;
-            if let Some(commit_tabs) = &mut self.commit_tabs {
-                commit_tabs.tabs.unselect();
-            }
+        if let Some(screen_idx) = self.term_tabs.find(term_name) {
+            self.current_selection = ChosenTab::TermScreen(screen_idx);
             return true;
         }
         false
+    }
+
+    pub(crate) fn push(&mut self, term: &FatTerm) {
+        self.term_tabs.push(term);
+    }
+
+    pub(crate) fn get_mut(
+        &mut self,
+        term_name: &str,
+    ) -> Option<&mut TermHolder<TermScreen, TwoPhaseCommitScreen>> {
+        self.term_tabs.get_mut(term_name)
     }
 
     fn handle_screen_output(
@@ -176,17 +128,17 @@ impl Tabs {
     ) {
         match screen_output {
             term_screen::Output::Changes(changes, updated_term) => {
-                changes_handling::handle_changes(
-                    self,
-                    terms,
-                    original_term,
-                    Into::<Vec<changes::change::ArgsChange>>::into(TermChangeVec(changes))
+                let change = change::Change::new(
+                    original_term.to_owned(),
+                    &Into::<Vec<changes::change::ArgsChange>>::into(TermChangeVec(changes))
                         .as_slice(),
-                    updated_term,
+                    updated_term.to_owned(),
                 );
+                self.term_tabs.handle_change(terms, &change);
             }
             term_screen::Output::Deleted(_) => {
-                changes_handling::handle_deletion(self, terms, original_term);
+                //changes_handling::handle_deletion(self, terms, original_term);
+                todo!();
             }
         }
     }

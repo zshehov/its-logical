@@ -12,6 +12,7 @@ use self::growable_table::GrowableTable;
 
 mod growable_table;
 
+// TODO: move under term_tabs module
 pub(crate) struct Ask {
     term_name: String,
     anchors: Vec<Option<String>>,

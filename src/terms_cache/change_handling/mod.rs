@@ -1,161 +1,221 @@
-use its_logical::knowledge::model::fat_term::FatTerm;
-use its_logical::knowledge::store::{Delete, Get, Put};
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
+use its_logical::{
+    changes::change::{Apply, ArgsChange, Change},
+    knowledge::{self, model::fat_term::FatTerm},
+};
 use tracing::debug;
 
-use its_logical::changes::change::{self, Apply, ArgsChange};
+use self::two_phase_commit::TwoPhaseCommit;
 
-use self::with_confirmation::loaded::TabsWithLoading;
+use super::{NamedTerm, TermHolder, TermsCache, TwoPhaseTerm};
 
-mod automatic;
-mod with_confirmation;
+pub(crate) mod two_phase_commit;
 
-pub(crate) fn handle_changes(
-    tabs: &mut Tabs,
-    terms: &mut (impl Get + Put),
-    original_term: &FatTerm,
-    arg_changes: &[ArgsChange],
-    updated_term: FatTerm,
-) {
-    let original_name = original_term.meta.term.name.clone();
-    let change = change::Change::new(
-        original_term.to_owned(),
-        &arg_changes,
-        updated_term.to_owned(),
+pub(crate) trait AutoApply {
+    fn apply(&mut self, f: impl Fn(&FatTerm) -> FatTerm);
+}
+
+pub(crate) trait ConfirmationApply {
+    fn push_for_confirmation(
+        &mut self,
+        arg_changes: &[ArgsChange],
+        resulting_term: &FatTerm,
+        source: &str,
     );
+}
 
-    let (mentioned, referred_by) = change.affects();
+impl<T, K> TermsCache<T, K>
+where
+    T: NamedTerm + AutoApply,
+    K: TwoPhaseTerm<Creator = T> + AutoApply + ConfirmationApply,
+{
+    pub(crate) fn handle_change(
+        &mut self,
+        knowledge_store: &impl knowledge::store::Get,
+        change: &Change,
+    ) {
+        let (mentioned, referred_by) = change.affects();
 
-    let mut affected: HashSet<String> = HashSet::from_iter(mentioned);
-    affected.extend(referred_by.clone());
-    let affected: Vec<String> = affected.into_iter().collect();
+        let mut affected: HashSet<String> = HashSet::from_iter(mentioned);
+        affected.extend(referred_by.clone());
+        let affected: Vec<String> = affected.into_iter().collect();
 
-    debug!(
-        "Changes made for {}. Propagating to: {:?}",
-        original_name, affected
-    );
+        debug!(
+            "Changes made for {}. Propagating to: {:?}",
+            change.original().meta.term.name,
+            affected
+        );
 
-    if
-    /* the changes are not worthy of user confirmation */
-    arg_changes.is_empty()
+        if
+        /* the changes are not worthy of user confirmation */
+        change.arg_changes().is_empty()
         || /* no referring term is affected */ referred_by.is_empty()
-    {
-        debug!("automatic propagation");
-        automatic::propagate(terms, tabs, &change);
-    } else {
-        debug!("2 phase commit propagation");
-        with_confirmation::propagate(
-            TabsWithLoading::new(tabs, terms),
-            original_term,
-            &arg_changes,
-            &updated_term,
-            &affected,
-        );
+        {
+            debug!("automatic propagation");
+            self.apply_automatic_change(change)
+        } else {
+            debug!("2 phase commit propagation");
+            self.apply_for_confirmation_change(knowledge_store, change);
+        }
+        // if there is an ongoing 2phase commit among one of `updated_term`'s newly mentioned terms,
+        // all the changes in the commit need to be applied on `updated_term`
+        if self.iter().any(|t| matches!(t, TermHolder::TwoPhase(_))) {
+            self.repeat_ongoing_commit_changes(change);
+        }
     }
-    // if there is an ongoing 2phase commit among one of `updated_term`'s newly mentioned terms,
-    // all the changes in the commit need to be applied on `updated_term`
-    if let Some(commit_tabs) = &mut tabs.commit_tabs {
-        repeat_ongoing_commit_changes(
-            &mut tabs.term_tabs,
-            &mut commit_tabs.tabs,
-            original_term,
-            updated_term,
-        );
+
+    fn repeat_ongoing_commit_changes(&mut self, change: &Change) {
+        let previously_mentioned_terms = change.original().mentioned_terms();
+        let currently_mentioned_terms = change.changed().mentioned_terms();
+
+        let newly_mentioned_terms: HashSet<String> = currently_mentioned_terms
+            .difference(&previously_mentioned_terms)
+            .cloned()
+            .collect();
+
+        let mut need_to_transfer_to_commit = false;
+        for term in &self.terms {
+            if let super::TermHolder::TwoPhase(t) = term {
+                if newly_mentioned_terms.contains(&t.name()) {
+                    need_to_transfer_to_commit = true;
+                    break;
+                }
+            }
+        }
+        if !need_to_transfer_to_commit {
+            return;
+        }
+
+        self.promote(&change.original().meta.term.name);
+
+        let (mut updated_term, others): (Vec<_>, Vec<_>) = self
+            .iter_mut()
+            .partition(|x| &x.name() == &change.original().meta.term.name);
+
+        let updated_term = match updated_term.get_mut(0) {
+            Some(TermHolder::TwoPhase(t)) => t,
+            _ => unreachable!("updated term was just promoted"),
+        };
+
+        for term in others
+            .iter()
+            .filter(|x| newly_mentioned_terms.contains(&x.name()))
+        {
+            if let super::TermHolder::TwoPhase(mentioned_term) = term {
+                let mentioned_term_change = mentioned_term.current_change();
+
+                if let Some(with_applied_change) = updated_term
+                    .term()
+                    .apply(&mentioned_term_change)
+                    .get(&change.changed().meta.term.name)
+                {
+                    updated_term.push_for_confirmation(
+                        &[],
+                        with_applied_change,
+                        &mentioned_term.name(),
+                    );
+                    fix_approvals(
+                        updated_term.two_phase_commit(),
+                        mentioned_term.two_phase_commit(),
+                    );
+                }
+            }
+        }
     }
 }
 
-pub(crate) fn handle_deletion(
-    tabs: &mut Tabs,
-    terms: &mut (impl Get + Put + Delete),
-    original_term: &FatTerm,
-) {
-    if !original_term.meta.referred_by.is_empty() {
-        with_confirmation::propagate_deletion(TabsWithLoading::new(tabs, terms), original_term);
-    } else {
-        automatic::propagate_deletion(terms, tabs, original_term);
-        terms.delete(&original_term.meta.term.name);
-        tabs.term_tabs.close(&original_term.meta.term.name);
+impl<T, K> TermsCache<T, K>
+where
+    T: NamedTerm + AutoApply,
+    K: TwoPhaseTerm + AutoApply,
+{
+    fn apply_automatic_change(&mut self, change: &Change) {
+        let update_fn = |in_term: &FatTerm| -> FatTerm {
+            in_term
+                .apply(&change)
+                .get(&in_term.meta.term.name)
+                // the change might not affect the in_term so it needs to be returned as is
+                .unwrap_or(in_term)
+                .to_owned()
+        };
+        for term in &mut self.terms {
+            match term {
+                super::TermHolder::Normal(t) => t.apply(&update_fn),
+                super::TermHolder::TwoPhase(t) => t.apply(&update_fn),
+            }
+        }
     }
 }
 
-pub(crate) use with_confirmation::commit::finish as finish_commit;
-
-use super::ui::tabs::commit_tabs::two_phase_commit::TwoPhaseCommit;
-use super::ui::tabs::term_tabs::TermTabs;
-use super::ui::tabs::Tabs;
-use super::ui::term_screen::TermScreen;
-
-fn repeat_ongoing_commit_changes(
-    term_tabs: &mut TermTabs<TermScreen>,
-    commit_tabs: &mut TermTabs<Rc<RefCell<TwoPhaseCommit>>>,
-    original_term: &FatTerm,
-    updated_term: FatTerm,
-) {
-    let updated_term_name = updated_term.meta.term.name.clone();
-    let previously_mentioned_terms = original_term.mentioned_terms();
-    let currently_mentioned_terms = updated_term.mentioned_terms();
-
-    let newly_mentioned_terms: HashSet<String> = currently_mentioned_terms
-        .difference(&previously_mentioned_terms)
-        .cloned()
-        .collect();
-
-    let mut need_to_transfer_to_commit = false;
-    for c in commit_tabs.iter() {
-        if newly_mentioned_terms.contains(&c.borrow().term.name()) {
-            need_to_transfer_to_commit = true;
-            break;
+impl<T, K> TermsCache<T, K>
+where
+    T: NamedTerm,
+    K: TwoPhaseTerm<Creator = T> + ConfirmationApply,
+{
+    // applies a change that should be confirmed to all potentially
+    // affected `super::TermHolder::TwoPhase` entries. Meaning that all
+    fn apply_for_confirmation_change(
+        &mut self,
+        // the knowledge::store::Get is needed as the change might affect terms that are not yet cached in
+        // the TermsCache, so they would need to be cached during this call
+        knowledge_store: &impl knowledge::store::Get,
+        change: &Change,
+    ) -> Result<(), &'static str> {
+        let all_affected = knowledge_store.apply(change);
+        if all_affected
+            .keys()
+            .any(|affected_name| match self.get(affected_name) {
+                // TODO: check if ready for change
+                Some(_) => false,
+                None => false,
+            })
+        {
+            return Err("There is a term that is not ready to be included in a 2 phase commit");
         }
-    }
-    if !need_to_transfer_to_commit {
-        return;
-    }
+        let original = change.original();
 
-    if commit_tabs.get(&original_term.meta.term.name).is_none() {
-        let tab = term_tabs
-            .close(&updated_term_name)
-            .expect("term was just updated");
-        commit_tabs.push(&tab.extract_term());
-    }
-
-    let mut relevant_tabs = commit_tabs.borrow_mut(
-        &newly_mentioned_terms
-            .into_iter()
-            .chain(std::iter::once(updated_term_name.clone()))
-            .collect::<Vec<String>>(),
-    );
-
-    let mut updated_tab = relevant_tabs
-        .iter()
-        .position(|tab| tab.borrow().term.name() == updated_term_name)
-        .map(|idx| relevant_tabs.swap_remove(idx))
-        .expect("tab was just opened");
-
-    for mentioned_tab in relevant_tabs {
-        let (original_mentioned, mentioned_args_changes, updated_mentioned) =
-            mentioned_tab.borrow().term.get_pits().accumulated_changes();
-
-        let change = change::Change::new(
-            original_mentioned,
-            &mentioned_args_changes,
-            updated_mentioned,
-        );
-        if let Some(new_pit) = updated_term.apply(&change).get(&updated_term_name) {
-            updated_tab.borrow_mut().term.get_pits_mut().0.push_pit(
-                &[],
-                new_pit,
-                &mentioned_tab.borrow().term.name(),
-            );
-
-            with_confirmation::add_approvers(mentioned_tab, &mut [&mut updated_tab]);
+        if self.get(&original.meta.term.name).is_none() {
+            self.push(original);
         }
+
+        let change_source_two_phase_commit = self
+            .promote(&original.meta.term.name)
+            .expect("guaranteed to be opened above")
+            .two_phase_commit()
+            .to_owned();
+
+        for (name, term) in all_affected {
+            if self.get(&name).is_none() {
+                self.push(&term);
+            }
+            if let Some(two_phase) = self.promote(&name) {
+                let term = two_phase.term();
+
+                if let Some(after_change) = term.apply(change).get(&term.meta.term.name) {
+                    two_phase.push_for_confirmation(
+                        change.arg_changes(),
+                        after_change,
+                        &original.meta.term.name,
+                    );
+                    fix_approvals(
+                        two_phase.two_phase_commit(),
+                        &change_source_two_phase_commit,
+                    );
+                }
+            };
+        }
+        Ok(())
     }
-    let updated_tab_pits_count = updated_tab.borrow().term.get_pits().len();
-    updated_tab
+}
+
+fn fix_approvals(approver: &Rc<RefCell<TwoPhaseCommit>>, waiter: &Rc<RefCell<TwoPhaseCommit>>) {
+    let approve = Rc::new(RefCell::new(false));
+    approver.borrow_mut().add_approval_waiter(&approve);
+
+    waiter
         .borrow_mut()
-        .term
-        .choose_pit(updated_tab_pits_count - 1);
+        .wait_approval_from(&(approver.to_owned(), approve));
 }
 
 #[cfg(test)]
