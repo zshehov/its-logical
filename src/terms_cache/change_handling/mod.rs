@@ -1,7 +1,10 @@
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use its_logical::{
-    changes::change::{Apply, ArgsChange, Change},
+    changes::{
+        change::{Apply, ArgsChange, Change},
+        deletion::Deletion,
+    },
     knowledge::{self, model::fat_term::FatTerm},
 };
 use tracing::debug;
@@ -65,6 +68,62 @@ where
         }
     }
 
+    pub(crate) fn handle_deletion(
+        &mut self,
+        term: &FatTerm,
+        knowledge_store: &impl knowledge::store::Get,
+    ) {
+        let changed_by_deletion = term.apply_deletion(knowledge_store);
+
+        if term.meta.referred_by.is_empty() {
+            debug!("automatic deletion");
+            let update = |t: &FatTerm| -> FatTerm {
+                term.apply_deletion(t)
+                    .get(&t.meta.term.name)
+                    .unwrap_or(t)
+                    .to_owned()
+            };
+            for term_name in changed_by_deletion.keys() {
+                if let Some(cached_term) = self.get_mut(&term_name) {
+                    match cached_term {
+                        TermHolder::Normal(s) => s.apply(update),
+                        TermHolder::TwoPhase(s) => s.apply(update),
+                    }
+                }
+            }
+            self.remove(&term.meta.term.name);
+        } else {
+            debug!("deletion with confirmation");
+            let deleted_two_phase_commit = self
+                .promote(&term.meta.term.name)
+                .expect("it must be opened as it was just deleted")
+                .two_phase_commit()
+                .to_owned();
+
+            for (term_name, changed_term) in changed_by_deletion {
+                if self.get(&term_name).is_none() {
+                    self.push(
+                        &knowledge_store
+                            .get(&term_name)
+                            .expect("this term has come from the knowledge store"),
+                    );
+                }
+
+                let affected_by_deletion_two_phase_commit =
+                    self.promote(&term_name).expect("term was just pushed");
+
+                affected_by_deletion_two_phase_commit.push_for_confirmation(
+                    &[],
+                    &changed_term,
+                    &term.meta.term.name,
+                );
+                fix_approvals(
+                    affected_by_deletion_two_phase_commit.two_phase_commit(),
+                    &deleted_two_phase_commit,
+                )
+            }
+        }
+    }
     fn repeat_ongoing_commit_changes(&mut self, change: &Change) {
         let previously_mentioned_terms = change.original().mentioned_terms();
         let currently_mentioned_terms = change.changed().mentioned_terms();

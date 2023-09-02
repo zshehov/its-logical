@@ -94,7 +94,25 @@ impl Tabs {
                                 term_screen.extract_term()
                             }
                         };
-                        self.handle_screen_output(&original_term, screen_output, terms);
+                        match screen_output {
+                            term_screen::Output::Changes(changes, updated_term) => {
+                                let change = change::Change::new(
+                                    original_term.to_owned(),
+                                    Into::<Vec<changes::change::ArgsChange>>::into(TermChangeVec(
+                                        changes,
+                                    ))
+                                    .as_slice(),
+                                    updated_term,
+                                );
+                                self.term_tabs.handle_change(terms, &change);
+                                // TODO: apply the change in the persistence layer
+                            }
+                            term_screen::Output::Deleted(_) => {
+                                self.term_tabs.handle_deletion(&original_term, terms);
+                                self.current_selection = ChosenTab::Ask;
+                                // TODO: delete from persistence layer
+                            }
+                        }
                     }
                 }
             }
@@ -126,21 +144,6 @@ impl Tabs {
         screen_output: term_screen::Output,
         terms: &mut (impl Get + Put + Delete),
     ) {
-        match screen_output {
-            term_screen::Output::Changes(changes, updated_term) => {
-                let change = change::Change::new(
-                    original_term.to_owned(),
-                    Into::<Vec<changes::change::ArgsChange>>::into(TermChangeVec(changes))
-                        .as_slice(),
-                    updated_term,
-                );
-                self.term_tabs.handle_change(terms, &change);
-            }
-            term_screen::Output::Deleted(_) => {
-                //changes_handling::handle_deletion(self, terms, original_term);
-                todo!();
-            }
-        }
     }
 }
 
