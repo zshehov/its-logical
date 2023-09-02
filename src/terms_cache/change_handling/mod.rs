@@ -38,16 +38,15 @@ where
         knowledge_store: &impl knowledge::store::Get,
         change: &Change,
     ) {
-        let (mentioned, referred_by) = change.affects();
+        let (mut mentioned, referred_by) = change.affects();
 
-        let mut affected: HashSet<String> = HashSet::from_iter(mentioned);
-        affected.extend(referred_by.clone());
-        let affected: Vec<String> = affected.into_iter().collect();
+        mentioned.extend(referred_by.clone());
+        let all_affected: Vec<String> = mentioned.into_iter().collect();
 
         debug!(
             "Changes made for {}. Propagating to: {:?}",
             change.original().meta.term.name,
-            affected
+            all_affected
         );
 
         if
@@ -146,11 +145,11 @@ where
             return;
         }
 
-        self.promote(&change.original().meta.term.name);
+        self.promote(&change.changed().meta.term.name);
 
         let (mut updated_term, others): (Vec<_>, Vec<_>) = self
             .iter_mut()
-            .partition(|x| &x.name() == &change.original().meta.term.name);
+            .partition(|x| &x.name() == &change.changed().meta.term.name);
 
         let updated_term = match updated_term.get_mut(0) {
             Some(TermHolder::TwoPhase(t)) => t,
