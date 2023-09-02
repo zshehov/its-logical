@@ -5,6 +5,7 @@ use its_logical::knowledge::{
     store::{Delete, Get, Keys, Put},
 };
 
+use crate::change_propagation;
 use crate::terms_cache::{TermHolder, TermsCache};
 
 use self::two_phase_commit_screen::TwoPhaseCommitScreen;
@@ -104,13 +105,20 @@ impl Tabs {
                                     .as_slice(),
                                     updated_term,
                                 );
-                                self.term_tabs.handle_change(terms, &change);
-                                // TODO: apply the change in the persistence layer
+                                change_propagation::propagate_change(
+                                    &change,
+                                    terms,
+                                    &mut self.term_tabs,
+                                );
                             }
                             term_screen::Output::Deleted(_) => {
-                                self.term_tabs.handle_deletion(&original_term, terms);
-                                self.current_selection = ChosenTab::Ask;
-                                // TODO: delete from persistence layer
+                                if change_propagation::propagate_deletion(
+                                    &original_term,
+                                    terms,
+                                    &mut self.term_tabs,
+                                ) {
+                                    self.current_selection = ChosenTab::Ask;
+                                }
                             }
                         }
                     }

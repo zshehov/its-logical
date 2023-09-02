@@ -33,97 +33,7 @@ where
     T: NamedTerm + AutoApply,
     K: TwoPhaseTerm<Creator = T> + AutoApply + ConfirmationApply,
 {
-    pub(crate) fn handle_change(
-        &mut self,
-        knowledge_store: &impl knowledge::store::Get,
-        change: &Change,
-    ) {
-        let (mut mentioned, referred_by) = change.affects();
-
-        mentioned.extend(referred_by.clone());
-        let all_affected: Vec<String> = mentioned.into_iter().collect();
-
-        debug!(
-            "Changes made for {}. Propagating to: {:?}",
-            change.original().meta.term.name,
-            all_affected
-        );
-
-        if
-        /* the changes are not worthy of user confirmation */
-        change.arg_changes().is_empty()
-        || /* no referring term is affected */ referred_by.is_empty()
-        {
-            debug!("automatic propagation");
-            self.apply_automatic_change(change)
-        } else {
-            debug!("2 phase commit propagation");
-            self.apply_for_confirmation_change(knowledge_store, change);
-        }
-        // if there is an ongoing 2phase commit among one of `updated_term`'s newly mentioned terms,
-        // all the changes in the commit need to be applied on `updated_term`
-        if self.iter().any(|t| matches!(t, TermHolder::TwoPhase(_))) {
-            self.repeat_ongoing_commit_changes(change);
-        }
-    }
-
-    pub(crate) fn handle_deletion(
-        &mut self,
-        term: &FatTerm,
-        knowledge_store: &impl knowledge::store::Get,
-    ) {
-        let changed_by_deletion = term.apply_deletion(knowledge_store);
-
-        if term.meta.referred_by.is_empty() {
-            debug!("automatic deletion");
-            let update = |t: &FatTerm| -> FatTerm {
-                term.apply_deletion(t)
-                    .get(&t.meta.term.name)
-                    .unwrap_or(t)
-                    .to_owned()
-            };
-            for term_name in changed_by_deletion.keys() {
-                if let Some(cached_term) = self.get_mut(&term_name) {
-                    match cached_term {
-                        TermHolder::Normal(s) => s.apply(update),
-                        TermHolder::TwoPhase(s) => s.apply(update),
-                    }
-                }
-            }
-            self.remove(&term.meta.term.name);
-        } else {
-            debug!("deletion with confirmation");
-            let deleted_two_phase_commit = self
-                .promote(&term.meta.term.name)
-                .expect("it must be opened as it was just deleted")
-                .two_phase_commit()
-                .to_owned();
-
-            for (term_name, changed_term) in changed_by_deletion {
-                if self.get(&term_name).is_none() {
-                    self.push(
-                        &knowledge_store
-                            .get(&term_name)
-                            .expect("this term has come from the knowledge store"),
-                    );
-                }
-
-                let affected_by_deletion_two_phase_commit =
-                    self.promote(&term_name).expect("term was just pushed");
-
-                affected_by_deletion_two_phase_commit.push_for_confirmation(
-                    &[],
-                    &changed_term,
-                    &term.meta.term.name,
-                );
-                fix_approvals(
-                    affected_by_deletion_two_phase_commit.two_phase_commit(),
-                    &deleted_two_phase_commit,
-                )
-            }
-        }
-    }
-    fn repeat_ongoing_commit_changes(&mut self, change: &Change) {
+    pub(crate) fn repeat_ongoing_commit_changes(&mut self, change: &Change, is_automatic: bool) {
         let previously_mentioned_terms = change.original().mentioned_terms();
         let currently_mentioned_terms = change.changed().mentioned_terms();
 
@@ -144,12 +54,18 @@ where
         if !need_to_transfer_to_commit {
             return;
         }
+        let updated_term_name = if is_automatic {
+            // the term has already been updated to using its potentially changed name
+            change.changed().meta.term.name.clone()
+        } else {
+            // the term is still referred to by its old name
+            change.original().meta.term.name.clone()
+        };
 
-        self.promote(&change.changed().meta.term.name);
+        self.promote(&updated_term_name);
 
-        let (mut updated_term, others): (Vec<_>, Vec<_>) = self
-            .iter_mut()
-            .partition(|x| &x.name() == &change.changed().meta.term.name);
+        let (mut updated_term, others): (Vec<_>, Vec<_>) =
+            self.iter_mut().partition(|x| x.name() == updated_term_name);
 
         let updated_term = match updated_term.get_mut(0) {
             Some(TermHolder::TwoPhase(t)) => t,
@@ -183,12 +99,26 @@ where
     }
 }
 
+// convenience impl so that a TermsCache can be passed to change applications
+impl<T, K> knowledge::store::Get for TermsCache<T, K>
+where
+    T: NamedTerm,
+    K: TwoPhaseTerm,
+{
+    fn get(&self, term_name: &str) -> Option<FatTerm> {
+        self.get(term_name).map(|term| match term {
+            TermHolder::Normal(t) => t.term(),
+            TermHolder::TwoPhase(t) => t.term(),
+        })
+    }
+}
+
 impl<T, K> TermsCache<T, K>
 where
     T: NamedTerm + AutoApply,
     K: TwoPhaseTerm + AutoApply,
 {
-    fn apply_automatic_change(&mut self, change: &Change) {
+    pub(crate) fn apply_automatic_change(&mut self, change: &Change) {
         let update_fn = |in_term: &FatTerm| -> FatTerm {
             in_term
                 .apply(change)
@@ -204,6 +134,25 @@ where
             }
         }
     }
+
+    pub(crate) fn apply_automatic_deletion(&mut self, term: &FatTerm) {
+        let changed_by_deletion = term.apply_deletion(self);
+        let update = |t: &FatTerm| -> FatTerm {
+            term.apply_deletion(t)
+                .get(&t.meta.term.name)
+                .unwrap_or(t)
+                .to_owned()
+        };
+        for term_name in changed_by_deletion.keys() {
+            if let Some(cached_term) = self.get_mut(&term_name) {
+                match cached_term {
+                    TermHolder::Normal(s) => s.apply(update),
+                    TermHolder::TwoPhase(s) => s.apply(update),
+                }
+            }
+        }
+        self.remove(&term.meta.term.name);
+    }
 }
 
 impl<T, K> TermsCache<T, K>
@@ -213,7 +162,7 @@ where
 {
     // applies a change that should be confirmed to all potentially
     // affected `super::TermHolder::TwoPhase` entries. Meaning that all
-    fn apply_for_confirmation_change(
+    pub(crate) fn apply_for_confirmation_change(
         &mut self,
         // the knowledge::store::Get is needed as the change might affect terms that are not yet cached in
         // the TermsCache, so they would need to be cached during this call
@@ -264,6 +213,42 @@ where
             };
         }
         Ok(())
+    }
+
+    pub(crate) fn apply_for_confirmation_delete(
+        &mut self,
+        deleted_term: &FatTerm,
+        store: &impl knowledge::store::Get,
+    ) {
+        let changed_by_deletion = deleted_term.apply_deletion(store);
+        let deleted_two_phase_commit = self
+            .promote(&deleted_term.meta.term.name)
+            .expect("it must be opened as it was just deleted")
+            .two_phase_commit()
+            .to_owned();
+
+        for (term_name, changed_term) in changed_by_deletion {
+            if self.get(&term_name).is_none() {
+                self.push(
+                    &store
+                        .get(&term_name)
+                        .expect("this term has come from the knowledge store"),
+                );
+            }
+
+            let affected_by_deletion_two_phase_commit =
+                self.promote(&term_name).expect("term was just pushed");
+
+            affected_by_deletion_two_phase_commit.push_for_confirmation(
+                &[],
+                &changed_term,
+                &deleted_term.meta.term.name,
+            );
+            fix_approvals(
+                affected_by_deletion_two_phase_commit.two_phase_commit(),
+                &deleted_two_phase_commit,
+            )
+        }
     }
 }
 

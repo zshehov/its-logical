@@ -61,7 +61,7 @@ impl<T: NamedTerm, K: TwoPhaseTerm> TermsCache<T, K> {
 impl<T, K> TermsCache<T, K>
 where
     T: NamedTerm,
-    K: TwoPhaseTerm + TwoPhaseTerm<Creator = T>,
+    K: TwoPhaseTerm,
 {
     pub(crate) fn push(&mut self, term: &FatTerm) {
         self.terms
@@ -82,6 +82,27 @@ where
         None
     }
 
+    pub(crate) fn remove(&mut self, term_name: &str) -> Option<TermHolder<T, K>> {
+        if let Some(term_idx) = self.terms.iter().position(|x| x.name() == term_name) {
+            return Some(self.terms.remove(term_idx));
+        }
+        None
+    }
+
+    pub(crate) fn iter(&self) -> impl ExactSizeIterator<Item = &TermHolder<T, K>> {
+        self.terms.iter()
+    }
+
+    pub(crate) fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = &mut TermHolder<T, K>> {
+        self.terms.iter_mut()
+    }
+}
+
+impl<T, K> TermsCache<T, K>
+where
+    T: NamedTerm,
+    K: TwoPhaseTerm + TwoPhaseTerm<Creator = T>,
+{
     pub(crate) fn promote(&mut self, term_name: &str) -> Option<&mut K> {
         if let Some(term_idx) = self.terms.iter().position(|x| x.name() == term_name) {
             let screens_len = self.terms.len();
@@ -99,20 +120,5 @@ where
             });
         }
         None
-    }
-
-    pub(crate) fn remove(&mut self, term_name: &str) -> Option<TermHolder<T, K>> {
-        if let Some(term_idx) = self.terms.iter().position(|x| x.name() == term_name) {
-            return Some(self.terms.remove(term_idx));
-        }
-        None
-    }
-
-    pub(crate) fn iter(&self) -> impl ExactSizeIterator<Item = &TermHolder<T, K>> {
-        self.terms.iter()
-    }
-
-    pub(crate) fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = &mut TermHolder<T, K>> {
-        self.terms.iter_mut()
     }
 }

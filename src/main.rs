@@ -5,6 +5,7 @@ use its_logical::knowledge::store::PersistentMemoryTerms;
 use tracing::Level;
 
 mod app;
+mod change_propagation;
 mod suggestions;
 mod terms_cache;
 mod ui;
