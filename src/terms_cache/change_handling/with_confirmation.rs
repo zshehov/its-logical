@@ -1,3 +1,5 @@
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
 use its_logical::{
     changes::{
         change::{Apply as _, ArgsChange, Change},
@@ -5,9 +7,8 @@ use its_logical::{
     },
     knowledge::{self, model::fat_term::FatTerm},
 };
-use tracing::debug;
 
-use super::{NamedTerm, TermsCache, TwoPhaseTerm};
+use super::{two_phase_commit::TwoPhaseCommit, NamedTerm, TermsCache, TwoPhaseTerm};
 
 pub(crate) trait Apply {
     fn push_for_confirmation(
@@ -32,8 +33,8 @@ where
         knowledge_store: &impl knowledge::store::Get,
         change: &Change,
     ) -> Result<(), &'static str> {
-        let all_affected = knowledge_store.apply(change);
-        if all_affected
+        let all_affected_changed = knowledge_store.apply(change);
+        if all_affected_changed
             .keys()
             .any(|affected_name| match self.get(affected_name) {
                 // TODO: check if ready for change
@@ -61,27 +62,12 @@ where
             change_source.two_phase_commit().to_owned()
         };
 
-        for (name, term) in all_affected {
-            if self.get(&name).is_none() {
-                self.push(&term);
-            }
-            debug!("fixing {}", name);
-            if let Some(two_phase) = self.promote(&name) {
-                let term = two_phase.term();
-
-                if let Some(after_change) = term.apply(change).get(&term.meta.term.name) {
-                    two_phase.push_for_confirmation(
-                        change.arg_changes(),
-                        after_change,
-                        &original.meta.term.name,
-                    );
-                    super::fix_approvals(
-                        two_phase.two_phase_commit(),
-                        &change_source_two_phase_commit,
-                    );
-                }
-            };
-        }
+        self.push_to_changed(
+            &original.meta.term.name,
+            &change_source_two_phase_commit,
+            knowledge_store,
+            all_affected_changed,
+        );
         Ok(())
     }
 
@@ -97,7 +83,22 @@ where
             .two_phase_commit()
             .to_owned();
 
-        for (term_name, changed_term) in changed_by_deletion {
+        self.push_to_changed(
+            &deleted_term.meta.term.name,
+            &deleted_two_phase_commit,
+            store,
+            changed_by_deletion,
+        );
+    }
+
+    fn push_to_changed(
+        &mut self,
+        source_name: &str,
+        source_two_phase_commit: &Rc<RefCell<TwoPhaseCommit>>,
+        store: &impl knowledge::store::Get,
+        changed: HashMap<String, FatTerm>,
+    ) {
+        for (term_name, changed_term) in changed {
             if self.get(&term_name).is_none() {
                 self.push(
                     &store
@@ -106,17 +107,12 @@ where
                 );
             }
 
-            let affected_by_deletion_two_phase_commit =
-                self.promote(&term_name).expect("term was just pushed");
+            let changed_two_phase_commit = self.promote(&term_name).expect("term was just pushed");
 
-            affected_by_deletion_two_phase_commit.push_for_confirmation(
-                &[],
-                &changed_term,
-                &deleted_term.meta.term.name,
-            );
+            changed_two_phase_commit.push_for_confirmation(&[], &changed_term, &source_name);
             super::fix_approvals(
-                affected_by_deletion_two_phase_commit.two_phase_commit(),
-                &deleted_two_phase_commit,
+                changed_two_phase_commit.two_phase_commit(),
+                &source_two_phase_commit,
             )
         }
     }
