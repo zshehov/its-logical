@@ -8,7 +8,7 @@ use its_logical::{
 use tracing::debug;
 
 use crate::terms_cache::{
-    change_handling::{AutoApply, ConfirmationApply},
+    change_handling::{automatic, with_confirmation},
     NamedTerm, TermHolder, TermsCache, TwoPhaseTerm,
 };
 
@@ -17,8 +17,8 @@ pub(crate) fn propagate_change<T, K>(
     store: &mut (impl knowledge::store::Get + knowledge::store::Put),
     cache: &mut TermsCache<T, K>,
 ) where
-    T: NamedTerm + AutoApply,
-    K: TwoPhaseTerm<Creator = T> + AutoApply + ConfirmationApply,
+    T: NamedTerm + automatic::Apply,
+    K: TwoPhaseTerm<Creator = T> + automatic::Apply + with_confirmation::Apply,
 {
     let (mut mentioned, referred_by) = change.affects();
 
@@ -38,7 +38,14 @@ pub(crate) fn propagate_change<T, K>(
     if is_automatic {
         debug!("automatic propagation");
         cache.apply_automatic_change(change);
-        for (term_name, with_applied_change) in store.apply(change) {
+
+        let mut changes_for_store = store.apply(change);
+        changes_for_store.insert(
+            change.original().meta.term.name.clone(),
+            change.changed().to_owned(),
+        );
+
+        for (term_name, with_applied_change) in changes_for_store {
             store
                 .put(&term_name, with_applied_change)
                 .expect("persistence layer changes should not fail");
@@ -60,8 +67,8 @@ pub(crate) fn propagate_deletion<T, K>(
     cache: &mut TermsCache<T, K>,
 ) -> bool
 where
-    T: NamedTerm + AutoApply,
-    K: TwoPhaseTerm<Creator = T> + AutoApply + ConfirmationApply,
+    T: NamedTerm + automatic::Apply,
+    K: TwoPhaseTerm<Creator = T> + automatic::Apply + with_confirmation::Apply,
 {
     if term.meta.referred_by.is_empty() {
         debug!("automatic deletion");

@@ -1,37 +1,19 @@
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
-use its_logical::{
-    changes::{
-        change::{Apply, ArgsChange, Change},
-        deletion::Deletion,
-    },
-    knowledge::{self, model::fat_term::FatTerm},
-};
-use tracing::debug;
+use its_logical::changes::change::{Apply, Change};
 
 use self::two_phase_commit::TwoPhaseCommit;
 
 use super::{NamedTerm, TermHolder, TermsCache, TwoPhaseTerm};
 
+pub(crate) mod automatic;
 pub(crate) mod two_phase_commit;
-
-pub(crate) trait AutoApply {
-    fn apply(&mut self, f: impl Fn(&FatTerm) -> FatTerm);
-}
-
-pub(crate) trait ConfirmationApply {
-    fn push_for_confirmation(
-        &mut self,
-        arg_changes: &[ArgsChange],
-        resulting_term: &FatTerm,
-        source: &str,
-    );
-}
+pub(crate) mod with_confirmation;
 
 impl<T, K> TermsCache<T, K>
 where
-    T: NamedTerm + AutoApply,
-    K: TwoPhaseTerm<Creator = T> + AutoApply + ConfirmationApply,
+    T: NamedTerm + automatic::Apply,
+    K: TwoPhaseTerm<Creator = T> + automatic::Apply + with_confirmation::Apply,
 {
     pub(crate) fn repeat_ongoing_commit_changes(&mut self, change: &Change, is_automatic: bool) {
         let previously_mentioned_terms = change.original().mentioned_terms();
@@ -95,159 +77,6 @@ where
                     );
                 }
             }
-        }
-    }
-}
-
-// convenience impl so that a TermsCache can be passed to change applications
-impl<T, K> knowledge::store::Get for TermsCache<T, K>
-where
-    T: NamedTerm,
-    K: TwoPhaseTerm,
-{
-    fn get(&self, term_name: &str) -> Option<FatTerm> {
-        self.get(term_name).map(|term| match term {
-            TermHolder::Normal(t) => t.term(),
-            TermHolder::TwoPhase(t) => t.term(),
-        })
-    }
-}
-
-impl<T, K> TermsCache<T, K>
-where
-    T: NamedTerm + AutoApply,
-    K: TwoPhaseTerm + AutoApply,
-{
-    pub(crate) fn apply_automatic_change(&mut self, change: &Change) {
-        let update_fn = |in_term: &FatTerm| -> FatTerm {
-            in_term
-                .apply(change)
-                .get(&in_term.meta.term.name)
-                // the change might not affect the in_term so it needs to be returned as is
-                .unwrap_or(in_term)
-                .to_owned()
-        };
-        for term in &mut self.terms {
-            match term {
-                super::TermHolder::Normal(t) => t.apply(update_fn),
-                super::TermHolder::TwoPhase(t) => t.apply(update_fn),
-            }
-        }
-    }
-
-    pub(crate) fn apply_automatic_deletion(&mut self, term: &FatTerm) {
-        let changed_by_deletion = term.apply_deletion(self);
-        let update = |t: &FatTerm| -> FatTerm {
-            term.apply_deletion(t)
-                .get(&t.meta.term.name)
-                .unwrap_or(t)
-                .to_owned()
-        };
-        for term_name in changed_by_deletion.keys() {
-            if let Some(cached_term) = self.get_mut(&term_name) {
-                match cached_term {
-                    TermHolder::Normal(s) => s.apply(update),
-                    TermHolder::TwoPhase(s) => s.apply(update),
-                }
-            }
-        }
-        self.remove(&term.meta.term.name);
-    }
-}
-
-impl<T, K> TermsCache<T, K>
-where
-    T: NamedTerm,
-    K: TwoPhaseTerm<Creator = T> + ConfirmationApply,
-{
-    // applies a change that should be confirmed to all potentially
-    // affected `super::TermHolder::TwoPhase` entries. Meaning that all
-    pub(crate) fn apply_for_confirmation_change(
-        &mut self,
-        // the knowledge::store::Get is needed as the change might affect terms that are not yet cached in
-        // the TermsCache, so they would need to be cached during this call
-        knowledge_store: &impl knowledge::store::Get,
-        change: &Change,
-    ) -> Result<(), &'static str> {
-        let all_affected = knowledge_store.apply(change);
-        if all_affected
-            .keys()
-            .any(|affected_name| match self.get(affected_name) {
-                // TODO: check if ready for change
-                Some(_) => false,
-                None => false,
-            })
-        {
-            return Err("There is a term that is not ready to be included in a 2 phase commit");
-        }
-        let original = change.original();
-
-        if self.get(&original.meta.term.name).is_none() {
-            self.push(original);
-        }
-
-        let change_source_two_phase_commit = self
-            .promote(&original.meta.term.name)
-            .expect("guaranteed to be opened above")
-            .two_phase_commit()
-            .to_owned();
-
-        for (name, term) in all_affected {
-            if self.get(&name).is_none() {
-                self.push(&term);
-            }
-            if let Some(two_phase) = self.promote(&name) {
-                let term = two_phase.term();
-
-                if let Some(after_change) = term.apply(change).get(&term.meta.term.name) {
-                    two_phase.push_for_confirmation(
-                        change.arg_changes(),
-                        after_change,
-                        &original.meta.term.name,
-                    );
-                    fix_approvals(
-                        two_phase.two_phase_commit(),
-                        &change_source_two_phase_commit,
-                    );
-                }
-            };
-        }
-        Ok(())
-    }
-
-    pub(crate) fn apply_for_confirmation_delete(
-        &mut self,
-        deleted_term: &FatTerm,
-        store: &impl knowledge::store::Get,
-    ) {
-        let changed_by_deletion = deleted_term.apply_deletion(store);
-        let deleted_two_phase_commit = self
-            .promote(&deleted_term.meta.term.name)
-            .expect("it must be opened as it was just deleted")
-            .two_phase_commit()
-            .to_owned();
-
-        for (term_name, changed_term) in changed_by_deletion {
-            if self.get(&term_name).is_none() {
-                self.push(
-                    &store
-                        .get(&term_name)
-                        .expect("this term has come from the knowledge store"),
-                );
-            }
-
-            let affected_by_deletion_two_phase_commit =
-                self.promote(&term_name).expect("term was just pushed");
-
-            affected_by_deletion_two_phase_commit.push_for_confirmation(
-                &[],
-                &changed_term,
-                &deleted_term.meta.term.name,
-            );
-            fix_approvals(
-                affected_by_deletion_two_phase_commit.two_phase_commit(),
-                &deleted_two_phase_commit,
-            )
         }
     }
 }

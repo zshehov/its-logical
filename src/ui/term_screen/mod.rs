@@ -39,7 +39,7 @@ impl crate::terms_cache::NamedTerm for TermScreen {
     }
 }
 
-impl crate::terms_cache::change_handling::AutoApply for TermScreen {
+impl crate::terms_cache::change_handling::automatic::Apply for TermScreen {
     fn apply(&mut self, f: impl Fn(&FatTerm) -> FatTerm) {
         let (pits, current) = self.get_pits_mut();
 

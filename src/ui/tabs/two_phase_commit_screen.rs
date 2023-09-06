@@ -51,7 +51,7 @@ impl crate::terms_cache::TwoPhaseTerm for TwoPhaseCommitScreen {
     }
 }
 
-impl crate::terms_cache::change_handling::ConfirmationApply for TwoPhaseCommitScreen {
+impl crate::terms_cache::change_handling::with_confirmation::Apply for TwoPhaseCommitScreen {
     fn push_for_confirmation(
         &mut self,
         arg_changes: &[its_logical::changes::change::ArgsChange],
@@ -66,7 +66,7 @@ impl crate::terms_cache::change_handling::ConfirmationApply for TwoPhaseCommitSc
     }
 }
 
-impl crate::terms_cache::change_handling::AutoApply for TwoPhaseCommitScreen {
+impl crate::terms_cache::change_handling::automatic::Apply for TwoPhaseCommitScreen {
     fn apply(&mut self, f: impl Fn(&FatTerm) -> FatTerm) {
         self.screen.apply(f);
     }
