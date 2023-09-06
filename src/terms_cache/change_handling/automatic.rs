@@ -64,7 +64,7 @@ where
                 .to_owned()
         };
         for term_name in changed_by_deletion.keys() {
-            if let Some(cached_term) = self.get_mut(&term_name) {
+            if let Some(cached_term) = self.get_mut(term_name) {
                 match cached_term {
                     TermHolder::Normal(s) => s.apply(update),
                     TermHolder::TwoPhase(s) => s.apply(update),

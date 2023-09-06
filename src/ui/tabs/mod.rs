@@ -145,14 +145,6 @@ impl Tabs {
     ) -> Option<&mut TermHolder<TermScreen, TwoPhaseCommitScreen>> {
         self.term_tabs.get_mut(term_name)
     }
-
-    fn handle_screen_output(
-        &mut self,
-        original_term: &FatTerm,
-        screen_output: term_screen::Output,
-        terms: &mut (impl Get + Put + Delete),
-    ) {
-    }
 }
 
 struct TermChangeVec(Vec<TermChange>);

@@ -109,10 +109,10 @@ where
 
             let changed_two_phase_commit = self.promote(&term_name).expect("term was just pushed");
 
-            changed_two_phase_commit.push_for_confirmation(&[], &changed_term, &source_name);
+            changed_two_phase_commit.push_for_confirmation(&[], &changed_term, source_name);
             super::fix_approvals(
                 changed_two_phase_commit.two_phase_commit(),
-                &source_two_phase_commit,
+                source_two_phase_commit,
             )
         }
     }
