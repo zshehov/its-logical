@@ -11,7 +11,7 @@ use its_logical::{
     },
     knowledge::{self, model::fat_term::FatTerm},
 };
-use tracing::debug;
+
 
 use super::{two_phase_commit::TwoPhaseCommit, NamedTerm, TermsCache, TwoPhaseTerm};
 
@@ -57,7 +57,10 @@ where
             if self.get(&affected_term).is_none() {
                 knowledge_store
                     .get(&affected_term)
-                    .and_then(|t| Some(self.push(&t)));
+                    .map(|t| {
+                        self.push(&t);
+                        ()
+                    });
             }
         }
         let all_affected_changed = self.apply(change);

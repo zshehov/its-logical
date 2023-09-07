@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashSet};
 
 use its_logical::{
     changes::{
@@ -10,7 +10,6 @@ use its_logical::{
 use tracing::debug;
 
 use crate::{
-    suggestions,
     terms_cache::{
         change_handling::{automatic, with_confirmation},
         NamedTerm, TermHolder, TermsCache, TwoPhaseTerm,

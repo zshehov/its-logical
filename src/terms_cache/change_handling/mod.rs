@@ -8,7 +8,7 @@ use its_logical::{
     changes::change::{Apply, Change},
     knowledge::model::fat_term::FatTerm,
 };
-use tracing::debug;
+
 
 use self::two_phase_commit::TwoPhaseCommit;
 
