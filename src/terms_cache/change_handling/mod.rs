@@ -9,7 +9,6 @@ use its_logical::{
     knowledge::model::fat_term::FatTerm,
 };
 
-
 use self::two_phase_commit::TwoPhaseCommit;
 
 use super::{NamedTerm, TermHolder, TermsCache, TwoPhaseTerm};

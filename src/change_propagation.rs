@@ -1,4 +1,4 @@
-use std::collections::{HashSet};
+use std::collections::HashSet;
 
 use its_logical::{
     changes::{
@@ -9,11 +9,9 @@ use its_logical::{
 };
 use tracing::debug;
 
-use crate::{
-    terms_cache::{
-        change_handling::{automatic, with_confirmation},
-        NamedTerm, TermHolder, TermsCache, TwoPhaseTerm,
-    },
+use crate::terms_cache::{
+    change_handling::{automatic, with_confirmation},
+    NamedTerm, TermHolder, TermsCache, TwoPhaseTerm,
 };
 
 pub(crate) fn propagate_change<T, K>(

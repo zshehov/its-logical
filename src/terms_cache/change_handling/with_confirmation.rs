@@ -12,7 +12,6 @@ use its_logical::{
     knowledge::{self, model::fat_term::FatTerm},
 };
 
-
 use super::{two_phase_commit::TwoPhaseCommit, NamedTerm, TermsCache, TwoPhaseTerm};
 
 pub(crate) trait Apply {
@@ -55,12 +54,10 @@ where
         }
         for affected_term in all_affected_changed {
             if self.get(&affected_term).is_none() {
-                knowledge_store
-                    .get(&affected_term)
-                    .map(|t| {
-                        self.push(&t);
-                        ()
-                    });
+                knowledge_store.get(&affected_term).map(|t| {
+                    self.push(&t);
+                    ()
+                });
             }
         }
         let all_affected_changed = self.apply(change);
