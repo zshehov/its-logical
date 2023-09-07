@@ -139,5 +139,3 @@ where
         }
     }
 }
-
-struct CacheWithLoading {}
