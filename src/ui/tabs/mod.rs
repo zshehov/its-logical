@@ -60,9 +60,31 @@ impl Tabs {
                 if let Some(tabs_output) = self.term_tabs.show(ui, &mut self.current_selection) {
                     match tabs_output {
                         term_tabs::Output::FinishedCommit => {
-                            todo!();
+                            let selected_name = match self.current_selection {
+                                ChosenTab::TermScreen(idx) => {
+                                    self.term_tabs.get_by_idx(idx).map(|x| match x {
+                                        TermHolder::Normal(t) => t.name(),
+                                        TermHolder::TwoPhase(t) => t.name(),
+                                    })
+                                }
+                                _ => None,
+                            };
+                            let deleted =
+                                change_propagation::finish_commit(terms, &mut self.term_tabs);
+
+                            if let Some(selected_name) = selected_name {
+                                if deleted.contains(&selected_name) {
+                                    self.current_selection = ChosenTab::Ask;
+                                } else {
+                                    // there is some chance that there have been deleted elements before the selected
+                                    // one and a reselection is due as the index of the selected element has changed
+                                    self.select(&selected_name);
+                                }
+                            }
                         }
-                        term_tabs::Output::AbortedCommit => todo!(),
+                        term_tabs::Output::AbortedCommit => {
+                            change_propagation::revert_commit(&mut self.term_tabs)
+                        }
                     }
                 }
             })

@@ -6,7 +6,7 @@ use self::change_handling::two_phase_commit::TwoPhaseCommit;
 
 pub(crate) mod change_handling;
 pub(crate) trait NamedTerm {
-    fn new(term: FatTerm) -> Self;
+    fn new(term: &FatTerm) -> Self;
     fn name(&self) -> String;
     fn term(&self) -> FatTerm;
 }
@@ -16,6 +16,8 @@ pub(crate) trait TwoPhaseTerm: NamedTerm {
 
     fn two_phase_commit(&self) -> &Rc<RefCell<TwoPhaseCommit>>;
     fn current_change(&self) -> Change;
+    fn before_changes(&self) -> FatTerm;
+    fn in_deletion(&self) -> bool;
 }
 
 pub(crate) enum TermHolder<T: NamedTerm, K: TwoPhaseTerm> {
@@ -64,8 +66,7 @@ where
     K: TwoPhaseTerm,
 {
     pub(crate) fn push(&mut self, term: &FatTerm) {
-        self.terms
-            .push(TermHolder::Normal(NamedTerm::new(term.clone())));
+        self.terms.push(TermHolder::Normal(NamedTerm::new(term)));
     }
 
     pub(crate) fn get(&self, term_name: &str) -> Option<&TermHolder<T, K>> {

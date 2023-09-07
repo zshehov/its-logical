@@ -18,8 +18,8 @@ pub(crate) struct TwoPhaseCommitScreen {
 }
 
 impl crate::terms_cache::NamedTerm for TwoPhaseCommitScreen {
-    fn new(term: FatTerm) -> Self {
-        Self::new(TermScreen::new(&term, false))
+    fn new(term: &FatTerm) -> Self {
+        Self::new(TermScreen::new(term, false))
     }
 
     fn name(&self) -> String {
@@ -48,6 +48,14 @@ impl crate::terms_cache::TwoPhaseTerm for TwoPhaseCommitScreen {
         let (original, args_changes, changed) = self.screen.get_pits().accumulated_changes();
 
         its_logical::changes::change::Change::new(original, &args_changes, changed)
+    }
+
+    fn before_changes(&self) -> FatTerm {
+        self.screen.get_pits().original().extract_term()
+    }
+
+    fn in_deletion(&self) -> bool {
+        self.screen.in_deletion()
     }
 }
 

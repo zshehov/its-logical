@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use its_logical::{
     changes::{
         change::{Apply, Change},
@@ -7,9 +9,12 @@ use its_logical::{
 };
 use tracing::debug;
 
-use crate::terms_cache::{
-    change_handling::{automatic, with_confirmation},
-    NamedTerm, TermHolder, TermsCache, TwoPhaseTerm,
+use crate::{
+    suggestions,
+    terms_cache::{
+        change_handling::{automatic, with_confirmation},
+        NamedTerm, TermHolder, TermsCache, TwoPhaseTerm,
+    },
 };
 
 pub(crate) fn propagate_change<T, K>(
@@ -59,6 +64,38 @@ pub(crate) fn propagate_change<T, K>(
     if cache.iter().any(|t| matches!(t, TermHolder::TwoPhase(_))) {
         cache.repeat_ongoing_commit_changes(change, is_automatic);
     }
+}
+
+pub(crate) fn finish_commit<T, K>(
+    store: &mut (impl knowledge::store::Get + knowledge::store::Put + knowledge::store::Delete),
+    cache: &mut TermsCache<T, K>,
+) -> HashSet<String>
+where
+    T: NamedTerm,
+    K: TwoPhaseTerm<Creator = T>,
+{
+    let changed_terms = cache.finish_commit();
+    let mut deleted = HashSet::new();
+    for (changed_term_original_name, change) in changed_terms {
+        match change {
+            crate::terms_cache::change_handling::FinishedCommitResult::Changed(changed_term) => {
+                store.put(&changed_term_original_name, changed_term);
+            }
+            crate::terms_cache::change_handling::FinishedCommitResult::Deleted => {
+                store.delete(&changed_term_original_name);
+                deleted.insert(changed_term_original_name);
+            }
+        }
+    }
+    deleted
+}
+
+pub(crate) fn revert_commit<T, K>(cache: &mut TermsCache<T, K>)
+where
+    T: NamedTerm,
+    K: TwoPhaseTerm<Creator = T>,
+{
+    cache.revert_commit();
 }
 
 pub(crate) fn propagate_deletion<T, K>(

@@ -1,4 +1,8 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use its_logical::{
     changes::{
@@ -7,6 +11,7 @@ use its_logical::{
     },
     knowledge::{self, model::fat_term::FatTerm},
 };
+use tracing::debug;
 
 use super::{two_phase_commit::TwoPhaseCommit, NamedTerm, TermsCache, TwoPhaseTerm};
 
@@ -33,9 +38,13 @@ where
         knowledge_store: &impl knowledge::store::Get,
         change: &Change,
     ) -> Result<(), &'static str> {
-        let all_affected_changed = knowledge_store.apply(change);
+        let (mentioned, referred_by) = change.affects();
+        let mut all_affected_changed = HashSet::with_capacity(mentioned.len() + referred_by.len());
+        all_affected_changed.extend(mentioned);
+        all_affected_changed.extend(referred_by);
+
         if all_affected_changed
-            .keys()
+            .iter()
             .any(|affected_name| match self.get(affected_name) {
                 // TODO: check if ready for change
                 Some(_) => false,
@@ -44,6 +53,15 @@ where
         {
             return Err("There is a term that is not ready to be included in a 2 phase commit");
         }
+        for affected_term in all_affected_changed {
+            if self.get(&affected_term).is_none() {
+                knowledge_store
+                    .get(&affected_term)
+                    .and_then(|t| Some(self.push(&t)));
+            }
+        }
+        let all_affected_changed = self.apply(change);
+
         let original = change.original();
 
         if self.get(&original.meta.term.name).is_none() {
@@ -76,6 +94,10 @@ where
         deleted_term: &FatTerm,
         store: &impl knowledge::store::Get,
     ) {
+        // TODO: affected by deletion
+        // TODO: check if ready for deletion change
+        // TODO: push unopened tabs
+        // TODO: deleted_term.apply_deletion(self)
         let changed_by_deletion = deleted_term.apply_deletion(store);
         let deleted_two_phase_commit = self
             .promote(&deleted_term.meta.term.name)
@@ -117,3 +139,5 @@ where
         }
     }
 }
+
+struct CacheWithLoading {}

@@ -1,6 +1,14 @@
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
-use its_logical::changes::change::{Apply, Change};
+use its_logical::{
+    changes::change::{Apply, Change},
+    knowledge::model::fat_term::FatTerm,
+};
+use tracing::debug;
 
 use self::two_phase_commit::TwoPhaseCommit;
 
@@ -9,6 +17,51 @@ use super::{NamedTerm, TermHolder, TermsCache, TwoPhaseTerm};
 pub(crate) mod automatic;
 pub(crate) mod two_phase_commit;
 pub(crate) mod with_confirmation;
+
+pub(crate) enum FinishedCommitResult {
+    Changed(FatTerm),
+    Deleted,
+}
+
+impl<T, K> TermsCache<T, K>
+where
+    T: NamedTerm,
+    K: TwoPhaseTerm<Creator = T>,
+{
+    pub(crate) fn finish_commit(&mut self) -> HashMap<String, FinishedCommitResult> {
+        let mut new_term_versions = HashMap::new();
+        let mut removed_terms_indices = Vec::new();
+        for (idx, term) in self.terms.iter_mut().enumerate() {
+            if let TermHolder::TwoPhase(t) = term {
+                let term_name_before_changes = t.before_changes().meta.term.name;
+                if t.in_deletion() {
+                    removed_terms_indices.push(idx);
+                    new_term_versions
+                        .insert(term_name_before_changes, FinishedCommitResult::Deleted);
+                } else {
+                    let current_version = t.term();
+
+                    *term = TermHolder::Normal(T::new(&current_version));
+                    new_term_versions.insert(
+                        term_name_before_changes,
+                        FinishedCommitResult::Changed(current_version),
+                    );
+                }
+            }
+        }
+        for i in removed_terms_indices.iter().rev() {
+            self.terms.remove(*i);
+        }
+        new_term_versions
+    }
+    pub(crate) fn revert_commit(&mut self) {
+        for term in &mut self.terms {
+            if let TermHolder::TwoPhase(t) = term {
+                *term = TermHolder::Normal(T::new(&t.before_changes()));
+            }
+        }
+    }
+}
 
 impl<T, K> TermsCache<T, K>
 where

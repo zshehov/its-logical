@@ -103,8 +103,7 @@ impl TermsCache<TermScreen, TwoPhaseCommitScreen> {
                 {
                     output = Some(Output::FinishedCommit);
                 }
-                // TODO: make this work
-                if ui.add_enabled(false, egui::Button::new("Abort")).clicked() {
+                if ui.button("Abort").clicked() {
                     output = Some(Output::AbortedCommit);
                 };
             }

@@ -26,8 +26,8 @@ pub(crate) struct TermScreen {
 }
 
 impl crate::terms_cache::NamedTerm for TermScreen {
-    fn new(term: FatTerm) -> Self {
-        Self::new(&term, false)
+    fn new(term: &FatTerm) -> Self {
+        Self::new(term, false)
     }
 
     fn name(&self) -> String {
