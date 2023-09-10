@@ -34,32 +34,21 @@ where
         &mut self,
         // the knowledge::store::Get is needed as the change might affect terms that are not yet cached in
         // the TermsCache, so they would need to be cached during this call
-        knowledge_store: &impl knowledge::store::Get,
+        store: &impl knowledge::store::Get,
         change: &Change,
     ) -> Result<(), &'static str> {
         let (mentioned, referred_by) = change.affects();
-        let mut all_affected_changed = HashSet::with_capacity(mentioned.len() + referred_by.len());
-        all_affected_changed.extend(mentioned);
-        all_affected_changed.extend(referred_by);
+        let mut affected_by_change = HashSet::with_capacity(mentioned.len() + referred_by.len());
+        affected_by_change.extend(mentioned);
+        affected_by_change.extend(referred_by);
+        let affected_by_change: Vec<String> = affected_by_change.into_iter().collect();
 
-        if all_affected_changed
-            .iter()
-            .any(|affected_name| match self.get(affected_name) {
-                // TODO: check if ready for change
-                Some(_) => false,
-                None => false,
-            })
-        {
+        if !self.are_ready_for_change(&affected_by_change) {
             return Err("There is a term that is not ready to be included in a 2 phase commit");
         }
-        for affected_term in all_affected_changed {
-            if self.get(&affected_term).is_none() {
-                knowledge_store.get(&affected_term).map(|t| {
-                    self.push(&t);
-                    ()
-                });
-            }
-        }
+
+        self.push_affected(&affected_by_change, store);
+
         let all_affected_changed = self.apply(change);
 
         let original = change.original();
@@ -83,7 +72,7 @@ where
         self.push_to_changed(
             &original.meta.term.name,
             &change_source_two_phase_commit,
-            knowledge_store,
+            store,
             all_affected_changed,
         );
         Ok(())
@@ -93,12 +82,16 @@ where
         &mut self,
         deleted_term: &FatTerm,
         store: &impl knowledge::store::Get,
-    ) {
-        // TODO: affected by deletion
-        // TODO: check if ready for deletion change
-        // TODO: push unopened tabs
-        // TODO: deleted_term.apply_deletion(self)
-        let changed_by_deletion = deleted_term.apply_deletion(store);
+    ) -> Result<(), &'static str> {
+        let affected_by_deletion = deleted_term.affects();
+
+        if !self.are_ready_for_change(affected_by_deletion) {
+            return Err("There is a term that is not ready to be included in a 2 phase commit");
+        }
+
+        self.push_affected(affected_by_deletion, store);
+
+        let changed_by_deletion = deleted_term.apply_deletion(self);
         let deleted_two_phase_commit = self
             .promote(&deleted_term.meta.term.name)
             .expect("it must be opened as it was just deleted")
@@ -111,6 +104,28 @@ where
             store,
             changed_by_deletion,
         );
+        Ok(())
+    }
+
+    fn are_ready_for_change(&self, affected: &[String]) -> bool {
+        affected
+            .iter()
+            .all(|affected_name| match self.get(affected_name) {
+                // TODO: check if ready for change
+                Some(_) => true,
+                None => true,
+            })
+    }
+
+    fn push_affected(&mut self, affected: &[String], store: &impl knowledge::store::Get) {
+        for affected_term in affected {
+            if self.get(&affected_term).is_none() {
+                store.get(&affected_term).map(|t| {
+                    self.push(&t);
+                    ()
+                });
+            }
+        }
     }
 
     fn push_to_changed(

@@ -37,7 +37,12 @@ pub(crate) fn propagate_change<T, K>(
     change.arg_changes().is_empty()
         || /* no referring term is affected */ referred_by.is_empty();
 
-    if is_automatic {
+    let change_source_in_commit = cache
+        .get(&change.original().meta.term.name)
+        .map(|t| matches!(t, TermHolder::TwoPhase(_)))
+        .unwrap_or(false);
+
+    if is_automatic && !change_source_in_commit {
         debug!("automatic propagation");
         cache.apply_automatic_change(change);
 

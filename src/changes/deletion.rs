@@ -6,9 +6,14 @@ use super::terms_cache::TermsCache;
 
 pub trait Deletion {
     fn apply_deletion(&self, terms: &impl knowledge::store::Get) -> HashMap<String, FatTerm>;
+    fn affects(&self) -> &[String];
 }
 
 impl Deletion for FatTerm {
+    fn affects(&self) -> &[String] {
+        &self.meta.referred_by
+    }
+
     fn apply_deletion(&self, terms: &impl knowledge::store::Get) -> HashMap<String, FatTerm> {
         let mut terms_cache = TermsCache::new(terms);
         for mentioned_term_name in self.mentioned_terms().into_iter() {
