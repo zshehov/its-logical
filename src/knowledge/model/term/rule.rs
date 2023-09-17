@@ -17,7 +17,7 @@ pub struct Rule {
     pub body: Vec<BoundTerm>,
 }
 
-// parses "some_rule_name(SomeVar,someConst,_):=some_fact(SomeVar),some_rule(someConst,SomeVar)."
+// parses "some_rule_name(SomeVar,someConst,_):-some_fact(SomeVar),some_rule(someConst,SomeVar)."
 pub fn parse_rule(i: &str) -> IResult<&str, Rule, VerboseError<&str>> {
     let raw_rule = separated_pair(
         parse_bound_term,
