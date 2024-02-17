@@ -199,12 +199,12 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
             if self.active {
                 ui.painter().set(
                     where_to_put_background,
-                    RectShape {
+                    RectShape::new(
                         rect,
-                        rounding: style.rounding,
-                        fill: ui.visuals().panel_fill,
-                        stroke: style.bg_stroke,
-                    },
+                        style.rounding,
+                        ui.visuals().panel_fill,
+                        style.bg_stroke,
+                    ),
                 );
             }
         });
