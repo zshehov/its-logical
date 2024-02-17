@@ -55,7 +55,7 @@ impl crate::terms_cache::TwoPhaseTerm for TwoPhaseCommitScreen {
     }
 
     fn in_deletion(&self) -> bool {
-        self.screen.in_deletion()
+        self.screen.is_in_deletion()
     }
 }
 

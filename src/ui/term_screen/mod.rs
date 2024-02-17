@@ -87,7 +87,7 @@ impl TermScreen {
         self.points_in_time.latest().extract_term()
     }
 
-    pub(crate) fn in_deletion(&self) -> bool {
+    pub(crate) fn is_in_deletion(&self) -> bool {
         self.in_deletion
     }
 
