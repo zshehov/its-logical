@@ -22,6 +22,7 @@ bincode = "2.0.0-rc.3"
 bincode_derive = "2.0.0-rc.3"
 fuzzy-matcher = "0.3.7"
 git2 = "0.17.2"
+scryer-prolog = "0.9.3"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

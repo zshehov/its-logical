@@ -1,9 +1,10 @@
+use std::{collections::HashMap, path::PathBuf};
+
 use its_logical::knowledge::{
     model::fat_term::parse_fat_term,
-    store::{InMemoryTerms, PersistentMemoryTerms, TermsStore},
+    store::{InMemoryTerms, TermsStore},
 };
-
-use std::{collections::HashMap, path::PathBuf};
+use its_logical::knowledge::store::{Load, PersistentTermsWithEngine};
 
 pub struct ItsLogicalApp<T: TermsStore> {
     ui: crate::ui::App<T>,
@@ -11,7 +12,7 @@ pub struct ItsLogicalApp<T: TermsStore> {
 
 const SCALE_FACTOR: f32 = 1.2;
 
-impl ItsLogicalApp<PersistentMemoryTerms> {
+impl ItsLogicalApp<PersistentTermsWithEngine> {
     pub fn new(c: &eframe::CreationContext<'_>, knowledge_path: PathBuf) -> Self {
         let mut style = (*c.egui_ctx.style()).clone();
 
@@ -21,7 +22,7 @@ impl ItsLogicalApp<PersistentMemoryTerms> {
         c.egui_ctx.set_style(style);
 
         Self {
-            ui: crate::ui::App::new(PersistentMemoryTerms::new(&knowledge_path), knowledge_path),
+            ui: crate::ui::App::new(PersistentTermsWithEngine::load(&knowledge_path), knowledge_path),
         }
     }
 }
@@ -46,7 +47,7 @@ mother(Cecka,Krustio).
 mother(Mother,Child):-parent(Mother,Child),female(Mother)
 ",
         )
-        .unwrap();
+            .unwrap();
         let (_, father) = parse_fat_term(
             r"%! father a father is a parent that's male
 % @arg FatherName the name of the father
@@ -57,7 +58,7 @@ father(Hristo,Stoichko).
 father(Father,Child):-parent(Father,Child),male(Father)
 ",
         )
-        .unwrap();
+            .unwrap();
         let (_, male) = parse_fat_term(
             r"%! male is one of the genders that has XY chromosomes
 % @arg Name the name of the person
@@ -66,7 +67,7 @@ male(stefan).
 male(petko).
 ",
         )
-        .unwrap();
+            .unwrap();
         Self {
             ui: crate::ui::App::new(
                 InMemoryTerms::new(HashMap::from([
@@ -88,7 +89,8 @@ impl eframe::App for ItsLogicalApp<InMemoryTerms> {
         self.ui.show(ctx)
     }
 }
-impl eframe::App for ItsLogicalApp<PersistentMemoryTerms> {
+
+impl eframe::App for ItsLogicalApp<PersistentTermsWithEngine> {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {

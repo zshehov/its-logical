@@ -1,13 +1,15 @@
-use crate::knowledge::model::fat_term::{parse_fat_term, FatTerm};
-use bincode::{config, decode_from_std_read, encode_into_std_write, Encode};
-use bincode_derive::Decode;
-
 use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
     io::{self, BufReader, BufWriter},
     path::{Path, PathBuf},
 };
+
+use bincode::{config, decode_from_std_read, Encode, encode_into_std_write};
+use bincode_derive::Decode;
+use scryer_prolog::machine::Machine;
+
+use crate::knowledge::model::fat_term::{FatTerm, parse_fat_term};
 
 #[derive(Debug)]
 pub enum Error {
@@ -107,6 +109,59 @@ struct DescriptorEntry {
     is_deleted: bool,
 }
 
+pub struct PersistentTermsWithEngine {
+    terms: PersistentMemoryTerms,
+    engine: Machine,
+}
+
+impl Get for PersistentTermsWithEngine {
+    fn get(&self, term_name: &str) -> Option<FatTerm> {
+        self.terms.get(term_name)
+    }
+}
+
+impl Put for PersistentTermsWithEngine {
+    fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error> {
+        self.terms.put(term_name, term).and_then(|_| Ok({
+            // TODO: check if it's too slow to load all of the buffer every time a term is put
+            // TODO: maybe expose `.flush` that guarantees that the buffer has been loaded in the engine
+            self.engine.consult_module_string("knowledge", self.terms.buffer.clone())
+        }))
+    }
+}
+
+impl Keys for PersistentTermsWithEngine {
+    fn keys(&self) -> &Vec<String> {
+        self.terms.keys()
+    }
+}
+
+impl Delete for PersistentTermsWithEngine {
+    fn delete(&mut self, term_name: &str) {
+        self.terms.delete(term_name);
+        // TODO: check if it's too slow to load all of the buffer every time a term is deleted
+        // TODO: maybe expose `.flush` that guarantees that the buffer has been loaded in the engine
+        self.engine.consult_module_string("knowledge", self.terms.buffer.clone())
+    }
+}
+
+impl TermsStore for PersistentTermsWithEngine {}
+
+impl Load for PersistentTermsWithEngine {
+    type Store = PersistentTermsWithEngine;
+
+    fn load(path: &Path) -> Self::Store {
+        let terms = PersistentMemoryTerms::load(path);
+        let mut engine = Machine::new_lib();
+        engine.consult_module_string("knowledge", terms.buffer.clone());
+
+        PersistentTermsWithEngine {
+            terms,
+            engine,
+        }
+    }
+}
+
 pub struct PersistentMemoryTerms {
     // TODO: change this index to a DB - lmdb is probably best
     index: HashMap<String, usize>,
@@ -152,7 +207,6 @@ impl PersistentMemoryTerms {
             descriptor_vec
         };
 
-        // TODO: use drain_filter when it's stable
         descriptor_vec.retain(|x| !x.is_deleted);
 
         let mut index = HashMap::new();

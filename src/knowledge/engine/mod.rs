@@ -1,8 +1,14 @@
 use std::{cell::RefCell, rc::Rc};
 
+use scryer_prolog::machine::Machine;
+
+use crate::knowledge::model::term::args_binding::ArgsBinding;
+use crate::knowledge::model::term::bound_term::BoundTerm;
+
 pub trait Engine {
     fn ask(&mut self, name: &str, args: &[String]) -> Rc<RefCell<ConsultResult>>;
 }
+
 pub struct ConsultResult {
     size: usize,
 }
@@ -23,10 +29,18 @@ impl ConsultResult {
     }
 }
 
-pub struct DummyEngine {}
+impl Engine for Machine {
+    fn ask(&mut self, name: &str, args: &[String]) -> Rc<RefCell<ConsultResult>> {
+        let term = BoundTerm::new(name, ArgsBinding::new(args));
+        let result = self.run_query(term.encode());
 
-impl Engine for DummyEngine {
-    fn ask(&mut self, _: &str, args: &[String]) -> Rc<RefCell<ConsultResult>> {
         Rc::new(RefCell::new(ConsultResult::new(args.len())))
+    }
+}
+
+// this is needed to enable the passing of trait objects to functions that accept `impl Engine`
+impl Engine for Box<dyn Engine> {
+    fn ask(&mut self, name: &str, args: &[String]) -> Rc<RefCell<ConsultResult>> {
+        (self as &mut dyn Engine).ask(name, args)
     }
 }

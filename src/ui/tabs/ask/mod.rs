@@ -32,7 +32,7 @@ impl Ask {
         }
     }
 
-    fn extract_request(&self) -> impl Iterator<Item = &String> {
+    fn extract_arguments(&self) -> impl Iterator<Item = &String> {
         self.anchors
             .iter()
             .zip(self.args_initial.iter())
@@ -118,7 +118,7 @@ impl Ask {
                 if self.results.show(ui) {
                     let consult = engine.ask(
                         &self.term_name,
-                        self.extract_request()
+                        self.extract_arguments()
                             .cloned()
                             .collect::<Vec<String>>()
                             .as_slice(),

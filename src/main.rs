@@ -1,8 +1,9 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use its_logical::knowledge::store::PersistentMemoryTerms;
 use tracing::Level;
+
+use its_logical::knowledge::store::PersistentTermsWithEngine;
 
 mod app;
 mod change_propagation;
@@ -29,7 +30,7 @@ fn main() -> eframe::Result<()> {
         "It's Logical",
         native_options,
         Box::new(|cc| {
-            Box::new(ItsLogicalApp::<PersistentMemoryTerms>::new(
+            Box::new(ItsLogicalApp::<PersistentTermsWithEngine>::new(
                 cc,
                 knowledge_path,
             ))
@@ -55,7 +56,7 @@ fn main() {
             web_options,
             Box::new(|_| Box::new(ItsLogicalApp::new())),
         )
-        .await
-        .expect("failed to start eframe");
+            .await
+            .expect("failed to start eframe");
     });
 }

@@ -1,15 +1,19 @@
 use nom::{
     bytes::complete::{tag, take_till1},
     error::VerboseError,
-    multi::separated_list1,
     IResult,
+    multi::separated_list1,
 };
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct ArgsBinding {
     pub binding: Vec<String>,
 }
+
 impl ArgsBinding {
+    pub fn new(binding: &[String]) -> Self {
+        Self { binding: binding.to_vec() }
+    }
     pub fn encode(&self) -> String {
         self.binding.join(",")
     }
