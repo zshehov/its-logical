@@ -67,7 +67,7 @@ impl Ask {
             .changed()
         {
             // TODO: handle the None here
-            let t = terms.get(&self.term_name).unwrap();
+            let t = terms.get(&self.term_name).expect("selections should only be made from the available terms");
             self.args_initial = t.meta.args;
             self.anchors = vec![None; self.args_initial.len()];
             // reset any results from before
