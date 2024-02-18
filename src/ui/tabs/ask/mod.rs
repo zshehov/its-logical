@@ -70,6 +70,8 @@ impl Ask {
             let t = terms.get(&self.term_name).unwrap();
             self.args_initial = t.meta.args;
             self.anchors = vec![None; self.args_initial.len()];
+            // reset any results from before
+            self.results = Table::new();
             ui.label("Try to consult");
         }
         ui.separator();
