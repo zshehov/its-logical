@@ -1,8 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use its_logical::knowledge::{model::fat_term::parse_fat_term, store::TermsStore};
-use its_logical::knowledge::store::{Load, PersistentTermsWithEngine};
 use its_logical::knowledge::store::in_memory::InMemoryTerms;
+use its_logical::knowledge::store::Load;
+use its_logical::knowledge::store::persistent::TermsWithEngine;
 
 pub struct ItsLogicalApp<T: TermsStore> {
     ui: crate::ui::App<T>,
@@ -10,7 +11,7 @@ pub struct ItsLogicalApp<T: TermsStore> {
 
 const SCALE_FACTOR: f32 = 1.2;
 
-impl ItsLogicalApp<PersistentTermsWithEngine> {
+impl ItsLogicalApp<TermsWithEngine> {
     pub fn new(c: &eframe::CreationContext<'_>, knowledge_path: PathBuf) -> Self {
         let mut style = (*c.egui_ctx.style()).clone();
 
@@ -20,7 +21,7 @@ impl ItsLogicalApp<PersistentTermsWithEngine> {
         c.egui_ctx.set_style(style);
 
         Self {
-            ui: crate::ui::App::new(PersistentTermsWithEngine::load(&knowledge_path), knowledge_path),
+            ui: crate::ui::App::new(TermsWithEngine::load(&knowledge_path), knowledge_path),
         }
     }
 }
@@ -88,7 +89,7 @@ impl eframe::App for ItsLogicalApp<InMemoryTerms> {
     }
 }
 
-impl eframe::App for ItsLogicalApp<PersistentTermsWithEngine> {
+impl eframe::App for ItsLogicalApp<TermsWithEngine> {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {

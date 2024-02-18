@@ -3,7 +3,7 @@
 
 use tracing::Level;
 
-use its_logical::knowledge::store::PersistentTermsWithEngine;
+use its_logical::knowledge::store::persistent::TermsWithEngine;
 
 mod app;
 mod change_propagation;
@@ -30,7 +30,7 @@ fn main() -> eframe::Result<()> {
         "It's Logical",
         native_options,
         Box::new(|cc| {
-            Box::new(ItsLogicalApp::<PersistentTermsWithEngine>::new(
+            Box::new(ItsLogicalApp::<TermsWithEngine>::new(
                 cc,
                 knowledge_path,
             ))
