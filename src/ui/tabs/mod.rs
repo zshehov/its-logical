@@ -1,5 +1,4 @@
 use its_logical::changes::{self, change};
-use its_logical::knowledge::engine::Engine;
 use its_logical::knowledge::model::fat_term::FatTerm;
 use its_logical::knowledge::store::{Consult, Delete, Get, Keys, Put};
 

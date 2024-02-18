@@ -1,7 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
 use its_logical::knowledge::{
-    engine::{ConsultResult, Engine},
     store::{Get, Keys},
 };
 use its_logical::knowledge::model::comment::name_description::NameDescription;
@@ -22,7 +21,6 @@ pub(crate) struct Ask {
     anchors: Vec<Option<String>>,
     args_initial: Vec<NameDescription>,
     results: Table,
-    consult: Option<Rc<RefCell<ConsultResult>>>,
 }
 
 impl Ask {
@@ -32,7 +30,6 @@ impl Ask {
             anchors: vec![],
             args_initial: vec![],
             results: Table::new(),
-            consult: None,
         }
     }
 
