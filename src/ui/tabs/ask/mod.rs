@@ -10,18 +10,18 @@ use its_logical::knowledge::model::term::bound_term::BoundTerm;
 use its_logical::knowledge::store::Consult;
 
 use crate::suggestions::FuzzySuggestions;
+use crate::ui::tabs::ask::table::Table;
 use crate::ui::widgets::popup_suggestions;
 
-use self::growable_table::GrowableTable;
-
 mod growable_table;
+mod table;
 
 // TODO: move under term_tabs module
 pub(crate) struct Ask {
     term_name: String,
     anchors: Vec<Option<String>>,
     args_initial: Vec<NameDescription>,
-    results: GrowableTable,
+    results: Table,
     consult: Option<Rc<RefCell<ConsultResult>>>,
 }
 
@@ -31,21 +31,13 @@ impl Ask {
             term_name: String::new(),
             anchors: vec![],
             args_initial: vec![],
-            results: GrowableTable::new(),
+            results: Table::new(),
             consult: None,
         }
     }
 
-    fn extract_arguments(&self) -> impl Iterator<Item=String> + '_ {
-        self.anchors
-            .iter()
-            .zip(self.args_initial.iter())
-            .map(|(x, y)| {
-                if let Some(anchor) = x {
-                    return anchor.to_owned();
-                }
-                y.name.clone()
-            })
+    fn extract_anchors(&self) -> Vec<Option<String>> {
+        self.anchors.clone()
     }
 }
 
@@ -78,8 +70,7 @@ impl Ask {
             let t = terms.get(&self.term_name).unwrap();
             self.args_initial = t.meta.args;
             self.anchors = vec![None; self.args_initial.len()];
-
-            self.results = GrowableTable::new();
+            ui.label("Try to consult");
         }
         ui.separator();
 
@@ -119,25 +110,67 @@ impl Ask {
                 });
                 ui.separator();
                 if self.results.show(ui) {
-                    let bound_term = BoundTerm::new(
+                    let bound_term = build_bound_term(
                         &self.term_name,
-                        ArgsBinding::new(&self.extract_arguments().collect::<Vec<String>>()),
-                    );
+                        &self.extract_anchors(),
+                    ).expect("couldn't build bound term");
+
                     let consult = terms.consult(&bound_term);
+                    let mut current_results = Vec::with_capacity(consult.len());
 
                     for binding in consult {
                         let mut with_anchors = bound_term.arg_bindings.binding.clone();
-                        with_anchors.iter_mut().for_each(|x|{
+                        with_anchors.iter_mut().for_each(|x| {
                             if let Some(bound_value) = binding.get(x) {
                                 *x = bound_value.to_owned()
                             }
                         });
-
-                        self.results.grow(ui, &with_anchors);
+                        current_results.push(with_anchors);
                     }
+                    self.results.set_content(current_results);
                 }
             });
             ui.separator();
         }
     }
+}
+
+fn get_next_random_var_name(current: &str) -> String {
+    let (left, last_char) = current.split_at(current.len() - 1);
+    let mut last_char = last_char.chars().last().expect("last character is always a single character");
+
+    if last_char.lt(&'Z') {
+        let mut result = left.to_string();
+        result.push((last_char as u8 + 1) as char);
+        return result;
+    }
+    let mut result = current.to_string();
+    result.push('A');
+    return result;
+}
+
+fn build_bound_term(term_name: &str, anchors: &[Option<String>]) -> Result<BoundTerm, String> {
+    let all_anchors_start_with_lower_case = anchors
+        .iter()
+        .flatten()
+        .all(|x| x.chars().next().expect("anchors have at least 1 character").is_lowercase());
+    if !all_anchors_start_with_lower_case {
+        // TODO: maybe just filter out anchors that are upper-cased?
+        return Err("there are anchors that would be interpreted as Prolog variables".to_string());
+    }
+
+    let mut current_var_name: String = (('A' as u8 - 1) as char).to_string();
+    let term_args: Vec<String> = anchors.iter().map(|x| {
+        match x {
+            None => {
+                current_var_name = get_next_random_var_name(&current_var_name);
+                current_var_name.clone()
+            }
+            Some(anchor) => {
+                anchor.to_owned()
+            }
+        }
+    }).collect();
+
+    Ok(BoundTerm::new(term_name, ArgsBinding::new(&term_args)))
 }
