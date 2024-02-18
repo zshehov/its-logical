@@ -28,7 +28,7 @@ impl Put for TermsWithEngine {
         self.terms.put(term_name, term).and_then(|_| Ok({
             // TODO: check if it's too slow to load all of the buffer every time a term is put
             // TODO: maybe expose `.flush` that guarantees that the buffer has been loaded in the engine
-            self.engine.consult_module_string("knowledge", self.terms.buffer.clone())
+            self.engine.load_module_string("knowledge", self.terms.buffer.clone())
         }))
     }
 }
@@ -44,14 +44,12 @@ impl Delete for TermsWithEngine {
         self.terms.delete(term_name);
         // TODO: check if it's too slow to load all of the buffer every time a term is deleted
         // TODO: maybe expose `.flush` that guarantees that the buffer has been loaded in the engine
-        self.engine.consult_module_string("knowledge", self.terms.buffer.clone())
+        self.engine.load_module_string("knowledge", self.terms.buffer.clone())
     }
 }
 
 impl Consult for TermsWithEngine {
     fn consult(&mut self, term: &BoundTerm) -> Vec<HashMap<String, String>> {
-        // TODO: choose where to put the persist, maybe rather in put and delete
-        self.terms.persist();
         // the term must be finished with a '.' to be a valid prolog query
         let result = self.engine.run_query(term.encode() + ".");
         return match result {
