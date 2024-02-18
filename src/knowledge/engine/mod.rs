@@ -37,10 +37,3 @@ impl Engine for Machine {
         Rc::new(RefCell::new(ConsultResult::new(args.len())))
     }
 }
-
-// this is needed to enable the passing of trait objects to functions that accept `impl Engine`
-impl Engine for Box<dyn Engine> {
-    fn ask(&mut self, name: &str, args: &[String]) -> Rc<RefCell<ConsultResult>> {
-        (self as &mut dyn Engine).ask(name, args)
-    }
-}
