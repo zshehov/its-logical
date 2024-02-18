@@ -1,10 +1,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use its_logical::knowledge::{
-    model::fat_term::parse_fat_term,
-    store::{InMemoryTerms, TermsStore},
-};
+use its_logical::knowledge::{model::fat_term::parse_fat_term, store::TermsStore};
 use its_logical::knowledge::store::{Load, PersistentTermsWithEngine};
+use its_logical::knowledge::store::in_memory::InMemoryTerms;
 
 pub struct ItsLogicalApp<T: TermsStore> {
     ui: crate::ui::App<T>,
