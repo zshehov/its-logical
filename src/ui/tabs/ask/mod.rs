@@ -1,9 +1,13 @@
-use its_logical::knowledge::model::comment::name_description::NameDescription;
+use std::{cell::RefCell, rc::Rc};
+
 use its_logical::knowledge::{
     engine::{ConsultResult, Engine},
     store::{Get, Keys},
 };
-use std::{cell::RefCell, rc::Rc};
+use its_logical::knowledge::model::comment::name_description::NameDescription;
+use its_logical::knowledge::model::term::args_binding::ArgsBinding;
+use its_logical::knowledge::model::term::bound_term::BoundTerm;
+use its_logical::knowledge::store::Consult;
 
 use crate::suggestions::FuzzySuggestions;
 use crate::ui::widgets::popup_suggestions;
@@ -32,15 +36,15 @@ impl Ask {
         }
     }
 
-    fn extract_arguments(&self) -> impl Iterator<Item = &String> {
+    fn extract_arguments(&self) -> impl Iterator<Item=String> + '_ {
         self.anchors
             .iter()
             .zip(self.args_initial.iter())
             .map(|(x, y)| {
                 if let Some(anchor) = x {
-                    return anchor;
+                    return anchor.to_owned();
                 }
-                &y.name
+                y.name.clone()
             })
     }
 }
@@ -51,8 +55,7 @@ impl Ask {
     pub(crate) fn show(
         &mut self,
         ui: &mut egui::Ui,
-        engine: &mut impl Engine,
-        terms: &(impl Get + Keys),
+        terms: &mut (impl Get + Keys + Consult),
     ) {
         let term_suggestions = FuzzySuggestions::new(terms.keys().iter().cloned());
         if popup_suggestions::show(
@@ -69,7 +72,7 @@ impl Ask {
             },
             &term_suggestions,
         )
-        .changed()
+            .changed()
         {
             // TODO: handle the None here
             let t = terms.get(&self.term_name).unwrap();
@@ -116,23 +119,21 @@ impl Ask {
                 });
                 ui.separator();
                 if self.results.show(ui) {
-                    let consult = engine.ask(
+                    let bound_term = BoundTerm::new(
                         &self.term_name,
-                        self.extract_arguments()
-                            .cloned()
-                            .collect::<Vec<String>>()
-                            .as_slice(),
+                        ArgsBinding::new(&self.extract_arguments().collect::<Vec<String>>()),
                     );
+                    let consult = terms.consult(&bound_term);
 
-                    let consult = self.consult.get_or_insert_with(|| Rc::clone(&consult));
+                    for binding in consult {
+                        let mut with_anchors = bound_term.arg_bindings.binding.clone();
+                        with_anchors.iter_mut().for_each(|x|{
+                            if let Some(bound_value) = binding.get(x) {
+                                *x = bound_value.to_owned()
+                            }
+                        });
 
-                    let mut i = 0;
-                    while let Some(next) = &consult.borrow_mut().more() {
-                        self.results.grow(ui, next);
-                        i += 1;
-                        if i >= CONSULT_LIMIT {
-                            break;
-                        }
+                        self.results.grow(ui, &with_anchors);
                     }
                 }
             });

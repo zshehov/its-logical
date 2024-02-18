@@ -1,9 +1,7 @@
-use scryer_prolog::machine::Machine;
-
 use its_logical::changes::{self, change};
 use its_logical::knowledge::engine::Engine;
 use its_logical::knowledge::model::fat_term::FatTerm;
-use its_logical::knowledge::store::{Delete, Get, Keys, Put};
+use its_logical::knowledge::store::{Consult, Delete, Get, Keys, Put};
 
 use crate::change_propagation;
 use crate::terms_cache::{TermHolder, TermsCache};
@@ -29,8 +27,6 @@ pub(crate) struct Tabs {
     current_selection: ChosenTab,
     ask: ask::Ask,
     term_tabs: TermsCache<TermScreen, TwoPhaseCommitScreen>,
-    engine: Box<dyn Engine>,
-
 }
 
 impl Default for Tabs {
@@ -39,7 +35,6 @@ impl Default for Tabs {
             current_selection: ChosenTab::Ask,
             ask: ask::Ask::new(),
             term_tabs: TermsCache::default(),
-            engine: Box::new(Machine::new_lib()),
         }
     }
 }
@@ -48,7 +43,7 @@ impl Tabs {
     pub(crate) fn show(
         &mut self,
         ctx: &egui::Context,
-        terms: &mut (impl Get + Put + Delete + Keys),
+        terms: &mut (impl Get + Put + Delete + Keys + Consult),
     ) {
         egui::TopBottomPanel::top("tabs_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -97,7 +92,7 @@ impl Tabs {
             ChosenTab::Ask => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        self.ask.show(ui, &mut self.engine, terms)
+                        self.ask.show(ui, terms)
                     });
             }
             ChosenTab::TermScreen(screen_idx) => {

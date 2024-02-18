@@ -8,8 +8,10 @@ use std::{
 use bincode::{config, decode_from_std_read, Encode, encode_into_std_write};
 use bincode_derive::Decode;
 use scryer_prolog::machine::Machine;
+use scryer_prolog::machine::parsed_results::{QueryResolution, Value};
 
 use crate::knowledge::model::fat_term::{FatTerm, parse_fat_term};
+use crate::knowledge::model::term::bound_term::BoundTerm;
 
 #[derive(Debug)]
 pub enum Error {
@@ -36,12 +38,16 @@ pub trait Delete {
 }
 
 pub trait Load {
-    type Store: TermsStore;
+    type Store: Get + Put + Keys + Delete;
 
     fn load(path: &Path) -> Self::Store;
 }
 
-pub trait TermsStore: Get + Put + Keys + Delete {}
+pub trait Consult {
+    fn consult(&mut self, term: &BoundTerm) -> Vec<HashMap<String, String>>;
+}
+
+pub trait TermsStore: Get + Put + Keys + Delete + Consult {}
 
 pub struct InMemoryTerms {
     map: HashMap<String, FatTerm>,
@@ -94,6 +100,12 @@ impl Load for InMemoryTerms {
     type Store = InMemoryTerms;
 }
 
+impl Consult for InMemoryTerms {
+    fn consult(&mut self, term: &BoundTerm) -> Vec<HashMap<String, String>> {
+        todo!()
+    }
+}
+
 impl TermsStore for InMemoryTerms {}
 
 const PAGE_NAME: &str = "page.pl";
@@ -142,6 +154,42 @@ impl Delete for PersistentTermsWithEngine {
         // TODO: check if it's too slow to load all of the buffer every time a term is deleted
         // TODO: maybe expose `.flush` that guarantees that the buffer has been loaded in the engine
         self.engine.consult_module_string("knowledge", self.terms.buffer.clone())
+    }
+}
+
+impl Consult for PersistentTermsWithEngine {
+    fn consult(&mut self, term: &BoundTerm) -> Vec<HashMap<String, String>> {
+        // TODO: choose where to put the persist, maybe rather in put and delete
+        self.terms.persist();
+        // the term must be finished with a '.' to be a valid prolog query
+        let result = self.engine.run_query(term.encode() + ".");
+        return match result {
+            Ok(resolution) => {
+                match resolution {
+                    QueryResolution::True => {vec![]}
+                    QueryResolution::False => {vec![]}
+                    QueryResolution::Matches(matches) => {
+                        // TODO: decide if it's worth it to handle something other than String
+                        let consult_result = matches.iter().map(|x| {
+                            let mut bound = HashMap::with_capacity(x.bindings.len());
+                            for binding in &x.bindings {
+                                if let Value::String(s) = binding.1 {
+                                    bound.insert(binding.0.to_owned(), s.to_owned());
+                                } else {
+                                    panic!("all values are currently expected to be strings");
+                                }
+                            }
+                            return bound;
+                        }).collect();
+
+                        consult_result
+                    }
+                }
+            }
+            Err(e) => {
+                panic!("{:?}", e)
+            }
+        };
     }
 }
 
@@ -360,5 +408,3 @@ impl Load for PersistentMemoryTerms {
         PersistentMemoryTerms::new(path)
     }
 }
-
-impl TermsStore for PersistentMemoryTerms {}
