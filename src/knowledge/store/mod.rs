@@ -265,7 +265,7 @@ impl PersistentMemoryTerms {
         Ok(())
     }
 
-    fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error> {
+    fn create(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error> {
         let encoded_term = term.encode();
 
         let mut new_entry_offset = 0;
@@ -309,7 +309,7 @@ impl Put for PersistentMemoryTerms {
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error> {
         match self.index.get(term_name) {
             Some(&term_idx) => self.edit(term_name, term_idx, &term),
-            None => self.put(&term.meta.term.name.clone(), term),
+            None => self.create(&term.meta.term.name.clone(), term),
         }
     }
 }
