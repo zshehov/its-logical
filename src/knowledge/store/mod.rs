@@ -46,6 +46,12 @@ pub trait Load {
     fn load(path: &Path) -> Self::Store;
 }
 
+pub enum ConsultResult {
+    Success,
+    Failure,
+    Solutions
+}
+
 pub trait Consult {
     fn consult(&mut self, term: &BoundTerm) -> Vec<HashMap<String, String>>;
 }

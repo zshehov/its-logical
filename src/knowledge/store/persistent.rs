@@ -90,7 +90,7 @@ impl Load for TermsWithEngine {
     fn load(path: &Path) -> Self::Store {
         let terms = Terms::load(path);
         let mut engine = Machine::new_lib();
-        engine.consult_module_string("knowledge", terms.buffer.clone());
+        engine.load_module_string("knowledge", terms.buffer.clone());
 
         TermsWithEngine {
             terms,
