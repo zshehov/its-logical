@@ -21,8 +21,8 @@ const NEWLINE: &str = r"
 impl Comment {
     pub fn encode(&self) -> String {
         let term_encoded = self.term.encode();
-        let mut encoded = String::with_capacity(term_encoded.len() + "%! ".len() + 1);
-        encoded.push_str("%! ");
+        let mut encoded = String::with_capacity(term_encoded.len() + "% -".len() + 1);
+        encoded.push_str("% -");
         encoded.push_str(&term_encoded);
         encoded.push_str(NEWLINE);
 
@@ -48,7 +48,7 @@ impl Comment {
 }
 
 pub fn parse_comment(i: &str) -> IResult<&str, Comment, VerboseError<&str>> {
-    take_until("%!")(i)
+    take_until("% -")(i)
         .and_then(|(leftover, _)| {
             tuple((
                 term_definition_parser,
@@ -69,7 +69,7 @@ pub fn parse_comment(i: &str) -> IResult<&str, Comment, VerboseError<&str>> {
 }
 
 fn term_definition_parser(i: &str) -> IResult<&str, NameDescription, VerboseError<&str>> {
-    preceded(tag("%! "), parse_name_description)(i)
+    preceded(tag("% -"), parse_name_description)(i)
 }
 
 fn args_definition_parser(i: &str) -> IResult<&str, Vec<NameDescription>, VerboseError<&str>> {

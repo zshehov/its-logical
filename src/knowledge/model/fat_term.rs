@@ -88,7 +88,7 @@ mod test {
     };
     #[test]
     fn test_parse_encode() {
-        let input = r"%! father a father is a parent that's male
+        let input = r"% -father a father is a parent that's male
 % @arg FatherName the name of the father
 % @arg ChildName the name of the child
 % @see parent,male
