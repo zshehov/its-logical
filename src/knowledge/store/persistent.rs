@@ -1,16 +1,16 @@
-use std::{fs, io};
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
+use std::{fs, io};
 
 use bincode::{config, decode_from_std_read, encode_into_std_write};
-use scryer_prolog::machine::Machine;
 use scryer_prolog::machine::parsed_results::{QueryResolution, Value};
+use scryer_prolog::machine::Machine;
 
-use crate::knowledge::model::fat_term::{FatTerm, parse_fat_term};
+use crate::knowledge::model::fat_term::{parse_fat_term, FatTerm};
 use crate::knowledge::model::term::bound_term::BoundTerm;
-use crate::knowledge::store::{Consult, Delete, DESCRIPTOR_NAME, DescriptorEntry, Error, Get, Keys, Load, PAGE_NAME, Put, TermsStore};
+use crate::knowledge::store::{Consult, Delete, DescriptorEntry, Error, Get, Keys, Load, Put, TermsStore, DESCRIPTOR_NAME, PAGE_NAME};
 
 pub struct TermsWithEngine {
     terms: Terms,
@@ -277,11 +277,8 @@ impl Delete for Terms {
             "",
         );
 
-        for desriptor_entry in self.descriptor[deleted_entry_idx + 1..].iter_mut() {
-            let mut adjusted_offset = desriptor_entry.offset as i64;
-            adjusted_offset -= deleted_entry.len as i64;
-
-            desriptor_entry.offset = adjusted_offset as usize;
+        for descriptor_entry in self.descriptor[deleted_entry_idx + 1..].iter_mut() {
+            descriptor_entry.offset -= deleted_entry.len;
         }
         self.index.remove(term_name);
 
