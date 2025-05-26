@@ -47,11 +47,11 @@ impl GrowableTable {
                 for item in &self.contents {
                     ui.vertical(|ui| {
                         for i in item {
-                            ui.add(egui::Label::new(RichText::new(i).monospace()).wrap(false));
+                            ui.add(egui::Label::new(RichText::new(i).monospace()));
                         }
                     });
                 }
-                ui.add(egui::Button::new(RichText::new("More ...").heading()).wrap(false))
+                ui.add(egui::Button::new(RichText::new("More ...").heading()))
                     .clicked()
             })
             .inner

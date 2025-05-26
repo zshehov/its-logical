@@ -1,16 +1,9 @@
-use std::{
-    collections::HashMap,
-    fs::{self, File, OpenOptions},
-    io::{self, BufReader, BufWriter},
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::Path};
 
-use bincode::{config, decode_from_std_read, Encode, encode_into_std_write};
+use bincode::Encode;
 use bincode_derive::Decode;
-use scryer_prolog::machine::Machine;
-use scryer_prolog::machine::parsed_results::{QueryResolution, Value};
 
-use crate::knowledge::model::fat_term::{FatTerm, parse_fat_term};
+use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::model::term::bound_term::BoundTerm;
 
 pub mod in_memory;
@@ -49,7 +42,7 @@ pub trait Load {
 pub enum ConsultResult {
     Success,
     Failure,
-    Solutions
+    Solutions,
 }
 
 pub trait Consult {

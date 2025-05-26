@@ -4,13 +4,16 @@ use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
-use bincode::{config, decode_from_std_read, encode_into_std_write};
-use scryer_prolog::machine::parsed_results::{QueryResolution, Value};
-use scryer_prolog::machine::Machine;
-
 use crate::knowledge::model::fat_term::{parse_fat_term, FatTerm};
 use crate::knowledge::model::term::bound_term::BoundTerm;
-use crate::knowledge::store::{Consult, Delete, DescriptorEntry, Error, Get, Keys, Load, Put, TermsStore, DESCRIPTOR_NAME, PAGE_NAME};
+use crate::knowledge::store::{
+    Consult, Delete, DescriptorEntry, Error, Get, Keys, Load, Put, TermsStore, DESCRIPTOR_NAME,
+    PAGE_NAME,
+};
+use bincode::{config, decode_from_std_read, encode_into_std_write};
+use scryer_prolog::Machine;
+use scryer_prolog::Term::Atom;
+use scryer_prolog::{LeafAnswer, MachineBuilder};
 
 pub struct TermsWithEngine {
     terms: Terms,
@@ -25,11 +28,14 @@ impl Get for TermsWithEngine {
 
 impl Put for TermsWithEngine {
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error> {
-        self.terms.put(term_name, term).and_then(|_| Ok({
-            // TODO: check if it's too slow to load all of the buffer every time a term is put
-            // TODO: maybe expose `.flush` that guarantees that the buffer has been loaded in the engine
-            self.engine.load_module_string("knowledge", self.terms.buffer.clone())
-        }))
+        self.terms.put(term_name, term).and_then(|_| {
+            Ok({
+                // TODO: check if it's too slow to load all of the buffer every time a term is put
+                // TODO: maybe expose `.flush` that guarantees that the buffer has been loaded in the engine
+                self.engine
+                    .load_module_string("knowledge", self.terms.buffer.clone())
+            })
+        })
     }
 }
 
@@ -44,41 +50,47 @@ impl Delete for TermsWithEngine {
         self.terms.delete(term_name);
         // TODO: check if it's too slow to load all of the buffer every time a term is deleted
         // TODO: maybe expose `.flush` that guarantees that the buffer has been loaded in the engine
-        self.engine.load_module_string("knowledge", self.terms.buffer.clone())
+        self.engine
+            .load_module_string("knowledge", self.terms.buffer.clone())
     }
 }
 
 impl Consult for TermsWithEngine {
     fn consult(&mut self, term: &BoundTerm) -> Vec<HashMap<String, String>> {
         // the term must be finished with a '.' to be a valid prolog query
-        let result = self.engine.run_query(term.encode() + ".");
-        return match result {
-            Ok(resolution) => {
-                match resolution {
-                    QueryResolution::True => { vec![] }
-                    QueryResolution::False => { vec![] }
-                    QueryResolution::Matches(matches) => {
-                        // TODO: decide if it's worth it to handle something other than String
-                        let consult_result = matches.iter().map(|x| {
-                            let mut bound = HashMap::with_capacity(x.bindings.len());
-                            for binding in &x.bindings {
-                                if let Value::String(s) = binding.1 {
-                                    bound.insert(binding.0.to_owned(), s.to_owned());
-                                } else {
-                                    panic!("all values are currently expected to be strings");
-                                }
-                            }
-                            return bound;
-                        }).collect();
-
-                        consult_result
+        let mut consult_results = vec![];
+        let results = self.engine.run_query(term.encode() + ".");
+        for binding in results {
+            match binding {
+                Ok(b) => match b {
+                    LeafAnswer::True => {
+                        // TODO: represent success
                     }
+                    LeafAnswer::False => {
+                        // TODO: represent failure
+                    }
+                    LeafAnswer::Exception(_) => {}
+                    LeafAnswer::LeafAnswer {
+                        bindings: arg_binding,
+                        ..
+                    } => {
+                        let mut bound = HashMap::with_capacity(arg_binding.len());
+                        for binding in &arg_binding {
+                            if let Atom(s) = binding.1 {
+                                bound.insert(binding.0.to_owned(), s.to_owned());
+                            } else {
+                                panic!("all values are currently expected to be strings");
+                            }
+                        }
+                        consult_results.push(bound);
+                    }
+                },
+                Err(e) => {
+                    panic!("{:?}", e)
                 }
-            }
-            Err(e) => {
-                panic!("{:?}", e)
-            }
-        };
+            };
+        }
+        consult_results
     }
 }
 
@@ -89,13 +101,11 @@ impl Load for TermsWithEngine {
 
     fn load(path: &Path) -> Self::Store {
         let terms = Terms::load(path);
-        let mut engine = Machine::new_lib();
+        let builder = MachineBuilder::default();
+        let mut engine = builder.build();
         engine.load_module_string("knowledge", terms.buffer.clone());
 
-        TermsWithEngine {
-            terms,
-            engine,
-        }
+        TermsWithEngine { terms, engine }
     }
 }
 
