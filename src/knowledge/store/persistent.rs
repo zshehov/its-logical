@@ -165,6 +165,7 @@ impl Terms {
         let page_path = path.join(PAGE_NAME);
         let page_content = OpenOptions::new()
             .create(true)
+            .truncate(false)
             .read(true)
             .write(true)
             .open(page_path)
