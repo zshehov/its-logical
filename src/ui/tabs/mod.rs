@@ -129,7 +129,7 @@ impl Tabs {
                                     &mut self.term_tabs,
                                 );
                             }
-                            term_screen::Output::Deleted(_) => {
+                            term_screen::Output::Deleted => {
                                 if change_propagation::propagate_deletion(
                                     &original_term,
                                     terms,

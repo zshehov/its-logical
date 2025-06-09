@@ -7,7 +7,7 @@ use self::term_screen_pit::{TermChange, TermScreenPIT};
 
 pub(crate) enum Output {
     Changes(Vec<TermChange>, FatTerm),
-    Deleted(String),
+    Deleted,
 }
 
 mod edit_button;
@@ -20,7 +20,7 @@ pub(crate) mod term_screen_pit;
 pub(crate) struct TermScreen {
     points_in_time: PointsInTime,
     showing_point_in_time: Option<usize>,
-    current: Option<term_screen_pit::TermScreenPIT>,
+    current: Option<TermScreenPIT>,
     delete_confirmation: String,
     in_deletion: bool,
 }
@@ -91,23 +91,12 @@ impl TermScreen {
         self.in_deletion
     }
 
-    pub(crate) fn put_in_deletion(&mut self) {
-        self.in_deletion = true;
-    }
-
     pub(crate) fn get_pits(&self) -> &PointsInTime {
         &self.points_in_time
     }
 
     pub(crate) fn get_pits_mut(&mut self) -> (&mut PointsInTime, Option<&mut TermScreenPIT>) {
         (&mut self.points_in_time, self.current.as_mut())
-    }
-
-    pub(crate) fn is_ready_for_change(&self) -> bool {
-        if self.current.is_some() {
-            return false;
-        }
-        true
     }
 
     pub(crate) fn start_changes(&mut self) {
@@ -147,8 +136,6 @@ impl TermScreen {
                 }
             });
         }
-
-        let term_name = self.name();
 
         // show the edit/save buttons
         if !self.in_deletion {
@@ -216,7 +203,7 @@ impl TermScreen {
                         self.current = None;
                         self.showing_point_in_time = Some(self.points_in_time.len() - 1);
                         self.in_deletion = true;
-                        return Some(Output::Deleted(term_name));
+                        return Some(Output::Deleted);
                     };
                     None
                 })

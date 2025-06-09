@@ -96,10 +96,8 @@ impl<T: Clone + Eq + Hash> ChangeTrackingVec<T> {
     }
 
     fn reset_order(&mut self) {
-        let mut idx = 0;
-        for order_idx in &mut self.order_changes {
+        for (idx, order_idx) in &mut self.order_changes.iter_mut().enumerate() {
             *order_idx = idx;
-            idx += 1;
         }
     }
 }

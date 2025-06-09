@@ -59,7 +59,9 @@ pub(crate) fn propagate_change<T, K>(
         }
     } else {
         debug!("2 phase commit propagation");
-        cache.apply_for_confirmation_change(store, change);
+        cache
+            .apply_for_confirmation_change(store, change)
+            .expect("no errors are currently expected");
     }
     // if there is an ongoing 2phase commit among one of `updated_term`'s newly mentioned terms,
     // all the changes in the commit need to be applied on `updated_term`
@@ -121,7 +123,9 @@ where
         true
     } else {
         debug!("deletion with confirmation");
-        cache.apply_for_confirmation_delete(term, store);
+        cache
+            .apply_for_confirmation_delete(term, store)
+            .expect("no errors are currently expected");
         false
     }
 }

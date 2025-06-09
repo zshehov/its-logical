@@ -34,8 +34,6 @@ impl Ask {
     }
 }
 
-const CONSULT_LIMIT: usize = 10;
-
 impl Ask {
     pub(crate) fn show(&mut self, ui: &mut egui::Ui, terms: &mut (impl Get + Keys + Consult)) {
         let term_suggestions = FuzzySuggestions::new(terms.keys().iter().cloned());

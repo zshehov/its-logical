@@ -24,12 +24,12 @@ impl TermList {
         terms: impl Iterator<Item = &'a String>,
     ) -> Option<TermListOutput> {
         // TODO: definitely some pagination is needed here - maybe calculate how many terms can fit in
-        // teh current list and trunkate the incoming terms iterator to only that many entries + handle
+        // the current list and truncate the incoming terms iterator to only that many entries + handle
         // the scrolling
-        let mut filtered_terms = suggestions::FuzzySuggestions::new(terms.cloned());
+        let filtered_terms = suggestions::FuzzySuggestions::new(terms.cloned());
 
         let filtered_terms =
-            <FuzzySuggestions as Suggestions<String>>::filter(&mut filtered_terms, &self.filter);
+            <FuzzySuggestions as Suggestions<String>>::filter(&filtered_terms, &self.filter);
 
         ui.with_layout(Layout::top_down_justified(egui::Align::LEFT), |ui| {
             ui.horizontal(|ui| {
