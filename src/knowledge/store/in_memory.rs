@@ -57,7 +57,7 @@ impl Load for InMemoryTerms {
 }
 
 impl Consult for InMemoryTerms {
-    fn consult(&mut self, term: &BoundTerm) -> Vec<HashMap<String, String>> {
+    fn consult(&mut self, _: &BoundTerm) -> Vec<HashMap<String, String>> {
         todo!()
     }
 }

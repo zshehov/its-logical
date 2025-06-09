@@ -3,7 +3,7 @@ use its_logical::knowledge::store::{Get, Keys};
 use its_logical::{
     changes::change,
     knowledge::model::{
-        comment::{comment::Comment, name_description::NameDescription},
+        comment::{name_description::NameDescription, Comment},
         fat_term::FatTerm,
         term::{args_binding::ArgsBinding, rule::Rule},
     },

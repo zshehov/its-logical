@@ -176,7 +176,7 @@ fn changes_in_mentioned_terms(change: &Change) -> (Vec<String>, Vec<String>) {
     let old_related_terms = change.original.mentioned_terms();
     let related_terms = change.changed.mentioned_terms();
 
-    return (
+    (
         related_terms
             .difference(&old_related_terms)
             .cloned()
