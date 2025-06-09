@@ -1,8 +1,8 @@
 use nom::{
     bytes::complete::{tag, take_till1},
     error::VerboseError,
-    IResult,
     multi::separated_list1,
+    IResult,
 };
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
@@ -12,7 +12,9 @@ pub struct ArgsBinding {
 
 impl ArgsBinding {
     pub fn new(binding: &[String]) -> Self {
-        Self { binding: binding.to_vec() }
+        Self {
+            binding: binding.to_vec(),
+        }
     }
     pub fn encode(&self) -> String {
         self.binding.join(",")

@@ -10,7 +10,9 @@ impl Table {
     }
 
     pub fn new() -> Self {
-        Self { content: Vec::new() }
+        Self {
+            content: Vec::new(),
+        }
     }
 }
 

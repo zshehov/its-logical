@@ -1,11 +1,11 @@
 use nom::{
     bytes::complete::take_until,
     error::VerboseError,
-    IResult,
     sequence::{delimited, tuple},
+    IResult,
 };
 
-use super::args_binding::{ArgsBinding, parse_args_binding};
+use super::args_binding::{parse_args_binding, ArgsBinding};
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct BoundTerm {
@@ -15,7 +15,10 @@ pub struct BoundTerm {
 
 impl BoundTerm {
     pub fn new(name: &str, arg_bindings: ArgsBinding) -> Self {
-        Self { name: name.to_string(), arg_bindings }
+        Self {
+            name: name.to_string(),
+            arg_bindings,
+        }
     }
     pub fn encode(&self) -> String {
         let mut encoded = String::new();

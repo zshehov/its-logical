@@ -63,4 +63,3 @@ impl Consult for InMemoryTerms {
 }
 
 impl TermsStore for InMemoryTerms {}
-

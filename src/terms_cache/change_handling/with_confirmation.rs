@@ -122,7 +122,6 @@ where
             if self.get(affected_term).is_none() {
                 store.get(affected_term).map(|t| {
                     self.push(&t);
-                    
                 });
             }
         }
