@@ -28,13 +28,10 @@ impl Get for TermsWithEngine {
 
 impl Put for TermsWithEngine {
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error> {
-        self.terms.put(term_name, term).and_then(|_| {
-            Ok({
-                // TODO: check if it's too slow to load all of the buffer every time a term is put
-                // TODO: maybe expose `.flush` that guarantees that the buffer has been loaded in the engine
-                self.engine
-                    .load_module_string("knowledge", self.terms.buffer.clone())
-            })
+        self.terms.put(term_name, term).map(|_| {
+            self.engine
+                    .load_module_string("knowledge", self.terms.buffer.clone());
+            
         })
     }
 }

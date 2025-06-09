@@ -1,4 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
 
 use its_logical::knowledge::model::comment::name_description::NameDescription;
 use its_logical::knowledge::model::term::args_binding::ArgsBinding;
@@ -130,7 +129,7 @@ impl Ask {
 
 fn get_next_random_var_name(current: &str) -> String {
     let (left, last_char) = current.split_at(current.len() - 1);
-    let mut last_char = last_char
+    let last_char = last_char
         .chars()
         .last()
         .expect("last character is always a single character");
@@ -142,7 +141,7 @@ fn get_next_random_var_name(current: &str) -> String {
     }
     let mut result = current.to_string();
     result.push('A');
-    return result;
+    result
 }
 
 fn build_bound_term(term_name: &str, anchors: &[Option<String>]) -> Result<BoundTerm, String> {
@@ -157,7 +156,7 @@ fn build_bound_term(term_name: &str, anchors: &[Option<String>]) -> Result<Bound
         return Err("there are anchors that would be interpreted as Prolog variables".to_string());
     }
 
-    let mut current_var_name: String = (('A' as u8 - 1) as char).to_string();
+    let mut current_var_name: String = ((b'A' - 1) as char).to_string();
     let term_args: Vec<String> = anchors
         .iter()
         .map(|x| match x {

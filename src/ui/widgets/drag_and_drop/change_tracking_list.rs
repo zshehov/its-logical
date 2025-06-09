@@ -144,10 +144,10 @@ fn test_flush_order_changes() {
     let mut v = ChangeTrackingVec::new(vec![1, 2, 3]);
     v.move_item(0, 2);
     assert_eq!(v.items, vec![2, 3, 1]);
-    assert_eq!(v.order_has_changed, true);
+    assert!(v.order_has_changed);
     let order_changes = v.flush_order_changes().unwrap();
     assert_eq!(order_changes, vec![1, 2, 0]);
-    assert_eq!(v.order_has_changed, false);
+    assert!(!v.order_has_changed);
 }
 
 #[test]
