@@ -30,8 +30,7 @@ impl Put for TermsWithEngine {
     fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error> {
         self.terms.put(term_name, term).map(|_| {
             self.engine
-                    .load_module_string("knowledge", self.terms.buffer.clone());
-            
+                .load_module_string("knowledge", self.terms.buffer.clone());
         })
     }
 }

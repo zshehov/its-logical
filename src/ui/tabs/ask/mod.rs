@@ -1,4 +1,3 @@
-
 use its_logical::knowledge::model::comment::name_description::NameDescription;
 use its_logical::knowledge::model::term::args_binding::ArgsBinding;
 use its_logical::knowledge::model::term::bound_term::BoundTerm;

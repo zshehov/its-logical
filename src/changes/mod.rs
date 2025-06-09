@@ -8,7 +8,7 @@ mod tests {
     use crate::knowledge::model::{
         comment::{name_description::NameDescription, Comment},
         fat_term::FatTerm,
-        term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule, term::Term},
+        term::{args_binding::ArgsBinding, bound_term::BoundTerm, rule::Rule, Term},
     };
     use std::collections::HashSet;
 
