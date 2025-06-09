@@ -12,7 +12,7 @@ clippy:
 	cargo clippy --workspace --all-targets --all-features -- -D warnings -W clippy::all
 
 clippy-fix:
-	cargo clippy --fix --workspace --all-targets --all-features -- -D warnings -W clippy::all
+	cargo clippy --fix --allow-dirty --workspace --all-targets --all-features -- -D warnings -W clippy::all
 
 test:
 	cargo test --workspace --all-targets --all-features

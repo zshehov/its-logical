@@ -185,7 +185,7 @@ fn changes_in_mentioned_terms(change: &Change) -> (Vec<String>, Vec<String>) {
             .difference(&related_terms)
             .cloned()
             .collect(),
-    );
+    )
 }
 
 fn apply_args_changes(change: &Change, target_term: &mut FatTerm) {
