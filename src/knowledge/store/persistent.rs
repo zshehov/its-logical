@@ -7,8 +7,7 @@ use std::{fs, io};
 use crate::knowledge::model::fat_term::{parse_fat_term, FatTerm};
 use crate::knowledge::model::term::bound_term::BoundTerm;
 use crate::knowledge::store::{
-    Consult, Delete, DescriptorEntry, Get, Keys, Load, Put, TermsStore, DESCRIPTOR_NAME,
-    PAGE_NAME,
+    Consult, Delete, DescriptorEntry, Get, Keys, Load, Put, TermsStore, DESCRIPTOR_NAME, PAGE_NAME,
 };
 use bincode::{config, decode_from_std_read, encode_into_std_write};
 use scryer_prolog::Machine;
