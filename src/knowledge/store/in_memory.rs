@@ -3,7 +3,7 @@ use std::path::Path;
 
 use crate::knowledge::model::fat_term::FatTerm;
 use crate::knowledge::model::term::bound_term::BoundTerm;
-use crate::knowledge::store::{Consult, Delete, Error, Get, Keys, Load, Put, TermsStore};
+use crate::knowledge::store::{Consult, Delete, Get, Keys, Load, Put, TermsStore};
 
 pub struct InMemoryTerms {
     map: HashMap<String, FatTerm>,
@@ -24,13 +24,11 @@ impl Get for InMemoryTerms {
 }
 
 impl Put for InMemoryTerms {
-    fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error> {
+    fn put(&mut self, term_name: &str, term: FatTerm) {
         if self.map.contains_key(term_name) {
             self.map.remove(term_name);
         }
         self.map.insert(term.meta.term.name.clone(), term);
-
-        Ok(())
     }
 }
 

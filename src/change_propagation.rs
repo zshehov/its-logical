@@ -53,9 +53,7 @@ pub(crate) fn propagate_change<T, K>(
         );
 
         for (term_name, with_applied_change) in changes_for_store {
-            store
-                .put(&term_name, with_applied_change)
-                .expect("persistence layer changes should not fail");
+            store.put(&term_name, with_applied_change);
         }
     } else {
         debug!("2 phase commit propagation");
@@ -115,9 +113,7 @@ where
         debug!("automatic deletion");
         cache.apply_automatic_deletion(term);
         for (term_name, with_applied_deletion) in term.apply_deletion(store) {
-            store
-                .put(&term_name, with_applied_deletion)
-                .expect("persistence layer changes should not fail");
+            store.put(&term_name, with_applied_deletion);
         }
         store.delete(&term.meta.term.name);
         true

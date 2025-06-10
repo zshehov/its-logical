@@ -1,7 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
+type ApproverStateTuple = (Rc<RefCell<TwoPhaseCommit>>, Rc<RefCell<bool>>);
+
 pub(crate) struct TwoPhaseCommit {
-    depending_on: Vec<(Rc<RefCell<TwoPhaseCommit>>, Rc<RefCell<bool>>)>,
+    depending_on: Vec<ApproverStateTuple>,
     for_approval: Vec<Rc<RefCell<bool>>>,
 }
 
@@ -23,13 +25,6 @@ impl TwoPhaseCommit {
             .any(|(_, approved)| !*approved.borrow())
     }
 
-    // pub(crate) fn waiting_for(&self) -> impl Iterator<Item = String> + '_ {
-    //     self.depending_on
-    //         .iter()
-    //         .filter(|(_, approved)| !*approved.borrow())
-    //         .map(|(c, _)| c.borrow().term.name())
-    // }
-
     pub(crate) fn approve_all(&mut self) {
         for r in &mut self.for_approval {
             *r.borrow_mut() = true;
@@ -41,10 +36,7 @@ impl TwoPhaseCommit {
         self.for_approval.push(Rc::clone(waiter));
     }
 
-    pub(crate) fn wait_approval_from(
-        &mut self,
-        approval_from: &(Rc<RefCell<TwoPhaseCommit>>, Rc<RefCell<bool>>),
-    ) {
+    pub(crate) fn wait_approval_from(&mut self, approval_from: &ApproverStateTuple) {
         self.depending_on.push(approval_from.clone());
     }
 }

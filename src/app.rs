@@ -27,6 +27,7 @@ impl ItsLogicalApp<TermsWithEngine> {
 }
 
 impl ItsLogicalApp<InMemoryTerms> {
+    #[allow(dead_code)] // keep this for the examples for now
     pub fn new(c: &eframe::CreationContext<'_>) -> Self {
         let mut style = (*c.egui_ctx.style()).clone();
 

@@ -1,10 +1,12 @@
 use egui::{Color32, RichText, TextStyle};
 
+#[allow(dead_code)] // might be used in the future
 pub(crate) struct GrowableTable {
     contents: Vec<Vec<String>>,
     current_growable_size: f32,
 }
 
+#[allow(dead_code)]
 impl GrowableTable {
     pub(crate) fn new() -> Self {
         Self {
@@ -40,6 +42,7 @@ impl GrowableTable {
     }
 }
 
+#[allow(dead_code)]
 impl GrowableTable {
     pub(crate) fn show(&mut self, ui: &mut egui::Ui) -> bool {
         egui::ScrollArea::horizontal()
