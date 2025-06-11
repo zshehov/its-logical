@@ -56,7 +56,7 @@ fn main() {
             web_options,
             Box::new(|_| Box::new(ItsLogicalApp::new())),
         )
-        .await
-        .expect("failed to start eframe");
+            .await
+            .expect("failed to start eframe");
     });
 }
