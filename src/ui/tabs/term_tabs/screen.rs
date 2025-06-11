@@ -1,23 +1,13 @@
-use its_logical::knowledge::store::{Get, Keys};
-
 use egui::{Color32, Stroke};
 
 use crate::{
     terms_cache::TwoPhaseTerm,
-    ui::{
-        tabs::two_phase_commit_screen::TwoPhaseCommitScreen,
-        term_screen::{Output, TermScreen},
-    },
+    ui::{tabs::two_phase_commit_screen::TwoPhaseCommitScreen, term_screen::TermScreen},
 };
 
 pub(crate) trait Screen {
     fn can_close(&self) -> bool;
     fn stroke(&self) -> Stroke;
-    fn show(
-        &mut self,
-        ui: &mut egui::Ui,
-        terms_knowledge_base: &(impl Get + Keys),
-    ) -> Option<Output>;
 }
 
 impl Screen for TermScreen {
@@ -27,14 +17,6 @@ impl Screen for TermScreen {
 
     fn stroke(&self) -> Stroke {
         Stroke::NONE
-    }
-
-    fn show(
-        &mut self,
-        ui: &mut egui::Ui,
-        terms_knowledge_base: &(impl Get + Keys),
-    ) -> Option<Output> {
-        self.show(ui, terms_knowledge_base)
     }
 }
 
@@ -52,13 +34,5 @@ impl Screen for TwoPhaseCommitScreen {
         } else {
             Stroke::new(3.0, Color32::GREEN)
         }
-    }
-
-    fn show(
-        &mut self,
-        ui: &mut egui::Ui,
-        terms_knowledge_base: &(impl Get + Keys),
-    ) -> Option<Output> {
-        self.show(ui, terms_knowledge_base)
     }
 }

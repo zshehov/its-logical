@@ -22,7 +22,7 @@ pub trait Get {
 
 pub trait Put {
     // the term.meta.term.name takes precedence to the provided term_name
-    fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error>;
+    fn put(&mut self, term_name: &str, term: FatTerm);
 }
 
 pub trait Keys {

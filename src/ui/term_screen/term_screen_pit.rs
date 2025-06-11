@@ -3,7 +3,7 @@ use its_logical::knowledge::store::{Get, Keys};
 use its_logical::{
     changes::change,
     knowledge::model::{
-        comment::{comment::Comment, name_description::NameDescription},
+        comment::{name_description::NameDescription, Comment},
         fat_term::FatTerm,
         term::{args_binding::ArgsBinding, rule::Rule},
     },
@@ -464,7 +464,7 @@ impl From<&Term> for FatTerm {
                 term.arguments.iter().as_slice(),
                 term.related.as_slice(),
             ),
-            its_logical::knowledge::model::term::term::Term::new(
+            its_logical::knowledge::model::term::Term::new(
                 term.facts.iter().as_slice(),
                 term.rules.iter().as_slice(),
             ),

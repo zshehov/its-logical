@@ -1,12 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
-
-use its_logical::knowledge::{
-    store::{Get, Keys},
-};
 use its_logical::knowledge::model::comment::name_description::NameDescription;
 use its_logical::knowledge::model::term::args_binding::ArgsBinding;
 use its_logical::knowledge::model::term::bound_term::BoundTerm;
 use its_logical::knowledge::store::Consult;
+use its_logical::knowledge::store::{Get, Keys};
 
 use crate::suggestions::FuzzySuggestions;
 use crate::ui::tabs::ask::table::Table;
@@ -38,14 +34,8 @@ impl Ask {
     }
 }
 
-const CONSULT_LIMIT: usize = 10;
-
 impl Ask {
-    pub(crate) fn show(
-        &mut self,
-        ui: &mut egui::Ui,
-        terms: &mut (impl Get + Keys + Consult),
-    ) {
+    pub(crate) fn show(&mut self, ui: &mut egui::Ui, terms: &mut (impl Get + Keys + Consult)) {
         let term_suggestions = FuzzySuggestions::new(terms.keys().iter().cloned());
         if popup_suggestions::show(
             ui,
@@ -61,10 +51,12 @@ impl Ask {
             },
             &term_suggestions,
         )
-            .changed()
+        .changed()
         {
             // TODO: handle the None here
-            let t = terms.get(&self.term_name).expect("selections should only be made from the available terms");
+            let t = terms
+                .get(&self.term_name)
+                .expect("selections should only be made from the available terms");
             self.args_initial = t.meta.args;
             self.anchors = vec![None; self.args_initial.len()];
             // reset any results from before
@@ -109,10 +101,8 @@ impl Ask {
                 });
                 ui.separator();
                 if self.results.show(ui) {
-                    let bound_term = build_bound_term(
-                        &self.term_name,
-                        &self.extract_anchors(),
-                    ).expect("couldn't build bound term");
+                    let bound_term = build_bound_term(&self.term_name, &self.extract_anchors())
+                        .expect("couldn't build bound term");
 
                     let consult = terms.consult(&bound_term);
                     let mut current_results = Vec::with_capacity(consult.len());
@@ -136,7 +126,10 @@ impl Ask {
 
 fn get_next_random_var_name(current: &str) -> String {
     let (left, last_char) = current.split_at(current.len() - 1);
-    let mut last_char = last_char.chars().last().expect("last character is always a single character");
+    let last_char = last_char
+        .chars()
+        .last()
+        .expect("last character is always a single character");
 
     if last_char.lt(&'Z') {
         let mut result = left.to_string();
@@ -145,31 +138,32 @@ fn get_next_random_var_name(current: &str) -> String {
     }
     let mut result = current.to_string();
     result.push('A');
-    return result;
+    result
 }
 
 fn build_bound_term(term_name: &str, anchors: &[Option<String>]) -> Result<BoundTerm, String> {
-    let all_anchors_start_with_lower_case = anchors
-        .iter()
-        .flatten()
-        .all(|x| x.chars().next().expect("anchors have at least 1 character").is_lowercase());
+    let all_anchors_start_with_lower_case = anchors.iter().flatten().all(|x| {
+        x.chars()
+            .next()
+            .expect("anchors have at least 1 character")
+            .is_lowercase()
+    });
     if !all_anchors_start_with_lower_case {
         // TODO: maybe just filter out anchors that are upper-cased?
         return Err("there are anchors that would be interpreted as Prolog variables".to_string());
     }
 
-    let mut current_var_name: String = (('A' as u8 - 1) as char).to_string();
-    let term_args: Vec<String> = anchors.iter().map(|x| {
-        match x {
+    let mut current_var_name: String = ((b'A' - 1) as char).to_string();
+    let term_args: Vec<String> = anchors
+        .iter()
+        .map(|x| match x {
             None => {
                 current_var_name = get_next_random_var_name(&current_var_name);
                 current_var_name.clone()
             }
-            Some(anchor) => {
-                anchor.to_owned()
-            }
-        }
-    }).collect();
+            Some(anchor) => anchor.to_owned(),
+        })
+        .collect();
 
     Ok(BoundTerm::new(term_name, ArgsBinding::new(&term_args)))
 }

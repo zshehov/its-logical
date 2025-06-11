@@ -4,17 +4,12 @@ use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 
 pub(crate) trait Suggestion {
     fn new(value: &str) -> Self;
-    fn value(&self) -> String;
 }
 
 // usually just a String is the Suggestion
 impl Suggestion for String {
     fn new(value: &str) -> Self {
         value.to_string()
-    }
-
-    fn value(&self) -> String {
-        self.to_owned()
     }
 }
 

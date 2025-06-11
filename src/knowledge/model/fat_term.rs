@@ -4,10 +4,10 @@ use nom::{error::VerboseError, IResult};
 
 use super::{
     comment::{
-        comment::{parse_comment, Comment},
         name_description::NameDescription,
+        {parse_comment, Comment},
     },
-    term::term::{parse_term, Term},
+    term::{parse_term, Term},
 };
 
 #[derive(Clone, Debug, PartialEq)]

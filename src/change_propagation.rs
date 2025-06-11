@@ -53,13 +53,13 @@ pub(crate) fn propagate_change<T, K>(
         );
 
         for (term_name, with_applied_change) in changes_for_store {
-            store
-                .put(&term_name, with_applied_change)
-                .expect("persistence layer changes should not fail");
+            store.put(&term_name, with_applied_change);
         }
     } else {
         debug!("2 phase commit propagation");
-        cache.apply_for_confirmation_change(store, change);
+        cache
+            .apply_for_confirmation_change(store, change)
+            .expect("no errors are currently expected");
     }
     // if there is an ongoing 2phase commit among one of `updated_term`'s newly mentioned terms,
     // all the changes in the commit need to be applied on `updated_term`
@@ -113,15 +113,15 @@ where
         debug!("automatic deletion");
         cache.apply_automatic_deletion(term);
         for (term_name, with_applied_deletion) in term.apply_deletion(store) {
-            store
-                .put(&term_name, with_applied_deletion)
-                .expect("persistence layer changes should not fail");
+            store.put(&term_name, with_applied_deletion);
         }
         store.delete(&term.meta.term.name);
         true
     } else {
         debug!("deletion with confirmation");
-        cache.apply_for_confirmation_delete(term, store);
+        cache
+            .apply_for_confirmation_delete(term, store)
+            .expect("no errors are currently expected");
         false
     }
 }

@@ -120,10 +120,9 @@ where
     fn push_affected(&mut self, affected: &[String], store: &impl knowledge::store::Get) {
         for affected_term in affected {
             if self.get(affected_term).is_none() {
-                store.get(affected_term).map(|t| {
+                if let Some(t) = store.get(affected_term) {
                     self.push(&t);
-                    
-                });
+                }
             }
         }
     }

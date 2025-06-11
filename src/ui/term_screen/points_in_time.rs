@@ -71,11 +71,11 @@ impl PointsInTime {
             .flat_map(|(_, args_changes)| args_changes)
             .cloned()
             .collect();
-        return (
+        (
             self.original().extract_term(),
             accumulated_args_changes,
             self.latest().extract_term(),
-        );
+        )
     }
 
     pub(crate) fn len(&self) -> usize {

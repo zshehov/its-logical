@@ -5,8 +5,8 @@ use its_logical::knowledge::store::{Consult, Delete, Get, Keys, Put};
 use crate::change_propagation;
 use crate::terms_cache::{TermHolder, TermsCache};
 
-use super::term_screen::{self, TermScreen};
 use super::term_screen::term_screen_pit::TermChange;
+use super::term_screen::{self, TermScreen};
 
 use self::two_phase_commit_screen::TwoPhaseCommitScreen;
 
@@ -89,10 +89,7 @@ impl Tabs {
 
         match self.current_selection {
             ChosenTab::Ask => {
-                egui::CentralPanel::default()
-                    .show(ctx, |ui| {
-                        self.ask.show(ui, terms)
-                    });
+                egui::CentralPanel::default().show(ctx, |ui| self.ask.show(ui, terms));
             }
             ChosenTab::TermScreen(screen_idx) => {
                 if let Some(term_screen) = self.term_tabs.get_by_idx_mut(screen_idx) {
@@ -123,7 +120,7 @@ impl Tabs {
                                     Into::<Vec<changes::change::ArgsChange>>::into(TermChangeVec(
                                         changes,
                                     ))
-                                        .as_slice(),
+                                    .as_slice(),
                                     updated_term,
                                 );
                                 change_propagation::propagate_change(
@@ -132,7 +129,7 @@ impl Tabs {
                                     &mut self.term_tabs,
                                 );
                             }
-                            term_screen::Output::Deleted(_) => {
+                            term_screen::Output::Deleted => {
                                 if change_propagation::propagate_deletion(
                                     &original_term,
                                     terms,

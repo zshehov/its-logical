@@ -7,8 +7,7 @@ use std::{fs, io};
 use crate::knowledge::model::fat_term::{parse_fat_term, FatTerm};
 use crate::knowledge::model::term::bound_term::BoundTerm;
 use crate::knowledge::store::{
-    Consult, Delete, DescriptorEntry, Error, Get, Keys, Load, Put, TermsStore, DESCRIPTOR_NAME,
-    PAGE_NAME,
+    Consult, Delete, DescriptorEntry, Get, Keys, Load, Put, TermsStore, DESCRIPTOR_NAME, PAGE_NAME,
 };
 use bincode::{config, decode_from_std_read, encode_into_std_write};
 use scryer_prolog::Machine;
@@ -27,15 +26,10 @@ impl Get for TermsWithEngine {
 }
 
 impl Put for TermsWithEngine {
-    fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error> {
-        self.terms.put(term_name, term).and_then(|_| {
-            Ok({
-                // TODO: check if it's too slow to load all of the buffer every time a term is put
-                // TODO: maybe expose `.flush` that guarantees that the buffer has been loaded in the engine
-                self.engine
-                    .load_module_string("knowledge", self.terms.buffer.clone())
-            })
-        })
+    fn put(&mut self, term_name: &str, term: FatTerm) {
+        self.terms.put(term_name, term);
+        self.engine
+            .load_module_string("knowledge", self.terms.buffer.clone());
     }
 }
 
@@ -169,6 +163,7 @@ impl Terms {
         let page_path = path.join(PAGE_NAME);
         let page_content = OpenOptions::new()
             .create(true)
+            .truncate(false)
             .read(true)
             .write(true)
             .open(page_path)
@@ -184,7 +179,7 @@ impl Terms {
         }
     }
 
-    fn edit(&mut self, term_name: &str, term_idx: usize, updated: &FatTerm) -> Result<(), Error> {
+    fn edit(&mut self, term_name: &str, term_idx: usize, updated: &FatTerm) {
         let entry = &mut self.descriptor[term_idx];
         let original_len = entry.len;
         let updated_encoded = &updated.encode();
@@ -208,11 +203,9 @@ impl Terms {
             .insert(updated.meta.term.name.to_string(), term_idx);
         let keys_idx = self.keys.iter().position(|name| name == term_name).unwrap();
         self.keys[keys_idx] = updated.meta.term.name.to_string();
-
-        Ok(())
     }
 
-    fn create(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error> {
+    fn create(&mut self, term_name: &str, term: FatTerm) {
         let encoded_term = term.encode();
 
         let mut new_entry_offset = 0;
@@ -233,7 +226,6 @@ impl Terms {
         self.keys.push(term_name.to_string());
 
         self.buffer.push_str(&encoded_term);
-        Ok(())
     }
 }
 
@@ -253,7 +245,7 @@ impl Get for Terms {
 }
 
 impl Put for Terms {
-    fn put(&mut self, term_name: &str, term: FatTerm) -> Result<(), Error> {
+    fn put(&mut self, term_name: &str, term: FatTerm) {
         match self.index.get(term_name) {
             Some(&term_idx) => self.edit(term_name, term_idx, &term),
             None => self.create(&term.meta.term.name.clone(), term),

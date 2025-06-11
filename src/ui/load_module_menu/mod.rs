@@ -97,7 +97,9 @@ impl LoadModuleMenu {
                             let mut builder = git2::build::RepoBuilder::new();
                             builder.fetch_options(fo);
                             builder.with_checkout(co);
-                            builder.clone(&load_url, &local_repo);
+                            builder
+                                .clone(&load_url, &local_repo)
+                                .expect("todo: handle repo clone failure");
                         });
 
                         self.loading = Some(LoadingProgress {
