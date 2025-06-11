@@ -1,7 +1,7 @@
 use std::{cmp::min, hash::Hash};
 
-use eframe::epaint::RectShape;
-use egui::{CursorIcon, Id, LayerId, Order, Rect, Sense, Shape, Ui, Vec2};
+use eframe::epaint::{RectShape, StrokeKind};
+use egui::{CursorIcon, Id, LayerId, Order, Rect, Sense, Shape, Ui, UiBuilder, Vec2, Widget};
 
 pub(crate) use self::change_tracking_list::Change;
 use self::change_tracking_list::ChangeTrackingVec;
@@ -83,7 +83,9 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
             let inner_rect = outer_rect_bounds.shrink2(margin);
             let where_to_put_background = ui.painter().add(Shape::Noop);
 
-            let mut content_ui = ui.child_ui(inner_rect, *ui.layout());
+            let mut builder = UiBuilder::default();
+            builder.layout = Some(*ui.layout());
+            let mut content_ui = ui.new_child(builder);
 
             content_ui.vertical(|ui| {
                 match self.active {
@@ -130,14 +132,18 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                                 .inner
                             };
 
-                            match ui.memory(|mem| mem.is_being_dragged(item_id)) {
+                            match ui.ctx().is_being_dragged(item_id) {
                                 true => {
                                     ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
 
                                     // Paint the body to a new layer:
                                     let layer_id = LayerId::new(Order::Tooltip, item_id);
-                                    let response =
-                                        ui.with_layer_id(layer_id, render_entry).response;
+                                    let response = ui
+                                        .scope_builder(
+                                            UiBuilder::new().layer_id(layer_id),
+                                            render_entry,
+                                        )
+                                        .response;
                                     *bottom = response.rect.bottom();
 
                                     if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
@@ -201,9 +207,10 @@ impl<T: Hash + Clone + Eq> DragAndDrop<T> {
                     where_to_put_background,
                     RectShape::new(
                         rect,
-                        style.rounding,
+                        style.corner_radius,
                         ui.visuals().panel_fill,
                         style.bg_stroke,
+                        StrokeKind::Outside,
                     ),
                 );
             }

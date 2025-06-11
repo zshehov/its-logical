@@ -29,7 +29,12 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "It's Logical",
         native_options,
-        Box::new(|cc| Box::new(ItsLogicalApp::<TermsWithEngine>::new(cc, knowledge_path))),
+        Box::new(|cc| {
+            Ok(Box::new(ItsLogicalApp::<TermsWithEngine>::new(
+                cc,
+                knowledge_path,
+            )))
+        }),
     )
 }
 
@@ -51,7 +56,7 @@ fn main() {
             web_options,
             Box::new(|_| Box::new(ItsLogicalApp::new())),
         )
-        .await
-        .expect("failed to start eframe");
+            .await
+            .expect("failed to start eframe");
     });
 }
